@@ -169,7 +169,7 @@ theorem tag_witness (ef : EF nd E V den tl K) {L : Term} (hL : MLine E L) (ne : 
 
 /-- `map_get_static_dnf/3` on the non-empty lines of a map type and a split of static keys unites the values its maps
 hold at the keys the split selects. -/
-theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {b : Term} (fb : MField E b) (lines : List Term)
+theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term} (fb : MField E b) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
     (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rs : List Term} {neg : Term}
     {ds : List Term} (hs : SplitOk rs neg ds) :

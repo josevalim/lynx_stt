@@ -112,21 +112,43 @@ theorem init_open_nil (d : Dispatcher) (S : Term) :
   rw [Elixir.Module.Types.Descr.«map_line_empty?/4».eq_def]
   simp
 
+theorem EF.jopsU (ef : EF nd E V den tl K) : ElemDisj E K :=
+  ⟨fun ha hb S => let ⟨s, run, _⟩ := ef.sdisj S ha hb; ⟨s, fun m hm => run m (by omega)⟩⟩
+
+/-- Disjointness under seen BDDs higher than the types is exact. -/
+theorem EF.jsem (ef : EF nd E V den tl K) (N : Nat) : ElemDisjSem (EB E N) K V den (SafeN N) :=
+  ⟨fun {a b S m s} ha hb hS hm run => by
+    obtain ⟨s', run', ex⟩ := ef.sdisj S ha.1 hb.1
+    rw [run' m hm] at run
+    have : s' = s := by cases s <;> cases s' <;> simp_all [boolAtom]
+    subst this
+    exact ex N ha.2 hb.2 hS⟩
+
+/-- Disjointness with no seen set is exact. -/
+theorem EF.jsemZ (ef : EF nd E V den tl K) : ElemDisjSem E K V den (fun S => S = []) :=
+  ⟨fun {a b S m s} ha hb hS hm run => by
+    subst hS
+    obtain ⟨s', run', ex⟩ := ef.sdisj [] ha hb
+    rw [run' m hm] at run
+    have : s' = s := by cases s <;> cases s' <;> simp_all [boolAtom]
+    subst this
+    exact ex (max (lh a) (lh b) + 1) (by omega) (by omega) (safeN_nil _)⟩
+
 /-- Map types decide their emptiness exactly, when the seen BDDs are higher than them. -/
 theorem map_empty_exact (ef : EF nd E V den tl K) {x : Term} (fx : MField E x) (S : List (Term × Term)) :
-    ∃ b : Bool, (∀ m, K + 2 ≤ m → Elixir.Module.Types.Descr.«map_empty?/2» (D m) x (.map S) = .ok (boolAtom b)) ∧
+    ∃ b : Bool, (∀ m, K + 4 ≤ m → Elixir.Module.Types.Descr.«map_empty?/2» (D m) x (.map S) = .ok (boolAtom b)) ∧
       ∀ N, lh x < N → SafeN N S → (b = Bool.true ↔ ∀ w, denMF E den x w = Bool.false) := by
   have field : MapField E x := fx.imp id fun w => w.mono fun _ h => mlit_ok h
-  obtain ⟨b, hb⟩ := map_total ef.opsU ef.dopsU S field
+  obtain ⟨b, hb⟩ := map_total ef.opsU ef.dopsU ef.jopsU S field
   refine ⟨b, hb, fun N hx hS => ?_⟩
-  have step := map_empty_step (d := D (K + 2)) (not_seen hS hx "map")
-  have run := hb (K + 2) (Nat.le_refl _)
+  have step := map_empty_step (d := D (K + 4)) (not_seen hS hx "map")
+  have run := hb (K + 4) (Nat.le_refl _)
   dsimp only at run
   rw [step] at run
   have pos : ∀ {F : Term → Prop}, MapPosV F (.tuple #[.atom "open", .nil]) :=
     ⟨.atom "open", [], rfl, Or.inl rfl, by simp [FieldsV]⟩
   -- the top literal and BDDs without literals answer directly
-  have direct : ∀ (c : Bool), Elixir.Module.Types.Descr.«map_bdd_empty?/4» (D (K + 2)) (.tuple #[.atom "open", .nil]) .nil x
+  have direct : ∀ (c : Bool), Elixir.Module.Types.Descr.«map_bdd_empty?/4» (D (K + 4)) (.tuple #[.atom "open", .nil]) .nil x
       (.map ((.cons (.atom "map") x, .atom "true") :: S)) = .ok (boolAtom c) →
       (c = Bool.true ↔ ∀ w, denMF E den x w = Bool.false) → (b = Bool.true ↔ ∀ w, denMF E den x w = Bool.false) := by
     intro c hc sem
@@ -138,7 +160,7 @@ theorem map_empty_exact (ef : EF nd E V den tl K) {x : Term} (fx : MField E x) (
   · refine direct Bool.false ?_ ⟨fun h => absurd h (by decide), fun h => absurd (h (fun _ => Option.none))
       (by rw [denMF_top]; simp)⟩
     have merge : ∀ (mod name : String) (caps : Array Term),
-        Erlang.orddict.«merge/3» (D (K + 2)) (.function mod name 3 caps) .nil .nil = .ok .nil := by
+        Erlang.orddict.«merge/3» (D (K + 4)) (.function mod name 3 caps) .nil .nil = .ok .nil := by
       intro mod name caps; rw [Erlang.orddict.«merge/3».eq_def]; simp [Erlang.erlang.«is_function/2»]
     simp [Elixir.Module.Types.Descr.«map_bdd_empty?/4», Elixir.Module.Types.Descr.«map_line_intersection/3»,
       Elixir.Module.Types.Descr.«map_literal_intersection/6», boolAtom, merge, init_open_nil]
@@ -179,11 +201,11 @@ theorem map_empty_exact (ef : EF nd E V den tl K) {x : Term} (fx : MField E x) (
   · intro hbt w
     subst hbt
     rw [denMF_bdd wx]
-    have v := map_bdd_sound ops dops sem (Nat.le_refl _) _ hS' wb okLit _ [] pos (by simp)
+    have v := map_bdd_sound ops dops sem (ef.jops (lh x)) (Nat.le_refl _) _ hS' wb okLit _ [] pos (by simp)
       (by simpa [boolAtom, Term.list] using run) w (inPosM_iff.mpr ⟨fun s => fsem_nil.mpr (Or.inl rfl), fun k i => Or.inl rfl⟩) (by simp)
     rwa [agree] at v
   · intro unsat
-    have t := map_bdd_val ops dops sem (Nat.le_refl _) _ hS' wb okLit _ [] pos (by simp)
+    have t := map_bdd_val ops dops sem (ef.jops (lh x)) (ef.jsem (lh x)) (Nat.le_refl _) _ hS' wb okLit _ [] pos (by simp)
       fun w _ _ => by rw [agree]; have := unsat w; rwa [denMF_bdd wx] at this
     simp only [Term.list] at t
     rw [t] at run

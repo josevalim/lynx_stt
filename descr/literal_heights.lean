@@ -429,6 +429,9 @@ structure EF (nd : Term) (E : Term → Prop) (V : Type) (den : Term → V → Pr
   disj : ∀ {a b}, E a → E b → ∃ s : Bool,
     (∀ m, K ≤ m → Elixir.Module.Types.Descr.«disjoint?/2» (D m) a b = .ok (boolAtom s)) ∧
     (s = Bool.true → ∀ v, den a v → den b v → False)
+  sdisj : ∀ {a b} (S : List (Term × Term)), E a → E b → ∃ s : Bool,
+    (∀ m, K ≤ m → Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S) = .ok (boolAtom s)) ∧
+    ∀ N, lh a < N → lh b < N → SafeN N S → (s = Bool.true ↔ ∀ v, den a v → den b v → False)
   fuse : ∀ {a b} (n : Int) {m}, E a → E b → compareExact (fuel a b) a b ≠ .eq → K ≤ m → ∃ r,
     Elixir.Module.Types.Descr.«opt_tuple_fuse_element/3» (D m) a b (.integer n) = .ok r ∧
     (r = .atom "nil" ∨ (E r ∧ ∀ v, den r v ↔ den a v ∨ den b v))
@@ -456,6 +459,9 @@ theorem EF.ops (ef : EF nd E V den tl K) (N : Nat) (hN : 0 < N) : ElemOk (EB E N
 
 theorem EF.dops (ef : EF nd E V den tl K) (N : Nat) : ElemDiff (EB E N) K :=
   ⟨fun ha hb => let ⟨c, hc, run, _, h⟩ := ef.diff ha.1 hb.1; ⟨c, ⟨hc, h N ha.2 hb.2⟩, run⟩⟩
+
+theorem EF.jops (ef : EF nd E V den tl K) (N : Nat) : ElemDisj (EB E N) K :=
+  ⟨fun ha hb S => let ⟨s, run, _⟩ := ef.sdisj S ha.1 hb.1; ⟨s, fun m hm => run m (by omega)⟩⟩
 
 theorem EF.sem (ef : EF nd E V den tl K) (N : Nat) : ElemSem (EB E N) K V den (SafeN N) where
   term := ef.den_term

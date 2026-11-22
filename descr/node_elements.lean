@@ -599,6 +599,38 @@ theorem an_disj (ef : EF nd E V den tl K) (h : NodeOk nd E) {a b : Term} (ha : D
       · simp [expN] at e; subst e; simp [mapLookup]
   rw [e₁, e₂]
 
+/-- Disjointness under seen sets: on element types as before, and with the node, the emptiness of the
+intersection, which computes on its expansion. -/
+theorem an_sdisj (ef : EF nd E V den tl K) (h : NodeOk nd E) {a b : Term} (S : List (Term × Term))
+    (ha : DEN nd E a) (hb : DEN nd E b) :
+    ∃ s : Bool, (∀ m, K + 1 ≤ m →
+        Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S) = .ok (boolAtom s)) ∧
+      ∀ N, lh a < N → lh b < N → SafeN N S → (s = Bool.true ↔ ∀ v, denN nd den a v → denN nd den b v → False) := by
+  -- with the node, `disjoint_seen?/3` checks the emptiness of the intersection
+  have viaInter : (∀ m, Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S) =
+      (Elixir.Module.Types.Descr.«bare_intersection/2» (D m) a b).bind
+        (fun c => Elixir.Module.Types.Descr.«empty_seen?/2» (D m) c (.map S))) →
+      ∃ s : Bool, (∀ m, K + 1 ≤ m →
+        Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S) = .ok (boolAtom s)) ∧
+      ∀ N, lh a < N → lh b < N → SafeN N S →
+        (s = Bool.true ↔ ∀ v, denN nd den a v → denN nd den b v → False) := by
+    intro e
+    obtain ⟨c, hc, rc, sc, lc⟩ := an_inter ef h ha hb
+    obtain ⟨be, re, ee⟩ := an_empty ef h S hc
+    refine ⟨be, fun m hm => ?_, fun N la lb safe => ?_⟩
+    · rw [e, rc m hm]; exact re m hm
+    · rw [ee N (lc N la lb) safe]
+      exact ⟨fun h' v h₁ h₂ => h' v ((sc v).mpr ⟨h₁, h₂⟩), fun h' v hv => h' v ((sc v).mp hv).1 ((sc v).mp hv).2⟩
+  rcases ha with ha | ha
+  · rcases hb with hb | hb
+    · obtain ⟨s, run, ex⟩ := ef.sdisj S ha hb
+      refine ⟨s, fun m hm => run m (by omega), fun N la lb safe => ?_⟩
+      rw [ex N la lb safe]
+      exact ⟨fun h' v h₁ h₂ => h' v ((denN_of (h.notN ha)).mp h₁) ((denN_of (h.notN hb)).mp h₂),
+        fun h' v h₁ h₂ => h' v ((denN_of (h.notN ha)).mpr h₁) ((denN_of (h.notN hb)).mpr h₂)⟩
+    · exact viaInter fun m => disj_seen_nonmap_r (D m) a (.map S) (node_nonmap hb)
+  · exact viaInter fun m => disj_seen_nonmap_l (D m) b (.map S) (node_nonmap ha)
+
 theorem an_fuse (ef : EF nd E V den tl K) (h : NodeOk nd E) {a b : Term} (n : Int) {m : Nat} (ha : DEN nd E a)
     (hb : DEN nd E b) (ne : compareExact (fuel a b) a b ≠ .eq) (hm : K + 1 ≤ m) : ∃ r,
     Elixir.Module.Types.Descr.«opt_tuple_fuse_element/3» (D m) a b (.integer n) = .ok r ∧
@@ -719,6 +751,7 @@ theorem addNode (ef : EF nd E V den tl K) (h : NodeOk nd E) :
   sub := fun ha hb => an_sub ef h ha hb
   subc := fun ha hb incl m hm => an_subc ef h ha hb incl (by omega)
   disj := fun ha hb => an_disj ef h ha hb
+  sdisj := fun S ha hb => an_sdisj ef h S ha hb
   fuse := by intro a b n m ha hb ne hm; exact an_fuse ef h n ha hb ne hm
   tail := fun he => an_tail ef h he
   tl_witness := ef.tl_witness
@@ -755,6 +788,7 @@ theorem step0 (nd : Term) : StepOk nd (fun _ => Pure nd) 8 FunTop (OField (PureL
     · exact Or.inl rfl
     · exact Or.inr (Or.inr ⟨X, rfl, pure_of_descr sX⟩)
   ops := fun _ => ⟨(pureOk nd).mono (by omega), (pureDiff nd).mono (by omega), (pureFun nd).mono (by omega)⟩
+  jops := fun _ => (pureDisj nd).mono (by omega)
   tz := fun {x} fx z => by
     rcases fx with ⟨k, rfl⟩ | wx
     · exact ⟨k, rfl⟩

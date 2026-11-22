@@ -221,17 +221,17 @@ theorem gd_sub {a b : Term} (ga : GC (level t n) a) (gb : GC (level t n) b)
 theorem iter_disj_false (K' : Nat) (B : List (Term × Term)) :
     ∀ es : List (Term × Term), (∀ e ∈ es, ∀ y, mapLookup B e.1 = some y → ∀ d', K' ≤ d' → ∃ w,
       Elixir.Module.Types.Descr.«bare_intersection/3» (D d') e.1 e.2 y = .ok w ∧
-        (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/2» (D d') e.1 w = .ok (.atom "true"))) →
+        (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/3» (D d') e.1 w (.map []) = .ok (.atom "true"))) →
     ∀ m, K' + es.length ≤ m →
       (do
         let it ← Erlang.maps.«next/1» (Term.list (es.map fun (e : Term × Term) => .tuple #[e.1, e.2]))
-        Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/2» (D m) it (.map B)) = .ok (.atom "false") := by
+        Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/3» (D m) it (.map B) (.map [])) = .ok (.atom "false") := by
   intro es
   induction es with
   | nil =>
     intro _ m _
     simp [Term.list, Erlang.maps.«next/1»]
-    rw [Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/2».eq_def]
+    rw [Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/3».eq_def]
     simp
   | cons e rest ih =>
     intro calls m hm
@@ -239,17 +239,17 @@ theorem iter_disj_false (K' : Nat) (B : List (Term × Term)) :
     obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by simp at hm; omega⟩
     have hm' : K' + rest.length ≤ m := by simp at hm; omega
     have cont : ∀ x, (D (m + 1)).pure (.function "Elixir.Module.Types.Descr"
-        "-iterator_non_disjoint_intersection?/2-fun-0-" 1
-        #[Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]), .map B]) #[x] =
+        "-iterator_non_disjoint_intersection?/3-fun-0-" 1
+        #[Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]), .map B, .map []]) #[x] =
         (do
           let it ← Erlang.maps.«next/1» (Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]))
-          Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/2» (D m) it (.map B)) := by
+          Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/3» (D m) it (.map B) (.map [])) := by
       intro x
-      rw [Erlang.program.«Elixir.Module.Types.Descr:-iterator_non_disjoint_intersection?/2-fun-0-/1».pure]
-      simp [Elixir.Module.Types.Descr.«-iterator_non_disjoint_intersection?/2-fun-0-/3»]
+      rw [Erlang.program.«Elixir.Module.Types.Descr:-iterator_non_disjoint_intersection?/3-fun-0-/1».pure]
+      simp [Elixir.Module.Types.Descr.«-iterator_non_disjoint_intersection?/3-fun-0-/4»]
     refine Eq.trans ?_ (ih calls' m hm')
     simp only [List.map, Term.list, next_cons, Lynx.Except.ok_bind]
-    rw [Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/2».eq_def]
+    rw [Elixir.Module.Types.Descr.«iterator_non_disjoint_intersection?/3».eq_def]
     cases hb : mapLookup B e.1 with
     | none => simp [getMapKeys_single, hb, cont]
     | some y₀ =>
@@ -282,7 +282,7 @@ theorem descr_disj_complete (ks : Kinds K TF LF MF TV LV MV) (fc : FunC K Fn FV 
         (dn name (mapLookup X (.atom name)) p && dn name (mapLookup Y (.atom name)) p) = Bool.false) →
       ∀ e ∈ mapEntries X, ∀ y, mapLookup Y e.1 = some y → ∀ d', K + 1 ≤ d' → ∃ w,
         Elixir.Module.Types.Descr.«bare_intersection/3» (D d') e.1 e.2 y = .ok w ∧
-          (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/2» (D d') e.1 w = .ok (.atom "true")) := by
+          (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/3» (D d') e.1 w (.map []) = .ok (.atom "true")) := by
     intro X Y sX sY dXY e me y hy d' hd
     have hx := mapLookup_of_mem_mapEntries me
     obtain ⟨name, -, key⟩ := sX.keys e.1 (by simp [hx])
@@ -297,7 +297,7 @@ theorem descr_disj_complete (ks : Kinds K TF LF MF TV LV MV) (fc : FunC K Fn FV 
         rw [keptO_true kw] at this
         rw [this, ← hx, ← hy]
         exact dXY name p ok
-      simpa [Elixir.Module.Types.Descr.«empty_key?/2»] using rb
+      simpa using rb
   obtain ⟨sa, hsa⟩ : ∃ sa : Int, Erlang.erlang.«map_size/1» (.map A) = .ok (.integer sa) :=
     ⟨_, by simp [Erlang.erlang.«map_size/1»]; rfl⟩
   obtain ⟨sb, hsb⟩ : ∃ sb : Int, Erlang.erlang.«map_size/1» (.map B) = .ok (.integer sb) :=
@@ -305,6 +305,7 @@ theorem descr_disj_complete (ks : Kinds K TF LF MF TV LV MV) (fc : FunC K Fn FV 
   unfold Elixir.Module.Types.Descr.«disjoint?/2»
   simp [getMapKeys_single, stA, stB]
   unfold Elixir.Module.Types.Descr.«non_disjoint_intersection?/2»
+  rw [Elixir.Module.Types.Descr.«non_disjoint_intersection?/3».eq_def]
   by_cases g : sa > sb
   · have walk := iter_disj_false (K + 1) A (mapEntries B)
       (calls sB sA fun name p ok => by rw [Bool.and_comm]; exact disj name p ok) m (by have := descrC_six sB; omega)

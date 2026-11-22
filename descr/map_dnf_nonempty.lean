@@ -5,26 +5,27 @@ section
 variable {E : Term → Prop} {K : Nat} {V : Type} {den : Term → V → Prop} {Safe : List (Term × Term) → Prop}
 
 /-- `map_bdd_to_dnf_remove_empty/1` lists the non-empty lines of a map BDD of any literals. -/
-theorem dnf_lit_map (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) (hS : Safe []) {m : Nat}
-    (hm : K + 2 ≤ m) {r : Term} (wr : Bdd (MapLitV E) r) :
+theorem dnf_lit_map (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) (jops : ElemDisj E K)
+    (jsem : ElemDisjSem E K V den Safe) (hS : Safe []) {m : Nat}
+    (hm : K + 4 ≤ m) {r : Term} (wr : Bdd (MapLitV E) r) :
     ∃ lines : List Term, Elixir.Module.Types.Descr.«map_bdd_to_dnf_remove_empty/1» (D m) r =
         .ok (Term.list lines) ∧ (∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) ∧
       ∀ w, eval (valM E den w) r = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := by
-  obtain ⟨all, run, tl, sl⟩ := dnf_map (den := den) ops dops sem (m := m) hm hS wr (fun t h => h) []
+  obtain ⟨all, run, tl, sl⟩ := dnf_map (den := den) ops dops sem (m := m) (by omega) hS wr (fun t h => h) []
     (.tuple #[.atom "open", .nil]) [] ⟨.atom "open", [], rfl, Or.inl rfl, by simp [FieldsV]⟩ (by simp)
-  have keeps : ∀ L ∈ all, ∃ keep : Bool, (∀ m acc, K + 2 ≤ m →
+  have keeps : ∀ L ∈ all, ∃ keep : Bool, (∀ m acc, K + 4 ≤ m →
       (D m).pure (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep then .cons L acc else acc)) ∧ (keep = Bool.true ↔ ∃ w, InMLine den L w) :=
-    fun L mL => mline_keep ops dops sem hS (tl L mL)
+    fun L mL => mline_keep ops dops sem jops jsem hS (tl L mL)
   classical
   let keep : Term → Bool := fun L => if h : L ∈ all then Classical.choose (keeps L h) else Bool.false
-  have hk : ∀ L ∈ all, (∀ m acc, K + 2 ≤ m →
+  have hk : ∀ L ∈ all, (∀ m acc, K + 4 ≤ m →
       (D m).pure (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep L then .cons L acc else acc)) ∧ (keep L = Bool.true ↔ ∃ w, InMLine den L w) := by
     intro L mL
     simp only [keep, dite_eq_left mL]
     exact Classical.choose_spec (keeps L mL)
-  have fold := foldl_det (K := K + 2) "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" #[]
+  have fold := foldl_det (K := K + 4) "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" #[]
     (fun x a => if keep x then .cons x a else a) all (fun x mx a m hm => (hk x mx).1 m a hm) .nil hm
   have e := foldl_filter keep all []
   simp only [List.append_nil] at e

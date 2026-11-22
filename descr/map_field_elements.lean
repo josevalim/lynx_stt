@@ -103,7 +103,7 @@ theorem map_field_opt_diff (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m
 
 /-- F5: map fields decide their emptiness exactly, when the seen BDDs are higher than them. -/
 theorem map_field_empty (ef : EF nd E V den tl K) {x : Term} (fx : MField E x) (S : List (Term × Term)) :
-    ∃ b : Bool, (∀ m, K + 2 ≤ m →
+    ∃ b : Bool, (∀ m, K + 4 ≤ m →
         Elixir.Module.Types.Descr.«empty_key?/3» (D m) (.atom "map") x (.map S) = .ok (boolAtom b)) ∧
       ∀ N, lh x < N → SafeN N S → (b = Bool.true ↔ ∀ w, denMF E den x w = Bool.false) := by
   obtain ⟨b, run, sem⟩ := map_empty_exact ef fx S

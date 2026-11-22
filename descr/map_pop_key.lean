@@ -166,7 +166,7 @@ theorem long_of_rest (ef : EF nd E V den tl K) (a : String) {tag : Term} (g : Ta
 
 /-- One step of `map_dnf_fetch_static/2`: the field accumulated so far, united with the values at the key of the maps
 of a non-empty line. -/
-theorem mline_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (a : String) {L : Term} (hL : MLine E L)
+theorem mline_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) {L : Term} (hL : MLine E L)
     (ne : ∃ w, InMLine den L w) {acc : Term} (ha : FieldValue E acc) :
     ∃ acc', (D (n + 3)).pure (.function "Elixir.Module.Types.Descr" "-map_dnf_fetch_static/2-fun-0-" 2 #[.atom a])
         #[L, acc] = .ok acc' ∧ FieldValue E acc' ∧ ∀ o, FieldSem den acc' o ↔ FieldSem den acc o ∨ LongM den L a o := by
@@ -239,7 +239,7 @@ theorem none_field (ef : EF nd E V den tl K) : FieldValue E (.tuple #[.map [], .
   · exact ef.den_none x hx
 
 /-- `map_dnf_fetch_static/2` unites the values at a key of the maps of non-empty lines. -/
-theorem mdnf_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (a : String) (lines : List Term)
+theorem mdnf_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) :
     ∃ F, Elixir.Module.Types.Descr.«map_dnf_fetch_static/2» (D (n + 3)) (Term.list lines) (.atom a) = .ok F ∧
       FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o := by
@@ -285,7 +285,7 @@ theorem lit_values (ef : EF nd E V den tl K) {tag : Term} (g : TagV E tag) {l : 
 
 /-- `map_fetch_key_static/3` on a map field: `:badmap` when it is empty, otherwise the field of the values at a key of
 its maps. -/
-theorem mstatic_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X : List (Term × Term)} {b : Term}
+theorem mstatic_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {X : List (Term × Term)} {b : Term}
     (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) (a : String) :
     ∃ res, Elixir.Module.Types.Descr.«map_fetch_key_static/3» (D (n + 3)) (.map X) (.atom a) (.atom "true") = .ok res ∧
       ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨
@@ -296,13 +296,13 @@ theorem mstatic_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X 
     obtain ⟨k, tag, l, rfl, g, sl⟩ := mfield_three fb e₀
     have sem : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔ MSem den tag l w :=
       fun w => denMF_leaf ef sl g w
-    obtain ⟨e, run⟩ := init_total ef.mopsE ef.mdopsE [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
+    obtain ⟨e, run⟩ := init_total ef.mopsE ef.mdopsE ef.jopsU [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
     have run : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D (n + 3)) tag (fieldsTerm l) .nil (.map []) =
         .ok (boolAtom e) := run (n + 3) (by omega)
     cases e
     · -- Not empty: a map of the literal.
       have ne : ∃ w, MSem den tag l w := Classical.byContradiction fun none => by
-        have := run.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ (m := n + 3) (by omega) rfl g sl (negs := []) (by simp)
+        have := run.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ (m := n + 3) (by omega) rfl g sl (negs := []) (by simp)
           fun w hw => absurd ⟨w, hw⟩ none)
         simp [boolAtom] at this
       obtain ⟨w₀, h₀⟩ := ne
@@ -321,14 +321,14 @@ theorem mstatic_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X 
           Elixir.Module.Types.Descr.«init_map_line_empty?/3», run, Lynx.Term.isMember, boolAtom]
       · cases h : denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w
         · rfl
-        · obtain ⟨N, mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ (m := n + 3) (by omega) rfl g sl (negs := []) (by simp) run w
+        · obtain ⟨N, mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ ef.jopsU (m := n + 3) (by omega) rfl g sl (negs := []) (by simp) run w
             ((sem w).mp h)
           simp at mN
   · have wb : Bdd (MLit E) b := by
       rcases fb with ⟨k, rfl⟩ | wb
       · exact absurd ⟨_, _, _, rfl⟩ three
       · exact wb
-    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ rfl (m := n + 3) (by omega) wb
+    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl (m := n + 3) (by omega) wb
     have inB : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := fun w => by
       rw [denMF_bdd wb]; exact sl w
     cases lines with

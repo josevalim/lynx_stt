@@ -231,7 +231,7 @@ theorem disj_expN {e e' : Term} (he : IsT t e) (he' : IsT t e') {m : Nat} (hm : 
   have calls : ∀ {X Y : List (Term × Term)}, PureMap t X → PureMap t Y → ∀ e ∈ mapEntries X,
       ∀ y d', 2 ≤ d' → mapLookup Y e.1 = some y → ∃ w,
         Elixir.Module.Types.Descr.«bare_intersection/3» (D d') e.1 e.2 y = .ok w ∧ (kept (e.1, w) = Bool.true →
-          ∃ b : Bool, Elixir.Module.Types.Descr.«empty_key?/2» (D d') e.1 w = .ok (boolAtom b)) := by
+          ∃ b : Bool, Elixir.Module.Types.Descr.«empty_key?/3» (D d') e.1 w (.map []) = .ok (boolAtom b)) := by
     intro X Y sX sY x mx y d' hd hy
     have hx := mapLookup_of_mem_mapEntries mx
     obtain ⟨name, key⟩ := sX.atomKey hx
@@ -241,9 +241,9 @@ theorem disj_expN {e e' : Term} (he : IsT t e) (he' : IsT t e') {m : Nat} (hm : 
     by_cases nt : name = "tuple"
     · subst nt
       obtain ⟨b, hb⟩ := pure_tuple_empty (fieldP_tuple (k kw)) []
-      exact ⟨b, by simpa [Elixir.Module.Types.Descr.«empty_key?/2», Elixir.Module.Types.Descr.«empty_key?/3»] using hb d' hd⟩
+      exact ⟨b, by simpa [Elixir.Module.Types.Descr.«empty_key?/3»] using hb d' hd⟩
     · have h := fieldok_empty (D d') name (fieldP_other (k kw) nt)
-      exact ⟨Bool.false, by simpa [Elixir.Module.Types.Descr.«empty_key?/2»] using h⟩
+      exact ⟨Bool.false, by simpa using h⟩
   -- the walk finds the atom field, whose intersection holds nil
   have stA := pA.static
   have stB := pB.static
@@ -252,7 +252,7 @@ theorem disj_expN {e e' : Term} (he : IsT t e) (he' : IsT t e') {m : Nat} (hm : 
       mapLookup Y (.atom "atom") = some (.tuple #[.atom "union", .map [(.atom "nil", .nil)]]) →
       (∀ e ∈ mapEntries X, ∀ y, mapLookup Y e.1 = some y → ∃ d', 2 ≤ d' ∧ ∃ w,
         Elixir.Module.Types.Descr.«bare_intersection/3» (D d') e.1 e.2 y = .ok w ∧
-        (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/2» (D d') e.1 w = .ok (.atom "true"))) →
+        (kept (e.1, w) = Bool.false ∨ Elixir.Module.Types.Descr.«empty_key?/3» (D d') e.1 w (.map []) = .ok (.atom "true"))) →
       False := by
     intro X Y sX sY hX hY walk
     obtain ⟨x, mx, qx, -⟩ : ∃ x ∈ mapEntries X, compareExact (fuel (.atom "atom") x.1) (.atom "atom") x.1 = .eq ∧ True := by
@@ -278,7 +278,7 @@ theorem disj_expN {e e' : Term} (he : IsT t e) (he' : IsT t e') {m : Nat} (hm : 
       · rfl
     rcases out with k | em
     · rw [k] at kr; cases kr
-    · simp [Elixir.Module.Types.Descr.«empty_key?/2», Elixir.Module.Types.Descr.«empty_key?/3»] at em
+    · simp [Elixir.Module.Types.Descr.«empty_key?/3»] at em
   obtain ⟨sa, hsa⟩ : ∃ sa : Int, Erlang.erlang.«map_size/1» (expN e (keyOf t)) = .ok (.integer sa) :=
     ⟨_, by simp [Erlang.erlang.«map_size/1»]; rfl⟩
   obtain ⟨sb, hsb⟩ : ∃ sb : Int, Erlang.erlang.«map_size/1» (expN e' (keyOf t)) = .ok (.integer sb) :=
@@ -292,17 +292,18 @@ theorem disj_expN {e e' : Term} (he : IsT t e) (he' : IsT t e') {m : Nat} (hm : 
   unfold Elixir.Module.Types.Descr.«disjoint?/2» at h
   simp [getMapKeys_single, mapLookup, boolAtom] at h
   unfold Elixir.Module.Types.Descr.«non_disjoint_intersection?/2» at h
+  rw [Elixir.Module.Types.Descr.«non_disjoint_intersection?/3».eq_def] at h
   have hA : mapLookup [(.atom "tuple", litN e (keyOf t)), (.atom "atom", .tuple #[.atom "union", .map [(.atom "nil", .nil)]])]
       (.atom "atom") = some (.tuple #[.atom "union", .map [(.atom "nil", .nil)]]) := by simp [mapLookup]
   have hB : mapLookup [(.atom "tuple", litN e' (keyOf t)), (.atom "atom", .tuple #[.atom "union", .map [(.atom "nil", .nil)]])]
       (.atom "atom") = some (.tuple #[.atom "union", .map [(.atom "nil", .nil)]]) := by simp [mapLookup]
   by_cases g : sa > sb
   · simp [hsa, hsb, g, Erlang.maps.«iterator/1»] at h
-    have walk := iter_disj_gen 2 _ (mapEntries _) (calls pB pA) m
+    have walk := iter_disj_gen 2 _ (.map []) (mapEntries _) (calls pB pA) m
       (by have := entries_le_six pB.keys; omega) (not_true (by rw [bind_assoc]; exact h))
     exact hit pB pA hB hA walk
   · simp [hsa, hsb, g, Erlang.maps.«iterator/1»] at h
-    have walk := iter_disj_gen 2 _ (mapEntries _) (calls pA pB) m
+    have walk := iter_disj_gen 2 _ (.map []) (mapEntries _) (calls pA pB) m
       (by have := entries_le_six pA.keys; omega) (not_true (by rw [bind_assoc]; exact h))
     exact hit pA pB hA hB walk
 end

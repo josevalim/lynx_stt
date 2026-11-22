@@ -85,7 +85,7 @@ theorem munion_pairs (P : List Term) (hP : ∀ p ∈ P, MPairOk E p) :
   exact ⟨u, tu, su, fun m => run m (Nat.zero_le _)⟩
 
 /-- `tuple_pair_projection_keeps_full_fst?/2` checks for a remaining tuple outside every negated pair. -/
-theorem mkeeps_full (ef : EF nd E V den tl K) {m : Nat} (hm : K + 2 ≤ m) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
+theorem mkeeps_full (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
     {b : Term} (hb : MField E b) : ∃ s : Bool,
       Elixir.Module.Types.Descr.«map_pair_projection_keeps_full_fst?/2» (D m) (Term.list P) b = .ok (boolAtom s) ∧
       (s = Bool.true ↔ ∃ w, denMF E den b w = Bool.true ∧
@@ -145,7 +145,7 @@ theorem mprepend_pair (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {f nv b
       exact se.mp rfl y ((sd y).mpr h₁)
 
 /-- One step of `tuple_project_negative_pairs/3`: a pair minus a negated pair, as pairs of non-empty tuple types. -/
-theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 2 ≤ m) {nv nb x : Term} (hnv : FieldValue E nv)
+theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv nb x : Term} (hnv : FieldValue E nv)
     (hnb : MField E nb) (hx : MQOk E den [x]) :
     ∃ new, (∀ A, Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4» (D m) nb nv x (Term.list A) =
         .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧
@@ -262,7 +262,7 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 2 ≤ m) {nv
       refine ⟨fun h => ⟨h, fun h' => (se1.mp rfl) y ((sif y).mpr ⟨h.1, h'.1⟩)⟩, fun h => h.1⟩
 
 /-- `tuple_project_negative_pairs/3` splits a pair minus negated pairs into pairs of non-empty tuple types. -/
-theorem mproject_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
+theorem mproject_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
     {value rest : Term} (hv : FieldValue E value) (hr : MField E rest) (nr : ∃ w, denMF E den rest w = Bool.true) :
     ∃ Q, Elixir.Module.Types.Descr.«map_remove_negative/3» (D (n + 2)) (Term.list P) value rest =
         .ok (Term.list Q) ∧ MQOk E den Q ∧
@@ -351,7 +351,7 @@ theorem munion_fields (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (Q : Li
 
 /-- The field a line with negations projects to, united with the accumulated one: the values at the key of its pair,
 outside the negated pairs. -/
-theorem mproj_value (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
+theorem mproj_value (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
     {field rest acc : Term} (hv : FieldValue E field) (hr : MField E rest) (nr : ∃ w, denMF E den rest w = Bool.true)
     (ha : FieldValue E acc) :
     ∃ (s : Bool) (acc' : Term), Elixir.Module.Types.Descr.«map_pair_projection_keeps_full_fst?/2» (D (n + 2))

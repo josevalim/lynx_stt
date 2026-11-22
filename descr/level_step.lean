@@ -383,6 +383,61 @@ theorem dg_cempty (st : StepOk nd C K Fn TF LF MF TV LV MV FV) {a : Term} {S : L
 
 end
 
+/-- Disjointness of element types of the next level under seen sets: a uniform answer, exact when the seen BDDs are
+higher than the types. -/
+theorem de_sdisj (st : StepOk nd C K Fn TF LF MF TV LV MV FV) {a b : Term} (S : List (Term × Term))
+    (ha : DEG Fn TF LF MF a) (hb : DEG Fn TF LF MF b) :
+    ∃ s : Bool, (∀ m, K + 14 ≤ m →
+        Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S) = .ok (boolAtom s)) ∧
+      ∀ N, lh a < N → lh b < N → SafeN N S →
+        (s = Bool.true ↔ ∀ v : PtG TV LV MV FV, denD a v → denD b v → False) := by
+  have hN : 0 < max (lh a) (lh b) + 1 := by omega
+  obtain ⟨s, run⟩ := (st.jops hN).disj (st.nest ha (by omega)) (st.nest hb (by omega)) S
+  refine ⟨s, run, fun N la lb safe => ?_⟩
+  have r := run (K + 14) (by omega)
+  dsimp only at r
+  -- with the top type, `disjoint_seen?/3` checks the emptiness of the intersection
+  have viaInter : Elixir.Module.Types.Descr.«disjoint_seen?/3» (D (K + 14)) a b (.map S) =
+      (Elixir.Module.Types.Descr.«bare_intersection/2» (D (K + 14)) a b).bind
+        (fun c => Elixir.Module.Types.Descr.«empty_seen?/2» (D (K + 14)) c (.map S)) →
+      (s = Bool.true ↔ ∀ v : PtG TV LV MV FV, denD a v → denD b v → False) := by
+    intro e
+    obtain ⟨c, hc, rc, sc, lc⟩ := de_inter st ha hb
+    obtain ⟨be, re, ee⟩ := de_empty st S hc
+    rw [e, rc (K + 14) (by omega)] at r
+    have r' : Elixir.Module.Types.Descr.«empty_seen?/2» (D (K + 14)) c (.map S) = .ok (boolAtom s) := r
+    rw [re (K + 14) (by omega)] at r'
+    have : be = s := by cases be <;> cases s <;> simp_all [boolAtom]
+    subst this
+    rw [ee N (lc N la lb) safe]
+    exact ⟨fun h v h₁ h₂ => h v ((sc v).mpr ⟨h₁, h₂⟩), fun h v hv => h v ((sc v).mp hv).1 ((sc v).mp hv).2⟩
+  rcases ha with rfl | ⟨A, rfl, sA⟩
+  · exact viaInter (disj_seen_term_l _ _ _)
+  rcases hb with rfl | ⟨B, rfl, sB⟩
+  · exact viaInter (disj_seen_term_r _ _ _)
+  constructor
+  · intro hs v hva hvb
+    subst hs
+    have := descr_sdisj_sound st.ks st.fc trivial trivial safe (m := K + 14) (by omega) sA sB la lb r v.1.1 v.1.2 v.2.2
+    rw [(denD_map v).mp hva, (denD_map v).mp hvb] at this
+    cases this
+  · intro h
+    have c := descr_sdisj_complete st.ks st.fc trivial trivial safe (m := K + 14) (by omega) sA sB la lb
+      fun name p ok => by
+        by_cases mem : name ∈ names
+        · have := h ⟨(name, p), mem, ok⟩
+          simp only [denD_map] at this
+          cases h₁ : dn name (mapLookup A (.atom name)) p <;> cases h₂ : dn name (mapLookup B (.atom name)) p <;>
+            simp_all
+        · have : mapLookup A (.atom name) = none := by
+            cases hx : mapLookup A (.atom name)
+            · rfl
+            · obtain ⟨name', m', e⟩ := sA.keys (.atom name) (by simp [hx])
+              simp only [Term.atom.injEq] at e; subst e; exact absurd m' mem
+          simp [this, dn_none]
+    rw [c] at r
+    cases s <;> simp_all [boolAtom]
+
 /-- Fusing types over fields `TF`, `LF`, and `MF`. -/
 def FuseOk (K : Nat) (Fn TF LF MF : Term → Prop) (TV LV MV : (Term → Bool) → Prop)
     (FV : Term → (Term → Bool) → Prop) : Prop :=
@@ -425,6 +480,7 @@ theorem ef_gen (st : StepOk nd C K Fn TF LF MF TV LV MV FV) (fu : FuseOk K Fn TF
   sub := fun ha hb => de_sub st ha hb
   subc := fun ha hb incl m hm => de_subc st ha hb incl hm
   disj := fun ha hb => de_disj st ha hb
+  sdisj := fun S ha hb => de_sdisj st S ha hb
   fuse := by intro a b n m ha hb ne hm; exact fu n ha hb ne hm
   tail := fun he => let ⟨e', run, he', sem, l⟩ := de_tail st he; ⟨e', fun m _ => run (D m), he', sem, l⟩
   tl_witness := ⟨ptWit, by simp [tlD, ptWit]⟩
@@ -440,6 +496,7 @@ theorem stepOf (ef : EF nd E V den tl K) (hnone : E (.map [])) :
   ⟨(kinds ef).mono (by omega), funAC ef ef.subc, funA_top, fun hx z => funA_lh0 hx z, fVal_wit,
     fun ha h => de_nest ef ha h,
     fun hN => let ⟨o, d, f⟩ := nest_ops ef hnone hN; ⟨o.mono (by omega), d.mono (by omega), f.mono (by omega)⟩,
+    fun hN => (nest_disj ef hnone hN).mono (by omega),
     tz_of, lz_of ef, mz_of, fun c _ fx px => treal_of ef c fx px⟩
 
 theorem de_fuse (ef : EF nd E V den tl K) (hnone : E (.map [])) {a b : Term} (n : Int) {m : Nat} (ha : DE E a)

@@ -7,8 +7,8 @@ theorem domKind_mem (k : Fin 11) : domKind k ∈ domainKinds := by
   revert k; decide
 
 /-- `map_line_empty?/4` answers `true` only when its negations cover every map of the line. -/
-theorem line_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) {m : Nat}
-    (hm : K + 1 ≤ m) {S : List (Term × Term)} (hS : Safe S) :
+theorem line_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) (jops : ElemDisj E K)
+    {m : Nat} (hm : K + 3 ≤ m) {S : List (Term × Term)} (hS : Safe S) :
     ∀ negs : List Term, (∀ t ∈ negs, MapLitV E t) → ∀ tag : Term, TagV E tag →
       ∀ l, FieldsV E l → Elixir.Module.Types.Descr.«map_line_empty?/4» (D m) tag (fieldsTerm l)
         (Term.list negs) (.map S) = .ok (.atom "true") → ∀ w, MSem den tag l w → CovM den negs w := by
@@ -36,31 +36,44 @@ theorem line_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K 
     have lineS := fun l' (sl' : FieldsV E l') r w' (hw' : MSem den tag l' w') => ih lits' tag gt l' sl' r w' hw'
     have hl : ∀ e ∈ l, FieldValue E e.2 := fun e me => (sl.1 e me).2
     have hnl : ∀ e ∈ nl, FieldValue E e.2 := fun e me => (snl.1 e me).2
-    have ih' := map_line_total ops dops S rest fun t mt => (lits' t mt).plain
-    obtain ⟨bc, runc, incl⟩ := check_val ops dops esem hm hS gt gn skip
-    obtain ⟨c, hor, tagOk, branch⟩ := line_branch_of ops dops S ih' gt.plain gn.plain hl hnl
+    have ih' := map_line_total ops dops jops S rest fun t mt => (lits' t mt).plain
+    have ops' := ops.mono (Nat.le_add_right K 3)
+    have dops' := dops.mono (Nat.le_add_right K 3)
+    have lineT : ∀ l', FieldsV E l' → ∃ b : Bool, Elixir.Module.Types.Descr.«map_line_empty?/4» (D m) tag
+        (fieldsTerm l') (Term.list rest) (.map S) = .ok (boolAtom b) := fun l' sl' => by
+      obtain ⟨b, hb⟩ := ih' tag gt.plain l' fun e me => (sl'.1 e me).2
+      exact ⟨b, hb m hm⟩
+    obtain ⟨bc, runc, incl⟩ := check_val ops dops esem (m := m) (by omega) hS gt gn skip
+    obtain ⟨c, hor, hc⟩ := walk_choice (tag := tag) (ntag := ntag)
     obtain ⟨bk, hk⟩ := ih' tag gt.plain l hl
     have hk' := hk m hm
+    dsimp only at hk'
     -- the remaining negations answer `false`, as they do not cover the map
     have nk : bk = Bool.false := by
       cases bk
       · rfl
       · exact absurd (lineS l sl (by simpa [boolAtom] using hk') w hw) cov
     subst nk
-    -- so the walk answers `true`, and the negated literal holds the map
+    -- so the negated literal holds the map
     refine ⟨_, List.mem_cons_self, ?_⟩
-    rcases branch with ⟨b, hb⟩ | hb
-    · have r := line_general (k := k) top skip runc hor hk' (Or.inl (hb m hm))
-      rw [r] at run
-      cases bc
-      · simp [boolAtom] at run
-      cases b
-      · simp [boolAtom] at run
-      have hb' := hb m hm
-      cases c
-      · have walk : Elixir.Module.Types.Descr.«map_line_fields_empty?/7» (D m) (fieldsTerm l) (fieldsTerm nl) tag ntag
-            (fieldsTerm l) (Term.list rest) (.map S) = .ok (.atom "true") := by simpa [boolAtom] using hb'
-        have keys := fields_sound ops dops esem hm hS gt gn sl lineS snl hw cov _ [] l [] nl (Nat.le_refl _)
+    have falseRun : ∀ (hf : bc = Bool.false → Bool.false = Bool.false) ht hw',
+        Elixir.Module.Types.Descr.«map_line_empty?/4» (D m) tag (fieldsTerm l)
+          (Term.list (.tuple #[.integer k, ntag, fieldsTerm nl] :: rest)) (.map S) = .ok (boolAtom Bool.false) :=
+      fun hf ht hw' => line_general top skip runc hor hk' hf ht hw'
+    cases bc
+    · rw [falseRun (fun _ => rfl) (fun h => nomatch h) (fun h => nomatch h)] at run
+      simp [boolAtom] at run
+    cases c
+    · rcases fields_total ops' dops' S gt.plain gn.plain (Term.list rest) l hl (fun l' hl' => ih' tag gt.plain l' hl') _ l
+          nl (Nat.le_refl _) hl hnl with ⟨b, hb⟩ | hb
+      · have r := line_general (k := k) (b := b) top skip runc hor hk' (fun h => nomatch h) (fun _ h => nomatch h)
+          (fun _ _ => Or.inl (hb m hm))
+        rw [r] at run
+        cases b
+        · simp [boolAtom] at run
+        have walk : Elixir.Module.Types.Descr.«map_line_fields_empty?/7» (D m) (fieldsTerm l) (fieldsTerm nl) tag ntag
+            (fieldsTerm l) (Term.list rest) (.map S) = .ok (.atom "true") := by simpa [boolAtom] using hb m hm
+        have keys := fields_sound ops dops esem (by omega) hS gt gn sl lineS snl hw cov _ [] l [] nl (Nat.le_refl _)
           (by simp) (by simp) (by simp) walk
         have tin := incl.mp rfl
         refine nsem_lit.mpr ⟨fun s => ?_, fun k i => tin _ (domKind_mem k) _ (hw.doms k i)⟩
@@ -73,18 +86,38 @@ theorem line_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K 
           simp only [FSem, n₁] at this
           simp only [FSem, n₂]
           exact tin "atom" (by simp [domainKinds]) _ this
-      · have walk : Elixir.Module.Types.Descr.«map_line_meet_empty?/7» (D m) (fieldsTerm l) (fieldsTerm nl) tag ntag
-            (fieldsTerm []) (Term.list rest) (.map S) = .ok (.atom "true") := by simpa [boolAtom] using hb'
-        rcases meet_sound ops dops esem hm hS tag ntag gt gn (tagOk rfl) rest lineS nl snl _ l nl (Nat.le_refl _)
-            [] [] (by simp) (by simpa using sl) (by simp) (by simp) (by simp) walk w (by simpa using hw) with h | h
+      · rw [falseRun (fun _ => rfl) (fun _ h => nomatch h) (fun _ _ => Or.inr ⟨hb m hm, rfl⟩)] at run
+        simp [boolAtom] at run
+    · have tagOk := hc.mp rfl
+      rcases disjoint_total ops jops S gt.plain gn.plain _ l nl (Nat.le_refl _) hl hnl [] (by simp) with dis | ⟨es, hes, r6⟩
+      · rw [falseRun (fun _ => rfl) (fun _ _ => ⟨_, by simpa [entriesTerm] using dis m hm, Or.inl ⟨rfl, rfl⟩⟩)
+          (fun _ h => nomatch h)] at run
+        simp [boolAtom] at run
+      obtain ⟨b5, h5⟩ := meet5_total ops' dops' S tag (Term.list rest) (fun l' hl' => ih' tag gt.plain l' hl') es hes []
+        (by simp)
+      have r := line_general (k := k) (b := b5) top skip runc hor hk' (fun h => nomatch h)
+        (fun _ _ => ⟨_, by simpa [entriesTerm] using r6 m hm, Or.inr ⟨es, rfl, by simpa [fieldsTerm] using h5 m hm⟩⟩)
+        (fun _ h => nomatch h)
+      rw [r] at run
+      cases b5
+      · simp [boolAtom] at run
+      have meetRun := h5 m hm
+      rcases align_sound ops dops esem jops hm hS tag ntag gt gn tagOk rest lineT lineS nl snl _ l nl (Nat.le_refl _) sl
+          [] [] (by simp) (by simp) with dis | ⟨es', r6', ok⟩
+      · have := (r6 m hm).symm.trans dis
+        simp [entriesTerm] at this
+        cases es <;> simp [Term.list] at this
+      · have same : entriesTerm es = entriesTerm es' := by
+          have := (r6 m hm).symm.trans r6'
+          simpa using this
+        rcases ok [] (by simpa using sl) (by simp) (by simp) (by simp)
+            (by rw [← same]; simpa [fieldsTerm, boolAtom] using meetRun) w (by simpa using hw) with h | h
         · exact nsem_lit.mpr h
         · exact absurd h cov
-    · have r := line_general (k := k) top skip runc hor hk' (Or.inr ⟨hb m hm, rfl⟩)
-      rw [r] at run
-      cases bc <;> simp [boolAtom] at run
 
 /-- `init_map_line_empty?/4` answers `true` only when its negations cover every map of the line. -/
-theorem init_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) {m : Nat} (hm : K + 1 ≤ m)
+theorem init_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) (jops : ElemDisj E K)
+    {m : Nat} (hm : K + 4 ≤ m)
     {S : List (Term × Term)} (hS : Safe S) {tag : Term} (gt : TagV E tag) {l : List (Term × Term)}
     (sl : FieldsV E l) {negs : List Term} (lits : ∀ t ∈ negs, MapLitV E t)
     (run : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D m) tag (fieldsTerm l) (Term.list negs)
@@ -115,7 +148,7 @@ theorem init_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K 
   intro w hw
   cases hany : (l.map fun e => Term.tuple #[e.1, e.2]).any (reqEmpty den)
   · rw [hany] at run
-    have := line_sound ops dops esem (show K + 1 ≤ n + 1 by omega) hS negs lits tag gt l sl
+    have := line_sound ops dops esem jops (show K + 3 ≤ n + 1 by omega) hS negs lits tag gt l sl
       (by simpa [boolAtom, Lynx.Except.orElse, fieldsTerm] using run) w hw
     exact this
   · exfalso
@@ -138,8 +171,8 @@ theorem init_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K 
     · simp [reqEmpty] at rx
 
 /-- `map_bdd_empty?/4` answers `true` only when no map along the path, outside the negations, satisfies the BDD. -/
-theorem map_bdd_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) {m : Nat}
-    (hm : K + 2 ≤ m) (S : List (Term × Term)) (hS : Safe S) {ok : Term → Prop} {r : Term} (wr : Bdd ok r) :
+theorem map_bdd_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) (jops : ElemDisj E K)
+    {m : Nat} (hm : K + 4 ≤ m) (S : List (Term × Term)) (hS : Safe S) {ok : Term → Prop} {r : Term} (wr : Bdd ok r) :
     (∀ t, ok t → MapLitV E t) → ∀ pos negs, MapPosV E pos → (∀ t ∈ negs, MapLitV E t) →
       Elixir.Module.Types.Descr.«map_bdd_empty?/4» (D m) pos (Term.list negs) r (.map S) = .ok (.atom "true") →
       ValUnsatM E den pos negs r := by
@@ -151,7 +184,7 @@ theorem map_bdd_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def] at run
     simp only at run
-    obtain ⟨N, mN, hN⟩ := init_sound ops dops esem (by omega) hS gt sl lits run w (inPosM_iff.mp hw)
+    obtain ⟨N, mN, hN⟩ := init_sound ops dops esem jops (by omega) hS gt sl lits run w (inPosM_iff.mp hw)
     exact (nn N mN hN).elim
   · intro ok _ pos negs _ _ _ w _ _
     rfl
@@ -163,11 +196,11 @@ theorem map_bdd_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E
     exfalso
     have hlit := valM_lit ops dops esem hl e
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def] at run
-    rcases inter_val ops dops esem hm hS hp hl with ⟨empty, disj⟩ | ⟨pos', r', hp', sem'⟩
+    rcases inter_val ops dops esem (m := m) (by omega) hS hp hl with ⟨empty, disj⟩ | ⟨pos', r', hp', sem'⟩
     · exact disj w hw hlit
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp'
     simp [r'] at run
-    obtain ⟨N, mN, hN⟩ := init_sound ops dops esem (by omega) hS gt sl lits run w
+    obtain ⟨N, mN, hN⟩ := init_sound ops dops esem jops (by omega) hS gt sl lits run w
       (inPosM_iff.mp ((sem' w).mpr ⟨hw, hlit⟩))
     exact nn N mN hN
   · intro ok h lit c u d leaf okl hc hu hd ic iu idd okLit pos negs hp lits run w hw nn
@@ -176,7 +209,7 @@ theorem map_bdd_sound (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E
     have hp₀ := hp
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def] at run
-    rcases inter_val ops dops esem hm hS hp₀ hl with ⟨empty, disj⟩ | ⟨pos2, r2, hp2, sem2⟩
+    rcases inter_val ops dops esem (m := m) (by omega) hS hp₀ hl with ⟨empty, disj⟩ | ⟨pos2, r2, hp2, sem2⟩
     · simp only [empty, Lynx.Except.andAlso_eq_true, Lynx.Except.ok_bind] at run
       obtain ⟨⟨rd, -⟩, ru⟩ := run
       have nl : valM E den w lit = Bool.false := by

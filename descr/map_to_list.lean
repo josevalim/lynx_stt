@@ -41,7 +41,7 @@ theorem tolist_map {X : List (Term × Term)} (hX : DE (level t (n + 1)).E (.map 
         rcases fb with ⟨k, rfl⟩ | wb
         · exact Bdd.leaf_iff.mpr ⟨k, .atom "open", [], rfl, Or.inl rfl, ⟨by simp, by simp⟩⟩
         · exact wb.mono fun _ h => h.1
-      obtain ⟨lines, rl, hl, sl⟩ := dnf_lit_map (den := (level t (n + 1)).den) ef.mopsE ef.mdopsE ef.msemZ rfl
+      obtain ⟨lines, rl, hl, sl⟩ := dnf_lit_map (den := (level t (n + 1)).den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl
         (m := M + 5) (by omega) wb
       have inB : ∀ w, denMF (level t (n + 1)).E (level t (n + 1)).den b w = Bool.true ↔
           ∃ L ∈ lines, InMLine (level t (n + 1)).den L w := by

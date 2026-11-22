@@ -10,7 +10,7 @@ theorem fieldValue_den {F : Term} (hF : FieldValue E F) :
   exact ⟨t, ht, ⟨_, rfl⟩, fun x => by rw [fieldSem_mk]; simp⟩
 
 /-- `map_get_keys/3` unites the values at atom keys of the maps of non-empty lines. -/
-theorem get_keys (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (lines : List Term)
+theorem get_keys (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (rs : List Term) (hr : ∀ r ∈ rs, ∃ s, r = .atom s)
     {acc : Term} (ha : E acc) :
     ∃ T, Elixir.Module.Types.Descr.«map_get_keys/3» (D (n + 4)) (Term.list lines) (Term.list rs) acc = .ok T ∧
@@ -68,7 +68,7 @@ def LineTag (den : Term → V → Prop) (L : Term) (s : String) (x : V) : Prop :
     den (tagType tag s) x
 
 /-- `map_get_domain/3` folded over kinds unites the types the tags of lines give them. -/
-theorem get_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) (lines : List Term)
+theorem get_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L) (ds : List Term) (hd : ∀ d ∈ ds, ∃ s, d = .atom s) {acc : Term} (ha : E acc) :
     ∃ T, Erlang.lists.«foldl/3» (D (n + 4))
         (.function "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-0-" 2 #[Term.list lines]) acc (Term.list ds) =

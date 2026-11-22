@@ -62,8 +62,14 @@ theorem nest_ops (ef : EF nd E V den tl K) (hnone : E (.map [])) {N : Nat} (hN :
     ElemOk (NestC (EB E N)) (K + 8) ∧ ElemDiff (NestC (EB E N)) (K + 3) ∧ ElemFun (NestC (EB E N)) (K + 14) := by
   have none : EB E N (.map []) := ⟨hnone, by rw [lh_nil_map]; exact hN⟩
   have term : EB E N (.atom "term") := ⟨ef.term, by simp [lh]; exact hN⟩
-  exact ⟨nestOk (ef.ops N hN) (ef.dops N) (ef.funB N) none (ef.tailB N), nestDiff term K,
-    nestFun (ef.ops N hN) (ef.dops N) (ef.funB N) none (ef.tailB N)⟩
+  exact ⟨nestOk (ef.ops N hN) (ef.dops N) ((ef.jops N).mono (by omega)) (ef.funB N) none (ef.tailB N), nestDiff term K,
+    nestFun (ef.ops N hN) (ef.dops N) ((ef.jops N).mono (by omega)) (ef.funB N) none (ef.tailB N)⟩
+
+/-- Disjointness on element types of the next level, below a height, is a Boolean at every call depth. -/
+theorem nest_disj (ef : EF nd E V den tl K) (hnone : E (.map [])) {N : Nat} (hN : 0 < N) :
+    ElemDisj (NestC (EB E N)) (K + 8 + 3) :=
+  nestDisj (ef.ops N hN) (ef.dops N) ((ef.jops N).mono (by omega)) (ef.funB N) ⟨hnone, by rw [lh_nil_map]; exact hN⟩
+    (ef.tailB N)
 
 theorem lh_term_zero : lh (.atom "term") = 0 := by simp [lh]
 
@@ -82,6 +88,7 @@ structure StepOk (nd : Term) (C : Nat → Term → Prop) (K : Nat) (Fn TF LF MF 
   fvw : ∃ a ρ, Resp ρ ∧ FV a ρ
   nest : ∀ {a N}, DEG Fn TF LF MF a → lh a < N → C N a
   ops : ∀ {N}, 0 < N → ElemOk (C N) (K + 8) ∧ ElemDiff (C N) (K + 3) ∧ ElemFun (C N) (K + 14)
+  jops : ∀ {N}, 0 < N → ElemDisj (C N) (K + 11)
   tz : ∀ {x}, TF x → lh x = 0 → ∃ k : Int, x = .tuple #[.integer k, .atom "open", .nil]
   lz : ∀ {x}, LF x → lh x = 0 → x = .tuple #[.integer 46675407, .atom "term", .atom "term"]
   mz : ∀ {x}, MF x → lh x = 0 → ∃ k : Int, x = .tuple #[.integer k, .atom "open", .nil]

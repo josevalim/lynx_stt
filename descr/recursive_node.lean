@@ -1095,6 +1095,65 @@ theorem pureFun (t : Term) : ElemFun (Pure t) 8 := by
     exact ⟨s, fun m hm => by
       obtain ⟨m', rfl, -⟩ := succ m (by omega); dsimp only; rw [ea, eb]; exact hs _ (by omega)⟩
 
+/-- Fields of node expansions decide their emptiness under any `seen`. -/
+theorem fieldP_empty {t x : Term} {name : String} (hx : FieldP t name x) (S : List (Term × Term)) :
+    BoolAt 2 (fun m => Elixir.Module.Types.Descr.«empty_key?/3» (D m) (.atom name) x (.map S)) := by
+  by_cases nt : name = "tuple"
+  · subst nt
+    obtain ⟨b, hb⟩ := pure_tuple_empty (fieldP_tuple hx) S
+    exact ⟨b, fun m hm => by simpa [Elixir.Module.Types.Descr.«empty_key?/3»] using hb m hm⟩
+  rcases fieldP_other hx nt with ⟨rfl, -⟩ | ⟨rfl, -⟩ | ⟨nb, na, tx⟩
+  · exact ⟨Bool.false, fun m _ => by dsimp only; rw [Elixir.Module.Types.Descr.«empty_key?/3».eq_def]; rfl⟩
+  · exact ⟨Bool.false, fun m _ => by dsimp only; rw [Elixir.Module.Types.Descr.«empty_key?/3».eq_def]; rfl⟩
+  by_cases f : name = "fun"
+  · subst f; simp [topValue] at tx; subst tx
+    exact ⟨Bool.false, fun m _ => by
+      simpa [Elixir.Module.Types.Descr.«empty_key?/3»] using fun_top_nonempty (D m) (.map S)⟩
+  by_cases l : name = "list"
+  · subst l; simp [topValue] at tx; subst tx
+    exact ⟨Bool.false, fun m _ => by
+      simpa [Elixir.Module.Types.Descr.«empty_key?/3»] using list_top_nonempty (D m) (.map S)⟩
+  by_cases mp : name = "map"
+  · subst mp; simp [topValue] at tx; subst tx
+    obtain ⟨mb, hmb⟩ := map_top_bool S
+    exact ⟨mb, fun m _ => by simpa [Elixir.Module.Types.Descr.«empty_key?/3»] using hmb (D m)⟩
+  · simp [topValue] at tx
+
+theorem node_nonmap {t a : Term} (ha : IsT t a) : ∀ X, a ≠ .map X := by
+  obtain ⟨S, rfl, -⟩ := ha.node
+  intro X h; cases h
+
+theorem pureDisj (t : Term) : ElemDisj (Pure t) 5 := by
+  have pops := pureOk t
+  have viaInter : ∀ {a b}, Pure t a → Pure t b → ∀ S : List (Term × Term), (∀ d,
+      Elixir.Module.Types.Descr.«disjoint_seen?/3» d a b (.map S) =
+        (Elixir.Module.Types.Descr.«bare_intersection/2» d a b).bind
+          fun c => Elixir.Module.Types.Descr.«empty_seen?/2» d c (.map S)) →
+      BoolAt (5 + 3) (fun m => Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S)) := by
+    intro a b ha hb S eq
+    obtain ⟨c, hc, rc⟩ := pops.inter ha hb
+    obtain ⟨e, he⟩ := pops.empty hc S
+    exact ⟨e, fun m hm => by dsimp only; rw [eq, rc m (by omega)]; exact he m (by omega)⟩
+  refine ⟨fun {a b} ha hb S => ?_⟩
+  rcases ha with rfl | ha' | ⟨A, rfl, pA⟩
+  · exact viaInter (Or.inl rfl) hb S fun d => disj_seen_term_l d b _
+  · exact viaInter (Or.inr (Or.inl ha')) hb S fun d => disj_seen_nonmap_l d b _ (node_nonmap ha')
+  rcases hb with rfl | hb' | ⟨B, rfl, pB⟩
+  · exact viaInter (Or.inr (Or.inr ⟨A, rfl, pA⟩)) (Or.inl rfl) S fun d => disj_seen_term_r d _ _
+  · exact viaInter (Or.inr (Or.inr ⟨A, rfl, pA⟩)) (Or.inr (Or.inl hb')) S
+      fun d => disj_seen_nonmap_r d _ _ (node_nonmap hb')
+  obtain ⟨b, hb⟩ := nondisj_fields 2 (FieldP t) A B (.map S) pA.keys pB.keys (fun _ _ h => pA.fields _ _ h)
+    (fun _ _ h => pB.fields _ _ h)
+    (fun name x y hx hy => by
+      obtain ⟨r, run, ok⟩ := interP t name x y hx hy
+      exact ⟨r, fun m _ => run _, ok⟩)
+    (fun name x hx => fieldP_empty hx S)
+  refine ⟨!b, fun m hm => ?_⟩
+  have e := hb m (by omega)
+  dsimp only at e ⊢
+  rw [disj_seen_maps _ _ _ _ pA.static pB.static, e]
+  cases b <;> rfl
+
 section
 variable {t : Term} {C : Term → Prop} {K : Nat}
 
@@ -1128,6 +1187,26 @@ theorem addOk (_hC : ∀ {a}, C a → a = .atom "term" ∨ ∃ X, a = .map X)
     · obtain ⟨b, run⟩ := ops.empty ha S
       exact ⟨b, fun m hm => run m (by omega)⟩
     · exact ⟨_, fun m hm => by obtain ⟨m', rfl, -⟩ := succ m hm; exact empty_node ha.node m' S⟩
+
+theorem addDisj (hC : ∀ {a}, C a → a = .atom "term" ∨ ∃ X, a = .map X)
+    (hexp : ∀ {e}, IsT t e → C (expN e (keyOf t))) (ops : ElemOk C K) (jops : ElemDisj C K) :
+    ElemDisj (WithNode t C) (K + 1) := by
+  have aops := addOk hC hexp ops
+  have viaInter : ∀ {a b}, WithNode t C a → WithNode t C b → ∀ S : List (Term × Term), (∀ d,
+      Elixir.Module.Types.Descr.«disjoint_seen?/3» d a b (.map S) =
+        (Elixir.Module.Types.Descr.«bare_intersection/2» d a b).bind
+          fun c => Elixir.Module.Types.Descr.«empty_seen?/2» d c (.map S)) →
+      BoolAt (K + 1 + 3) (fun m => Elixir.Module.Types.Descr.«disjoint_seen?/3» (D m) a b (.map S)) := by
+    intro a b ha hb S eq
+    obtain ⟨c, hc, rc⟩ := aops.inter ha hb
+    obtain ⟨e, he⟩ := aops.empty hc S
+    exact ⟨e, fun m hm => by dsimp only; rw [eq, rc m (by omega)]; exact he m (by omega)⟩
+  refine ⟨fun {a b} ha hb S => ?_⟩
+  rcases ha with ha' | ha'
+  · rcases hb with hb' | hb'
+    · exact (jops.disj ha' hb' S).mono (by omega)
+    · exact viaInter (Or.inl ha') (Or.inr hb') S fun d => disj_seen_nonmap_r d _ _ (node_nonmap hb')
+  · exact viaInter (Or.inr ha') hb S fun d => disj_seen_nonmap_l d _ _ (node_nonmap ha')
 
 theorem diff_none (d : Dispatcher) (a b : Term) (bt : b ≠ .atom "term") (none : Term.compare (Term.fuel b (.map [])) b (.map []) = .eq) :
     Elixir.Module.Types.Descr.«bare_difference/2» d a b = .ok a := by
@@ -1330,9 +1409,11 @@ theorem closed_node {t e : Term} (he : IsT t e) : ∀ d, Closed t d e
 
 /-- Adding the node to nested types of elements holding it. -/
 theorem nest_node {t : Term} {E : Term → Prop} {K : Nat} (hterm : E (.atom "term")) (hnode : ∀ {e}, IsT t e → E e)
-    (ops : ElemOk E K) (dops : ElemDiff E K) (fops : ElemFun E K) (hnone : E (.map [])) (tail : TailOk E) :
+    (ops : ElemOk E K) (dops : ElemDiff E K) (fops : ElemFun E K) (hnone : E (.map [])) (tail : TailOk E)
+    (jops : ElemDisj E (K + 3)) :
     ElemOk (WithNode t (NestC E)) (K + 15) ∧ ElemDiff (WithNode t (NestC E)) (K + 15) ∧
-      ElemFun (WithNode t (NestC E)) (K + 15) ∧ WithNode t (NestC E) (.map []) ∧ TailOk (WithNode t (NestC E)) := by
+      ElemFun (WithNode t (NestC E)) (K + 15) ∧ WithNode t (NestC E) (.map []) ∧ TailOk (WithNode t (NestC E)) ∧
+      ElemDisj (WithNode t (NestC E)) (K + 15) := by
   have hC : ∀ {a}, NestC E a → a = .atom "term" ∨ ∃ X, a = .map X := fun {a} ha => by
     rcases ha with rfl | ⟨X, rfl, -⟩
     · exact Or.inl rfl
@@ -1343,19 +1424,21 @@ theorem nest_node {t : Term} {E : Term → Prop} {K : Nat} (hterm : E (.atom "te
       · exact Or.inl rfl
       · exact Or.inr ⟨X, rfl, v.static⟩
   have hexp : ∀ {e}, IsT t e → NestC E (expN e (keyOf t)) := fun he => expN_nest hterm (hnode he) _
-  have n₁ := (nestOk ops dops fops hnone tail).mono (show K + 8 ≤ K + 14 by omega)
+  have n₁ := (nestOk ops dops jops fops hnone tail).mono (show K + 8 ≤ K + 14 by omega)
   have n₂ := (nestDiff hterm K).mono (show K + 3 ≤ K + 14 by omega)
-  have n₃ := nestFun ops dops fops hnone tail
+  have n₃ := nestFun ops dops jops fops hnone tail
+  have n₄ := (nestDisj ops dops jops fops hnone tail).mono (show K + 8 + 3 ≤ K + 14 by omega)
   exact ⟨addOk hC hexp n₁, addDiff hC hexp nest_none n₂, addFun hS hexp n₁ n₃, Or.inl nest_none,
-    addTail hexp (tail_nest hterm)⟩
+    addTail hexp (tail_nest hterm), addDisj hC hexp n₁ n₄⟩
 
 theorem closed_ok (t : Term) : ∀ d, ElemOk (Closed t d) (23 + 15 * d) ∧ ElemDiff (Closed t d) (23 + 15 * d) ∧
-    ElemFun (Closed t d) (23 + 15 * d) ∧ Closed t d (.map []) ∧ TailOk (Closed t d)
+    ElemFun (Closed t d) (23 + 15 * d) ∧ Closed t d (.map []) ∧ TailOk (Closed t d) ∧
+      ElemDisj (Closed t d) (23 + 15 * d)
   | 0 => nest_node (Or.inl rfl) (fun he => Or.inr (Or.inl he)) ((pureOk t).mono (by omega))
-      ((pureDiff t).mono (by omega)) (pureFun t) (pure_none t) (pureTail t)
+      ((pureDiff t).mono (by omega)) (pureFun t) (pure_none t) (pureTail t) ((pureDisj t).mono (by omega))
   | d + 1 => by
-    obtain ⟨ops, dops, fops, hnone, tail⟩ := closed_ok t d
-    have := nest_node ops.term (fun he => closed_node he d) ops dops fops hnone tail
+    obtain ⟨ops, dops, fops, hnone, tail, jops⟩ := closed_ok t d
+    have := nest_node ops.term (fun he => closed_node he d) ops dops fops hnone tail (jops.mono (by omega))
     rw [show 23 + 15 * (d + 1) = 23 + 15 * d + 15 by omega]
     exact this
 

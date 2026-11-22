@@ -83,8 +83,8 @@ theorem empty_false_of_val (ops : ElemOk E K) (sem : ElemSem E K V den Safe) {S 
     Elixir.Module.Types.Descr.«empty_seen?/2» (D m) e (.map S) = .ok (.atom "false") :=
   (full_of_val ops sem hS he hy).2 m hm
 
-/-- `tuple_elements_empty?/6` answers false when a tuple of the line, outside the remaining negations, escapes the
-negated literal at one of the positions it checks. -/
+/-- `tuple_elements_empty?/7` answers false when a tuple of the line, outside the remaining negations, escapes the
+negated literal at one of the positions it checks, given the meets `tuple_elements_meets/4` computed alongside. -/
 theorem elements_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) {m : Nat} (hm : K ≤ m)
     (S : List (Term × Term)) (hS : Safe S) (c : Bool) (negs : List Term)
     (line : ∀ l : List Term, (∀ e ∈ l, E e) → ∀ v, InT den c l v → (∀ N ∈ negs, ¬LitSem den N v) →
@@ -93,17 +93,19 @@ theorem elements_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E
     (lineBool : ∀ l : List Term, (∀ e ∈ l, Full E K S e) → ∃ b : Bool,
       Elixir.Module.Types.Descr.«tuple_line_empty?/4» (D m) (.atom (if c then "closed" else "open")) (Term.list l)
         (Term.list negs) (.map S) = .ok (boolAtom b)) :
-    ∀ (nrest acc rest : List Term), (∀ e ∈ nrest, E e) → (∀ e ∈ acc, E e) → (∀ e ∈ rest, E e) →
+    ∀ (nrest acc rest accM ms : List Term), (∀ e ∈ nrest, E e) → (∀ e ∈ acc, E e) → (∀ e ∈ rest, E e) →
       (c = Bool.true → nrest.length ≤ rest.length) → ∀ (v₁ w : List V), InT den Bool.true acc.reverse v₁ →
       InT den c rest w → (∀ N ∈ negs, ¬LitSem den N (v₁ ++ w)) → ¬InT den Bool.false nrest w →
       nrest.length ≤ w.length →
-      Elixir.Module.Types.Descr.«tuple_elements_empty?/6» (D m) (Term.list acc) (.atom (if c then "closed" else "open"))
-        (Term.list rest) (Term.list nrest) (Term.list negs) (.map S) = .ok (.atom "false") := by
+      Elixir.Module.Types.Descr.«tuple_elements_meets/4» (D m) (Term.list rest) (Term.list nrest) (Term.list accM)
+        (.map S) = .ok (Term.list (accM.reverse ++ ms)) →
+      Elixir.Module.Types.Descr.«tuple_elements_empty?/7» (D m) (Term.list acc) (.atom (if c then "closed" else "open"))
+        (Term.list rest) (Term.list nrest) (Term.list ms) (Term.list negs) (.map S) = .ok (.atom "false") := by
   intro nrest
   induction nrest with
-  | nil => intro _ _ _ _ _ _ v₁ w _ _ _ nI _; exact absurd (InT.open_nil w) nI
+  | nil => intro _ _ _ _ _ _ _ _ v₁ w _ _ _ nI _ _; exact absurd (InT.open_nil w) nI
   | cons nt nl ih =>
-    intro acc rest hn hacc hrest hlen v₁ w h₁ hw hneg nI wlen
+    intro acc rest accM ms hn hacc hrest hlen v₁ w h₁ hw hneg nI wlen hmeets
     have hnt := hn nt List.mem_cons_self
     have hnl : ∀ e ∈ nl, E e := fun e m => hn e (List.mem_cons_of_mem _ m)
     obtain ⟨y, w', rfl⟩ : ∃ y w', w = y :: w' := by
@@ -128,10 +130,6 @@ theorem elements_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E
     have accFull : ∀ e ∈ acc.reverse, Full E K S e :=
       full_of_inT ops sem hS (fun e me => hacc e (List.mem_reverse.mp me)) h₁
     have esFull : ∀ e ∈ es, Full E K S e := full_of_inT ops sem hS hes hw'
-    have lineAt : ∀ x, E x → den x y → ∀ N ∈ negs, ¬LitSem den N (v₁ ++ y :: w') →
-        InT den c (acc.reverse ++ x :: es) (v₁ ++ y :: w') := by
-      intro x hx hxy _ _ _
-      exact (InT.append _).mpr ⟨v₁, y :: w', rfl, h₁, hxy, hw'⟩
     have elemsLine : ∀ x, E x → ∀ e ∈ acc.reverse ++ x :: es, E e := by
       intro x hx e me
       simp only [List.mem_append, List.mem_reverse, List.mem_cons] at me
@@ -139,51 +137,49 @@ theorem elements_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E
       · exact hacc e me
       · exact hx
       · exact hes e me
-    obtain ⟨meet, lmeet, hmeet⟩ := ops.inter hty hnt
-    have step := elements_step (D m) acc (.atom (if c then "closed" else "open")) rest nt nl (Term.list negs) (.map S)
-      ty es hshape meet (hmeet m hm)
+    rw [list_cons] at hmeets
+    obtain ⟨meet, ms', rfl, hmeet, fullMeet, hmeets'⟩ :=
+      meets_head ops S hm hshape (full_of_val ops sem hS hty hy) esFull hnt hnl hmeets
     have dmeet := sem.inter hty hnt hm (hmeet m hm)
     obtain ⟨diff, ldiff, hdiff⟩ := dops.diff hty hnt
     have ddiff := sem.diff hty hnt hm (hdiff m hm)
-    obtain ⟨bm, em⟩ := ops.empty lmeet S
+    have step := elements_step (D m) acc (.atom (if c then "closed" else "open")) rest nt nl meet (Term.list ms')
+      (Term.list negs) (.map S) ty es hshape diff (hdiff m hm)
     obtain ⟨bd, ed⟩ := ops.empty ldiff S
+    rw [list_cons nt nl, list_cons meet ms']
     by_cases inN : den nt y
     · -- the tuple escapes later
       have nI' : ¬InT den Bool.false nl w' := fun h => nI ⟨inN, h⟩
-      have meetFalse := empty_false_of_val ops sem hS hm lmeet ((dmeet y).mpr ⟨hy, inN⟩)
       cases bd
-      · have r := ih (meet :: acc) es hnl (fun e me => by
+      · have r := ih (meet :: acc) es (meet :: accM) ms' hnl (fun e me => by
             rcases List.mem_cons.mp me with rfl | me
-            · exact lmeet
+            · exact fullMeet.1
             · exact hacc e me) hes hlen' (v₁ ++ [y]) w' (by
             simp only [List.reverse_cons]
             exact (InT.append _).mpr ⟨v₁, [y], rfl, h₁, (dmeet y).mpr ⟨hy, inN⟩, trivial⟩) hw'
-          (by simpa using hneg) nI' (by simp at wlen; omega)
+          (by simpa using hneg) nI' (by simp at wlen; omega) hmeets'
         obtain ⟨bl, hl⟩ := lineBool (acc.reverse ++ diff :: es) fun e me => by
           simp only [List.mem_append, List.mem_cons] at me
           rcases me with me | rfl | me
           · exact accFull e me
           · exact ⟨ldiff, fun m' h' => by simpa [boolAtom] using ed m' h'⟩
           · exact esFull e me
-        rw [(step.2 _ meetFalse (hdiff m hm)).2 (by simpa [boolAtom] using ed m hm), hl, r]
+        rw [step.2 (by simpa [boolAtom] using ed m hm), hl, r]
         cases bl <;> rfl
-      · rw [(step.2 _ meetFalse (hdiff m hm)).1 (by simpa [boolAtom] using ed m hm)]
-        exact ih (ty :: acc) es hnl (fun e me => by
+      · rw [step.1 (by simpa [boolAtom] using ed m hm)]
+        exact ih (ty :: acc) es (meet :: accM) ms' hnl (fun e me => by
             rcases List.mem_cons.mp me with rfl | me
             · exact hty
             · exact hacc e me) hes hlen' (v₁ ++ [y]) w' (by
             simp only [List.reverse_cons]
             exact (InT.append _).mpr ⟨v₁, [y], rfl, h₁, hy, trivial⟩) hw'
-          (by simpa using hneg) nI' (by simp at wlen; omega)
+          (by simpa using hneg) nI' (by simp at wlen; omega) hmeets'
     · -- the tuple escapes here
-      cases bm
-      · have diffFalse := empty_false_of_val ops sem hS hm ldiff ((ddiff y).mpr ⟨hy, inN⟩)
-        rw [(step.2 _ (by simpa [boolAtom] using em m hm) (hdiff m hm)).2 diffFalse]
-        rw [line (acc.reverse ++ diff :: es) (elemsLine diff ldiff) (v₁ ++ y :: w')
-          ((InT.append _).mpr ⟨v₁, y :: w', rfl, h₁, (ddiff y).mpr ⟨hy, inN⟩, hw'⟩) hneg]
-        rfl
-      · rw [step.1 (by simpa [boolAtom] using em m hm)]
-        exact line _ (elemsLine ty hty) _ ((InT.append _).mpr ⟨v₁, y :: w', rfl, h₁, hy, hw'⟩) hneg
+      have diffFalse := empty_false_of_val ops sem hS hm ldiff ((ddiff y).mpr ⟨hy, inN⟩)
+      rw [step.2 diffFalse]
+      rw [line (acc.reverse ++ diff :: es) (elemsLine diff ldiff) (v₁ ++ y :: w')
+        ((InT.append _).mpr ⟨v₁, y :: w', rfl, h₁, (ddiff y).mpr ⟨hy, inN⟩, hw'⟩) hneg]
+      rfl
 
 /-- `tuple_empty_arity?/7` answers false on open lines when a size it checks answers false. -/
 theorem arity_false (d : Dispatcher) (n m' : Nat) (l : List Term) (ntag : String) (rest S : Term)
@@ -236,17 +232,19 @@ theorem line_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V
       cases c
       · exact last ⟨rfl, h₁, h₂⟩
       · simp at hc
-    rw [line_cons (D m) _ l k ntag nl rest (.map S) top notLast]
     by_cases skip : ((if c then "closed" else "open") = "closed" ∧ l.length < nl.length) ∨
         (ntag = "closed" ∧ nl.length < l.length)
-    · rw [ite_eq_left skip]
+    · rw [line_size (D m) _ l k ntag nl rest (.map S) top notLast skip]
       exact ih lits' c l hl v hv hneg'
-    rw [ite_eq_right skip]
+    rcases meets_cases ops S nl hnl [] l full with dis | ⟨ms, mlen, hms, run⟩
+    · rw [line_disjoint (D m) _ l k ntag nl rest (.map S) top notLast skip (by simpa using dis m hm)]
+      exact ih lits' c l hl v hv hneg'
+    rw [line_meets (D m) _ l k ntag nl rest (.map S) top notLast skip _ (by simpa using run m hm)
+      (by cases ms <;> simp)]
     have lineFalse := fun (c' : Bool) l' hl' v' hv' hn' => ih lits' c' l' hl' v' hv' hn'
     obtain ⟨be, he⟩ := elements_total ops dops S (.atom (if c then "closed" else "open")) (Term.list rest)
-      (fun l' hl' => line_total ops dops S rest lits' _ l' hl') nl hnl [] l (by simp) full
+      (fun l' hl' => line_total ops dops S rest lits' _ l' hl') nl hnl ms mlen hms [] l (by simp) full
     have heM := he m hm
-    simp only [] at heM
     -- how the tuple escapes the negated literal
     rw [InT.iff_open] at nN
     by_cases short : v.length < nl.length
@@ -310,14 +308,14 @@ theorem line_false (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V
       cases be <;> rfl
     · -- a position where the tuple escapes
       have ef := elements_false ops dops sem hm S hS c rest (fun l' hl' v' hv' hn' => ih lits' c l' hl' v' hv' hn')
-        (fun l' hl' => bools c l' hl') nl [] l hnl (by simp) hl (fun hc => by
+        (fun l' hl' => bools c l' hl') nl [] l [] ms hnl (by simp) hl (fun hc => by
           subst hc
           have := hv.closed_length
           have : ¬l.length < nl.length := fun h => skip (Or.inl ⟨rfl, h⟩)
-          omega) [] v trivial hv (by simpa using hneg') escape (by omega)
-      have ef' : Elixir.Module.Types.Descr.«tuple_elements_empty?/6» (D m) .nil
-          (.atom (if c then "closed" else "open")) (Term.list l) (Term.list nl) (Term.list rest) (.map S) =
-          .ok (.atom "false") := ef
+          omega) [] v trivial hv (by simpa using hneg') escape (by omega) (by simpa using run m hm)
+      have ef' : Elixir.Module.Types.Descr.«tuple_elements_empty?/7» (D m) .nil
+          (.atom (if c then "closed" else "open")) (Term.list l) (Term.list nl) (Term.list ms) (Term.list rest)
+          (.map S) = .ok (.atom "false") := ef
       rw [ef']
       rfl
 

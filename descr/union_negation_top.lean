@@ -383,27 +383,42 @@ theorem neg_union_leaves {a b : Term} (la : IsLeaf a) (lb : IsLeaf b) (lt : Term
   · obtain ⟨_, _, _, rfl⟩ := la
     simp at e
 
-theorem elements_term (d : Dispatcher) (acc tag negs S e : Term) (he : e = .nil ∨ e = Term.list [.atom "term"]) :
-    Elixir.Module.Types.Descr.«tuple_elements_empty?/6» d acc tag e (Term.list [.atom "term"]) negs S =
-      .ok (.atom "true") := by
-  have inter : Elixir.Module.Types.Descr.«bare_intersection/2» d (.atom "term") (.atom "term") = .ok (.atom "term") := by
-    unfold Elixir.Module.Types.Descr.«bare_intersection/2»; rfl
-  have diff : Elixir.Module.Types.Descr.«bare_difference/2» d (.atom "term") (.atom "term") = .ok (.map []) := by
-    unfold Elixir.Module.Types.Descr.«bare_difference/2»; rfl
+theorem inter_term (d : Dispatcher) :
+    Elixir.Module.Types.Descr.«bare_intersection/2» d (.atom "term") (.atom "term") = .ok (.atom "term") := by
+  unfold Elixir.Module.Types.Descr.«bare_intersection/2»; rfl
+
+theorem meets_term (d : Dispatcher) (S e : Term) (he : e = .nil ∨ e = Term.list [.atom "term"]) :
+    Elixir.Module.Types.Descr.«tuple_elements_meets/4» d e (Term.list [.atom "term"]) .nil S =
+      .ok (Term.list [.atom "term"]) := by
   have seenTerm : Elixir.Module.Types.Descr.«empty_seen?/2» d (.atom "term") S = .ok (.atom "false") := by
     unfold Elixir.Module.Types.Descr.«empty_seen?/2»; rfl
+  rcases he with rfl | rfl <;>
+  · rw [Elixir.Module.Types.Descr.«tuple_elements_meets/4».eq_def]
+    simp [Term.list, inter_term, seenTerm, isMember]
+    rw [Elixir.Module.Types.Descr.«tuple_elements_meets/4».eq_def]
+    rfl
+
+theorem meets_nil (d : Dispatcher) (e S : Term) :
+    Elixir.Module.Types.Descr.«tuple_elements_meets/4» d e .nil .nil S = .ok .nil := by
+  rw [Elixir.Module.Types.Descr.«tuple_elements_meets/4».eq_def]; rfl
+
+theorem elements_term (d : Dispatcher) (acc tag negs S e : Term) (he : e = .nil ∨ e = Term.list [.atom "term"]) :
+    Elixir.Module.Types.Descr.«tuple_elements_empty?/7» d acc tag e (Term.list [.atom "term"])
+      (Term.list [.atom "term"]) negs S = .ok (.atom "true") := by
+  have diff : Elixir.Module.Types.Descr.«bare_difference/2» d (.atom "term") (.atom "term") = .ok (.map []) := by
+    unfold Elixir.Module.Types.Descr.«bare_difference/2»; rfl
   have seenNone : Elixir.Module.Types.Descr.«empty_seen?/2» d (.map []) S = .ok (.atom "true") := by
     unfold Elixir.Module.Types.Descr.«empty_seen?/2»
     simp [getMapKeys, Erlang.erlang.«==/2»]
   rcases he with rfl | rfl <;>
-  · rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/6».eq_def]
-    simp [Term.list, inter, diff, seenTerm, seenNone, isMember]
-    rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/6».eq_def]
+  · rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/7».eq_def]
+    simp [Term.list, diff, seenNone, isMember]
+    rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/7».eq_def]
     rfl
 
-theorem elements_nil (d : Dispatcher) (acc tag e negs S : Term) :
-    Elixir.Module.Types.Descr.«tuple_elements_empty?/6» d acc tag e .nil negs S = .ok (.atom "true") := by
-  rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/6».eq_def]; rfl
+theorem elements_nil (d : Dispatcher) (acc tag e m negs S : Term) :
+    Elixir.Module.Types.Descr.«tuple_elements_empty?/7» d acc tag e .nil m negs S = .ok (.atom "true") := by
+  rw [Elixir.Module.Types.Descr.«tuple_elements_empty?/7».eq_def]; rfl
 
 theorem cmp10 : Ord.compare (1 : Int) 0 = .gt := by decide
 theorem cmp01 : Ord.compare (0 : Int) 1 = .lt := by decide
@@ -435,7 +450,8 @@ theorem line_lt (d : Dispatcher) (k H : Int) (S : Term) :
         (.cons (.tuple #[.integer k, .atom "closed", .nil]) .nil)) S = .ok (.atom "true") := by
   simp [Elixir.Module.Types.Descr.«tuple_line_empty?/4», Erlang.erlang.«length/1», Lynx.Except.orElse,
     Lynx.Except.andAlso, Erlang.erlang.«==/2», Erlang.erlang.«</2», Erlang.erlang.«>/2»,
-    elements_term d _ _ _ S _ (Or.inl rfl), Elixir.Module.Types.Descr.«tuple_empty_arity?/7»,
+    meets_nil, meets_term d S _ (Or.inl rfl), elements_term d _ _ _ S _ (Or.inl rfl),
+    Elixir.Module.Types.Descr.«tuple_empty_arity?/7»,
     Elixir.Module.Types.Descr.«tuple_empty_sizes?/5», fill_zero, cmp01,
     elements_nil]
 
@@ -447,7 +463,7 @@ theorem line_gt (d : Dispatcher) (k H : Int) (S : Term) :
     Lynx.Except.andAlso, Erlang.erlang.«==/2», Erlang.erlang.«</2», Erlang.erlang.«>/2», elements_nil,
     Elixir.Module.Types.Descr.«tuple_empty_arity?/7»,
     Elixir.Module.Types.Descr.«tuple_empty_sizes?/5», fill_one,
-    elements_nil, elements_term d _ _ _ S _ (Or.inr rfl)]
+    meets_nil, meets_term d S _ (Or.inr rfl), elements_nil, elements_term d _ _ _ S _ (Or.inr rfl)]
 
 theorem any_nil (d : Dispatcher) (m n : String) (caps : Array Term) :
     Erlang.lists.«any/2» d (.function m n 1 caps) .nil = .ok (.atom "false") := by

@@ -170,7 +170,8 @@ theorem covM_of_unsat {pos : Term} {negs : List Term} {w : (MW V)}
     (h : InPosM den pos w → (∀ N ∈ negs, ¬NSem den N w) → False) (hw : InPosM den pos w) : CovM den negs w :=
   Classical.byContradiction fun none => h hw fun N mN hN => none ⟨N, mN, hN⟩
 
-theorem map_bdd_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) {m : Nat} (hm : K + 2 ≤ m) (S : List (Term × Term)) (hS : Safe S) {ok : Term → Prop} {r : Term}
+theorem map_bdd_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) (jops : ElemDisj E K)
+    (jsem : ElemDisjSem E K V den Safe) {m : Nat} (hm : K + 4 ≤ m) (S : List (Term × Term)) (hS : Safe S) {ok : Term → Prop} {r : Term}
     (wr : Bdd ok r) :
     (∀ t, ok t → MapLitV E t) → ∀ pos negs, MapPosV E pos → (∀ t ∈ negs, MapLitV E t) → ValUnsatM E den pos negs r →
       Elixir.Module.Types.Descr.«map_bdd_empty?/4» (D m) pos (Term.list negs) r (.map S) = .ok (.atom "true") := by
@@ -182,7 +183,7 @@ theorem map_bdd_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def]
     simp only
-    exact init_val ops dops esem (by omega) hS gt sl lits fun w hw =>
+    exact init_val ops dops esem jops jsem (by omega) hS gt sl lits fun w hw =>
       covM_of_unsat (fun hw' nn => by have := g w hw' nn; simp at this) (inPosM_iff.mpr hw)
   · intro ok _ pos negs _ _ _
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def]
@@ -190,11 +191,11 @@ theorem map_bdd_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K
   · intro ok k x y okl okLit pos negs hp lits g
     have hl := okLit _ okl
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def]
-    rcases inter_val ops dops esem hm hS hp hl with ⟨empty, -⟩ | ⟨pos', run, hp', sem'⟩
+    rcases inter_val ops dops esem (m := m) (by omega) hS hp hl with ⟨empty, -⟩ | ⟨pos', run, hp', sem'⟩
     · simp [empty]
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp'
     simp [run]
-    refine init_val ops dops esem (by omega) hS gt sl lits fun w hw => ?_
+    refine init_val ops dops esem jops jsem (by omega) hS gt sl lits fun w hw => ?_
     obtain ⟨hpos, hlit⟩ := (sem' w).mp (inPosM_iff.mpr hw)
     refine covM_of_unsat (fun hw' nn => ?_) hpos
     have := g w hw' nn
@@ -226,7 +227,7 @@ theorem map_bdd_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K
     rw [list_cons] at dPart
     obtain ⟨tag, l, rfl, gt, sl⟩ := hp
     rw [Elixir.Module.Types.Descr.«map_bdd_empty?/4».eq_def]
-    rcases inter_val ops dops esem hm hS ⟨tag, l, rfl, gt, sl⟩ hl with ⟨empty, -⟩ | ⟨pos2, run, hp2, sem2⟩
+    rcases inter_val ops dops esem (m := m) (by omega) hS ⟨tag, l, rfl, gt, sl⟩ hl with ⟨empty, -⟩ | ⟨pos2, run, hp2, sem2⟩
     · simp [empty, dPart, uPart, Lynx.Except.andAlso]
     have cRes := ic okLit' pos2 negs hp2 lits fun w hw nn => by
       obtain ⟨hpos, hlit⟩ := (sem2 w).mp hw

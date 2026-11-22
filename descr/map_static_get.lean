@@ -10,7 +10,7 @@ def splitT (rs : List Term) (neg : Term) (ds : List Term) : Term :=
 
 /-- `map_get_static/2` on a map field and a split of static keys: `:badmap` when it is empty, otherwise the union of
 the values its maps hold at the keys the split selects. -/
-theorem mstatic_get (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X : List (Term × Term)} {b : Term}
+theorem mstatic_get (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {X : List (Term × Term)} {b : Term}
     (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) {rs : List Term} {neg : Term} {ds : List Term}
     (hs : SplitOk rs neg ds) :
     ∃ res, Elixir.Module.Types.Descr.«map_get_static/2» (D (n + 4)) (.map X) (splitT rs neg ds) = .ok res ∧
@@ -22,13 +22,13 @@ theorem mstatic_get (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X : 
     obtain ⟨k, tag, l, rfl, g, sl⟩ := mfield_three fb e₀
     have sem : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔ MSem den tag l w :=
       fun w => denMF_leaf ef sl g w
-    obtain ⟨e, run⟩ := init_total ef.mopsE ef.mdopsE [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
+    obtain ⟨e, run⟩ := init_total ef.mopsE ef.mdopsE ef.jopsU [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
     have run : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D (n + 4)) tag (fieldsTerm l) .nil (.map []) =
         .ok (boolAtom e) := run (n + 4) (by omega)
     cases e
     · -- Not empty: a map of the literal.
       have ne : ∃ w, MSem den tag l w := Classical.byContradiction fun none => by
-        have := run.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ (m := n + 4) (by omega) rfl g sl (negs := []) (by simp)
+        have := run.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ (m := n + 4) (by omega) rfl g sl (negs := []) (by simp)
           fun w hw => absurd ⟨w, hw⟩ none)
         simp [boolAtom] at this
       obtain ⟨w₀, h₀⟩ := ne
@@ -51,14 +51,14 @@ theorem mstatic_get (ef : EF nd E V den tl K) {n : Nat} (hn : K + 2 ≤ n) {X : 
           Elixir.Module.Types.Descr.«init_map_line_empty?/3», run, Lynx.Term.isMember, boolAtom]
       · cases h : denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w
         · rfl
-        · obtain ⟨N, mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ (m := n + 4) (by omega) rfl g sl (negs := []) (by simp) run w
+        · obtain ⟨N, mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ ef.jopsU (m := n + 4) (by omega) rfl g sl (negs := []) (by simp) run w
             ((sem w).mp h)
           simp at mN
   · have wb : Bdd (MLit E) b := by
       rcases fb with ⟨k, rfl⟩ | wb
       · exact absurd ⟨_, _, _, rfl⟩ three
       · exact wb
-    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ rfl (m := n + 4) (by omega) wb
+    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl (m := n + 4) (by omega) wb
     have inB : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := fun w => by
       rw [denMF_bdd wb]; exact sl w
     cases lines with

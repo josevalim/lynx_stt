@@ -20,7 +20,7 @@ theorem mfield_nz {w : Term} (fw : MField E w) : w ≠ .integer 0 := by
 theorem denMF_bot (w : MW V) : denMF E den (.atom "bdd_bot") w = Bool.false := by
   simp [denMF, denO, isOpenTop]
 
-theorem mapKind (ef : EF nd E V den tl K) : KindOk (K + 2) "map" (MField E) (ValMN E den) where
+theorem mapKind (ef : EF nd E V den tl K) : KindOk (K + 4) "map" (MField E) (ValMN E den) where
   resp := fun _ ⟨w, e⟩ => e ▸ valM_resp w
   wit := ⟨_, fun _ => none, rfl⟩
   top := fun t ht => by
@@ -52,7 +52,7 @@ theorem mapKind (ef : EF nd E V den tl K) : KindOk (K + 2) "map" (MField E) (Val
     exact ⟨r, run, fr, fun p ⟨w, hw⟩ => by rw [dn_mapW hw, dn_mapW hw, dn_mapW hw, sem]⟩
   opt_inter := by
     intro x y S m fx fy hm
-    obtain ⟨r, run, fr, sem⟩ := map_field_opt_inter ef (m := m) hm fx fy S
+    obtain ⟨r, run, fr, sem⟩ := map_field_opt_inter ef (m := m) (by omega) fx fy S
     refine ⟨r, run, fun _ => fr, fun p ⟨w, hw⟩ => ?_⟩
     cases k : kept (.atom "map", r)
     · rw [keptO_false k, dn_none, dn_mapW hw, dn_mapW hw, ← sem,
@@ -70,10 +70,6 @@ theorem mapKind (ef : EF nd E V den tl K) : KindOk (K + 2) "map" (MField E) (Val
     refine ⟨b, run, fun N hx hS => (ex N hx hS).trans ⟨fun h p ⟨w, hw⟩ => by rw [dn_mapW hw]; exact h w,
       fun h w => by have := h (0, .nil, valM E den w) ⟨w, rfl⟩; rwa [dn_mapW rfl] at this⟩⟩
 
-/-- The structural kinds over element types. -/
-theorem kinds (ef : EF nd E V den tl K) : Kinds (K + 2) (TField E) (LF E) (MField E) (ValT E den) (ValLN E den tl)
-    (ValMN E den) := ⟨tupleKind ef, listKind ef, mapKind ef⟩
-
 theorem KindOk.mono {K K' : Nat} {name : String} {F : Term → Prop} {Val : (Term → Bool) → Prop}
     (k : KindOk K name F Val) (le : K ≤ K') : KindOk K' name F Val where
   resp := k.resp
@@ -87,6 +83,10 @@ theorem KindOk.mono {K K' : Nat} {name : String} {F : Term → Prop} {Val : (Ter
   opt_inter := fun {_ _} S {_} fx fy hm => k.opt_inter S fx fy (by omega)
   opt_diff := fun {_ _} S {_} fx fy hm => k.opt_diff S fx fy (by omega)
   empty := fun S fx => let ⟨b, run, h⟩ := k.empty S fx; ⟨b, fun m hm => run m (by omega), h⟩
+
+/-- The structural kinds over element types. -/
+theorem kinds (ef : EF nd E V den tl K) : Kinds (K + 4) (TField E) (LF E) (MField E) (ValT E den) (ValLN E den tl)
+    (ValMN E den) := ⟨(tupleKind ef).mono (by omega), (listKind ef).mono (by omega), mapKind ef⟩
 
 theorem Kinds.mono {K K' : Nat} {TF LF MF : Term → Prop} {TV LV MV : (Term → Bool) → Prop}
     (ks : Kinds K TF LF MF TV LV MV) (le : K ≤ K') : Kinds K' TF LF MF TV LV MV :=

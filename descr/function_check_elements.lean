@@ -22,6 +22,17 @@ theorem EF.congr (ef : EF nd E V den tl K) {N : Nat} : DenCongr (EB E N) den := 
   funext v
   exact propext ⟨fun d => ef.resp ha'.1 ha.1 (Lynx.Term.compare_eq_symm e) d, fun d => ef.resp ha.1 ha'.1 e d⟩
 
+/-- Emptiness of element types below a height, with no seen set, is exact. -/
+theorem EF.empty0 (ef : EF nd E V den tl K) {H : Nat} {a : Term} (ha : EB E H a) {m : Nat} (hm : K ≤ m) :
+    Elixir.Module.Types.Descr.«empty_seen?/2» (D m) a (.map []) = .ok (boolAtom (isEmpty den a)) := by
+  obtain ⟨b, run, ex⟩ := ef.empty [] ha.1
+  rw [run m hm]
+  congr 2
+  cases b
+  · symm; exact Bool.eq_false_iff.mpr fun h => by
+      have := (ex H ha.2 (safeN_nil H)).mpr ((isEmpty_iff den a).mp h); cases this
+  · symm; exact (isEmpty_iff den a).mpr ((ex H ha.2 (safeN_nil H)).mp rfl)
+
 /-- Element types below the height `H` are element types of the function checks under seen sets above them, given
 complete subtyping. -/
 theorem felem (ef : EF nd E V den tl K)
@@ -40,6 +51,8 @@ theorem felem (ef : EF nd E V den tl K)
           have := (ex H ha.2 hS).mpr ((isEmpty_iff den a).mp h); cases this
       · symm; exact (isEmpty_iff den a).mpr ((ex H ha.2 hS).mp rfl)
     congr := ef.congr }
+  empty0 := fun ha m hm => ef.empty0 ha hm
+  empty1 := fun ha m hm => by rw [empty1_static (ef.static ha.1)]; exact ef.empty0 ha hm
   union := fun ha hb => let ⟨c, hc, run, sem, h⟩ := ef.union ha.1 hb.1; ⟨c, ⟨hc, h H ha.2 hb.2⟩, run, sem⟩
   neg := fun {a} ha => by
     rcases ef.static ha.1 with rfl | ⟨X, rfl, -⟩ | ⟨r, st, g, rfl⟩
@@ -241,22 +254,22 @@ theorem fdom (ef : EF nd E V den tl K) {H : Nat} (one : 1 ≤ H) {S : List (Term
   · obtain ⟨c, tc, run⟩ := dm.union ha.1 hb.1
     obtain ⟨-, A, rfl, sA, lA⟩ := ha
     obtain ⟨-, B, rfl, sB, lB⟩ := hb
-    obtain ⟨U, run', sU, sem, le⟩ := descr_union (kinds ef) (fcOf K) (m := K + 5) (by omega) sA sB
-    rw [run (K + 6) (by omega)] at run'; cases run'
+    obtain ⟨U, run', sU, sem, le⟩ := descr_union (kinds ef) (fcOf (K + 2)) (m := K + 7) (by omega) sA sB
+    rw [run (K + 8) (by omega)] at run'; cases run'
     refine ⟨_, ⟨tc, U, rfl, sU, by have := le trivial; omega⟩, fun m hm => run m (by omega), fun x => ?_⟩
     rw [sem2 (· || ·) sem x, ddenM, ddenM, Bool.or_eq_true]
   · obtain ⟨c, tc, run⟩ := dm.inter ha.1 hb.1
     obtain ⟨-, A, rfl, sA, lA⟩ := ha
     obtain ⟨-, B, rfl, sB, lB⟩ := hb
-    obtain ⟨U, run', sU, sem, le⟩ := descr_inter (kinds ef) (fcOf K) (m := K + 5) (by omega) sA sB
-    rw [run (K + 6) (by omega)] at run'; cases run'
+    obtain ⟨U, run', sU, sem, le⟩ := descr_inter (kinds ef) (fcOf (K + 2)) (m := K + 7) (by omega) sA sB
+    rw [run (K + 8) (by omega)] at run'; cases run'
     refine ⟨_, ⟨tc, U, rfl, sU, by have := le trivial; omega⟩, fun m hm => run m (by omega), fun x => ?_⟩
     rw [sem2 (· && ·) sem x, ddenM, ddenM, Bool.and_eq_true]
   · obtain ⟨c, tc, run⟩ := dm.diff ha.1 hb.1
     obtain ⟨-, A, rfl, sA, lA⟩ := ha
     obtain ⟨-, B, rfl, sB, lB⟩ := hb
-    obtain ⟨U, run', sU, sem, le⟩ := descr_diff (kinds ef) (fcOf K) (m := K + 4) (by omega) sA sB
-    rw [run (K + 6) (by omega)] at run'; cases run'
+    obtain ⟨U, run', sU, sem, le⟩ := descr_diff (kinds ef) (fcOf (K + 2)) (m := K + 6) (by omega) sA sB
+    rw [run (K + 8) (by omega)] at run'; cases run'
     refine ⟨_, ⟨tc, U, rfl, sU, by have := le trivial; omega⟩, fun m hm => run m (by omega), fun x => ?_⟩
     rw [sem2 (fun a b => a && !b) sem x, ddenM, ddenM]
     simp
@@ -281,6 +294,8 @@ theorem FunElem.mono {E : Term → Prop} {den : Term → V → Prop} {K K' : Nat
   disj := fun ha hb => let ⟨s, run, sem⟩ := fe.disj ha hb; ⟨s, fun m hm => run m (by omega), sem⟩
   term := fe.term
   none := fe.none
+  empty0 := fun ha m hm => fe.empty0 ha m (by omega)
+  empty1 := fun ha m hm => fe.empty1 ha m (by omega)
 
 theorem EF.congrE (ef : EF nd E V den tl K) : DenCongr E den := by
   intro a a' ha ha' e
