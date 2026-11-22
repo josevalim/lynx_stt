@@ -45,6 +45,10 @@
 #     domain, and at the keys of each kind the union of the domain pairs naming it, or
 #     else any value for open maps and none for closed ones, all of them least. Closed
 #     maps are open maps, and the empty map is the closed map of no pairs.
+#   * Functions: applying a static function type to non-empty static arguments succeeds exactly when the type is
+#     a non-empty type of functions in the arrow from the arguments to term(), and then the function type is in the
+#     top function type of their arity and in the arrow from the arguments to the result. Function types that are
+#     empty, or that hold other values than functions, give :badfun.
 #
 # The negation, De Morgan, and bounds laws hold for both the plain operations and the
 # optimized ones the type checker uses.
@@ -63,7 +67,8 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (bdf242cc7), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (e27de21f1, with fun_bdd_to_pos_dnf/2 applying lines without positive arrows
+# as the top arrow of their arity), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -336,6 +341,15 @@ defmodule STTDescrProofsTest do
 
   def arrows_gradual?(descr, nested), do: arrows_static?(descr, nested)
 
+  # Arguments of the laws on function application: lists of static types.
+  def arguments?([arg | args], nested), do: arrows_static?(arg, nested) and arguments?(args, nested)
+  def arguments?([], _nested), do: true
+  def arguments?(_args, _nested), do: false
+
+  # Arguments none of which is empty.
+  def inhabited?([arg | args]), do: not Descr.empty?(arg) and inhabited?(args)
+  def inhabited?([]), do: true
+
   defp keyed?(:term, _depth), do: true
   defp keyed?({_, _, _}, _depth), do: true
   defp keyed?(_descr, 0), do: true
@@ -544,6 +558,9 @@ defmodule STTDescrProofsTest do
     # Tuples are only padded to longer sizes, which never raises.
     cutoff &ArgumentError.exception/1
 
+    # The laws do not inspect the domains that failed applications report.
+    cutoff &Descr.domain_to_flat_args/2
+
     # Descr only uses version 2 sets, which are maps.
     cutoff &:sets.get_slot/2
     cutoff &:sets.get_bucket/2
@@ -573,6 +590,8 @@ defmodule STTDescrProofsTest do
     termination_suffix &Descr.iterator_empty_difference_subtype?/3, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.fun_line_empty?/3, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.dynamic/1, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.fun_normalize/2, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.fun_apply/3, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.tuple_fetch/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.map_fetch_key/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.map_get/2, ~LEAN"partial_fixpoint", recur: true
@@ -583,6 +602,7 @@ defmodule STTDescrProofsTest do
     termination_suffix &:lists.ukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &:lists.rukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &:lists.umergel/3, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &:lists.mergel/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &:lists.ukeymergel/3, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.fields_put_all_new/3, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.tuple_elim_sizes/4, ~LEAN"partial_fixpoint", recur: true
@@ -831,6 +851,10 @@ defmodule STTDescrProofsTest do
     postlude "descr/map_constructor_values.lean"
     postlude "descr/map_constructor_run.lean"
     postlude "descr/open_map_atom_key.lean"
+
+    # Static function application normalizes the function into the positive arrows of its non-empty lines,
+    # checks the arguments against their domains, and applies the arrows to the arguments.
+    postlude "descr/function_apply.lean"
 
     law intersection_none_empty(descr),
       requires: descr?(descr),
@@ -3340,6 +3364,156 @@ defmodule STTDescrProofsTest do
       obtain ⟨⟨-, r1⟩, r2⟩ := r
       simp only [Lynx.apply_eq]
       exact Nest.ctor_kind_least_core hs hfs mk (Nest.ne_atom_ok hn) ev (by omega) r1 r2 _ _
+      """
+
+    law fun_apply_subtype(fun, args, depth, node),
+      requires:
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.fun_apply(fun, args)),
+      expects: Descr.subtype?(fun, Descr.fun(args, elem(Descr.fun_apply(fun, args), 1))),
+      proof: ~LEAN"""
+      -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
+      -- `d + 1` on, and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨hf, ha⟩, -⟩, hok⟩ := requires
+      have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hf
+      obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
+      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) with
+        | error err => rw [h] at hok; cases hok
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at hok
+          split at hok
+          · exact ⟨_, rfl⟩
+          · simp at hok
+      obtain ⟨⟨F, rF, sub⟩, top⟩ := Nest.apply_ok_sub (Nest.arrows_static_ok hf)
+        (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) run
+      simp only [Lynx.apply_eq, «fun_apply_subtype:ensures/4»]
+      simp [run, Erlang.erlang.«element/2», rF, sub, Lynx.Term.true]
+      """
+
+    law fun_apply_arity(fun, args, depth, node),
+      requires:
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.fun_apply(fun, args)),
+      expects: Descr.subtype?(fun, Descr.fun(length(args))),
+      proof: ~LEAN"""
+      -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
+      -- `d + 1` on, and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_arity:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_arity:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨hf, ha⟩, -⟩, hok⟩ := requires
+      have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hf
+      obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
+      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) with
+        | error err => rw [h] at hok; cases hok
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at hok
+          split at hok
+          · exact ⟨_, rfl⟩
+          · simp at hok
+      obtain ⟨⟨F, rF, sub⟩, top⟩ := Nest.apply_ok_sub (Nest.arrows_static_ok hf)
+        (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) run
+      simp only [Lynx.apply_eq, «fun_apply_arity:ensures/4»]
+      simp [length_list, fun_arity_run, top, Lynx.Term.true]
+      """
+
+    law fun_apply_domain(fun, args, depth, node),
+      requires:
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+          inhabited?(args) and not Descr.empty?(fun) and Descr.subtype?(fun, Descr.fun(args, Descr.term())),
+      expects: match?({:ok, _}, Descr.fun_apply(fun, args)),
+      proof: ~LEAN"""
+      -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
+      -- `d + 1` on, and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_domain:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_domain:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨hf, ha⟩, -⟩, inh⟩, ne⟩, sub⟩ := requires
+      have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hf
+      obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
+      obtain ⟨r, run⟩ := Nest.apply_domain_law (Nest.arrows_static_ok hf) (fun a ma => Nest.arrows_static_ok (hl a ma))
+        (m := depth) (by rw [Nest.level_K]; omega) inh ne sub
+      simp only [Lynx.apply_eq, «fun_apply_domain:ensures/4»]
+      simp [run, Lynx.Term.true]
+      """
+
+    law fun_apply_badfun(fun, args, depth, node),
+      requires:
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+          inhabited?(args) and (Descr.empty?(fun) or not Descr.subtype?(fun, Descr.fun())),
+      expects: Descr.fun_apply(fun, args) == :badfun,
+      proof: ~LEAN"""
+      -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
+      -- `d + 1` on, and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨hf, ha⟩, -⟩, inh⟩, bad⟩ := requires
+      have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hf
+      obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
+      have run := Nest.apply_badfun_law (Nest.arrows_static_ok hf) (fun a ma => Nest.arrows_static_ok (hl a ma))
+        (m := depth) (by rw [Nest.level_K]; omega) inh bad
+      simp only [Lynx.apply_eq, «fun_apply_badfun:ensures/4»]
+      simp [run, Erlang.erlang.«==/2», Lynx.Term.true]
       """
   end
 end
