@@ -67,8 +67,7 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (e27de21f1, with fun_bdd_to_pos_dnf/2 applying lines without positive arrows
-# as the top arrow of their arity), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (55940ab25), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -349,6 +348,39 @@ defmodule STTDescrProofsTest do
   # Arguments none of which is empty.
   def inhabited?([arg | args]), do: not Descr.empty?(arg) and inhabited?(args)
   def inhabited?([]), do: true
+
+  # Arguments of the gradual laws on function application: lists of gradual types.
+  def gradual_arguments?([arg | args], nested), do: arrows_gradual?(arg, nested) and gradual_arguments?(args, nested)
+  def gradual_arguments?([], _nested), do: true
+  def gradual_arguments?(_args, _nested), do: false
+
+  # A gradual type at least as precise as another: the other's lower bound is in its own, and its upper bound in
+  # the other's.
+  def precise?(left, right),
+    do:
+      Descr.subtype?(Descr.lower_bound(right), Descr.lower_bound(left)) and
+        Descr.subtype?(Descr.upper_bound(left), Descr.upper_bound(right))
+
+  def all_precise?([left | lefts], [right | rights]), do: precise?(left, right) and all_precise?(lefts, rights)
+  def all_precise?([], []), do: true
+  def all_precise?(_lefts, _rights), do: false
+
+  # A static type between the bounds of a gradual type.
+  def materializes?(static, gradual),
+    do: Descr.subtype?(Descr.lower_bound(gradual), static) and Descr.subtype?(static, Descr.upper_bound(gradual))
+
+  def all_materialize?([static | statics], [gradual | graduals]),
+    do: materializes?(static, gradual) and all_materialize?(statics, graduals)
+
+  def all_materialize?([], []), do: true
+  def all_materialize?(_statics, _graduals), do: false
+
+  # Arguments whose upper bounds are in the upper bounds of others.
+  def uppers_in?([left | lefts], [right | rights]),
+    do: Descr.subtype?(Descr.upper_bound(left), Descr.upper_bound(right)) and uppers_in?(lefts, rights)
+
+  def uppers_in?([], []), do: true
+  def uppers_in?(_lefts, _rights), do: false
 
   defp keyed?(:term, _depth), do: true
   defp keyed?({_, _, _}, _depth), do: true
@@ -855,6 +887,10 @@ defmodule STTDescrProofsTest do
     # Static function application normalizes the function into the positive arrows of its non-empty lines,
     # checks the arguments against their domains, and applies the arrows to the arguments.
     postlude "descr/function_apply.lean"
+
+    # Gradual function application unites the application of the static arrows to the lower bounds of the arguments
+    # with the dynamic application of the dynamic arrows to their upper bounds.
+    postlude "descr/function_apply_gradual.lean"
 
     law intersection_none_empty(descr),
       requires: descr?(descr),
@@ -3366,17 +3402,17 @@ defmodule STTDescrProofsTest do
       exact Nest.ctor_kind_least_core hs hfs mk (Nest.ne_atom_ok hn) ev (by omega) r1 r2 _ _
       """
 
-    law fun_apply_subtype(fun, args, depth, node),
+    law fun_apply_subtype(fun, args, static?, depth, node),
       requires:
         arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
-          match?({:ok, _}, Descr.fun_apply(fun, args)),
-      expects: Descr.subtype?(fun, Descr.fun(args, elem(Descr.fun_apply(fun, args), 1))),
+          match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
+      expects: Descr.subtype?(fun, Descr.fun(args, elem(Descr.fun_apply(fun, args, static?), 1))),
       proof: ~LEAN"""
       -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
       -- `d + 1` on, and the precondition from its own bound.
       obtain ⟨bound, requires⟩ := requires
       have checked := requires bound (Nat.le_refl _)
-      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/4», Lynx.Term.true] at checked
+      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/5», Lynx.Term.true] at checked
       obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
         cases h : Erlang.erlang.«+/2» depth (.integer 1) with
         | error err => rw [h] at checked; cases checked
@@ -3387,15 +3423,15 @@ defmodule STTDescrProofsTest do
       refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
       obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
       have requires := requires depth hb
-      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+      simp only [Lynx.apply_eq, «fun_apply_subtype:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
         Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
       obtain ⟨⟨⟨hf, ha⟩, -⟩, hok⟩ := requires
       have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
         simpa using hf
       obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
-      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) =
+      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» =
           .ok (.tuple #[.atom "ok", r]) := by
-        cases h : Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) with
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» with
         | error err => rw [h] at hok; cases hok
         | ok v =>
           rw [h, Lynx.Except.ok_bind] at hok
@@ -3404,21 +3440,21 @@ defmodule STTDescrProofsTest do
           · simp at hok
       obtain ⟨⟨F, rF, sub⟩, top⟩ := Nest.apply_ok_sub (Nest.arrows_static_ok hf)
         (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) run
-      simp only [Lynx.apply_eq, «fun_apply_subtype:ensures/4»]
+      simp only [Lynx.apply_eq, «fun_apply_subtype:ensures/5»]
       simp [run, Erlang.erlang.«element/2», rF, sub, Lynx.Term.true]
       """
 
-    law fun_apply_arity(fun, args, depth, node),
+    law fun_apply_arity(fun, args, static?, depth, node),
       requires:
         arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
-          match?({:ok, _}, Descr.fun_apply(fun, args)),
+          match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
       expects: Descr.subtype?(fun, Descr.fun(length(args))),
       proof: ~LEAN"""
       -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
       -- `d + 1` on, and the precondition from its own bound.
       obtain ⟨bound, requires⟩ := requires
       have checked := requires bound (Nat.le_refl _)
-      simp only [Lynx.apply_eq, «fun_apply_arity:requires/4», Lynx.Term.true] at checked
+      simp only [Lynx.apply_eq, «fun_apply_arity:requires/5», Lynx.Term.true] at checked
       obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
         cases h : Erlang.erlang.«+/2» depth (.integer 1) with
         | error err => rw [h] at checked; cases checked
@@ -3429,15 +3465,15 @@ defmodule STTDescrProofsTest do
       refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
       obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
       have requires := requires depth hb
-      simp only [Lynx.apply_eq, «fun_apply_arity:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+      simp only [Lynx.apply_eq, «fun_apply_arity:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
         Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
       obtain ⟨⟨⟨hf, ha⟩, -⟩, hok⟩ := requires
       have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
         simpa using hf
       obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
-      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) =
+      obtain ⟨r, run⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» =
           .ok (.tuple #[.atom "ok", r]) := by
-        cases h : Elixir.Module.Types.Descr.«fun_apply/2» (D depth) «fun» (Lynx.Term.list l) with
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» with
         | error err => rw [h] at hok; cases hok
         | ok v =>
           rw [h, Lynx.Except.ok_bind] at hok
@@ -3446,21 +3482,21 @@ defmodule STTDescrProofsTest do
           · simp at hok
       obtain ⟨⟨F, rF, sub⟩, top⟩ := Nest.apply_ok_sub (Nest.arrows_static_ok hf)
         (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) run
-      simp only [Lynx.apply_eq, «fun_apply_arity:ensures/4»]
+      simp only [Lynx.apply_eq, «fun_apply_arity:ensures/5»]
       simp [length_list, fun_arity_run, top, Lynx.Term.true]
       """
 
-    law fun_apply_domain(fun, args, depth, node),
+    law fun_apply_domain(fun, args, static?, depth, node),
       requires:
         arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
           inhabited?(args) and not Descr.empty?(fun) and Descr.subtype?(fun, Descr.fun(args, Descr.term())),
-      expects: match?({:ok, _}, Descr.fun_apply(fun, args)),
+      expects: match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
       proof: ~LEAN"""
       -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
       -- `d + 1` on, and the precondition from its own bound.
       obtain ⟨bound, requires⟩ := requires
       have checked := requires bound (Nat.le_refl _)
-      simp only [Lynx.apply_eq, «fun_apply_domain:requires/4», Lynx.Term.true] at checked
+      simp only [Lynx.apply_eq, «fun_apply_domain:requires/5», Lynx.Term.true] at checked
       obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
         cases h : Erlang.erlang.«+/2» depth (.integer 1) with
         | error err => rw [h] at checked; cases checked
@@ -3471,29 +3507,29 @@ defmodule STTDescrProofsTest do
       refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
       obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
       have requires := requires depth hb
-      simp only [Lynx.apply_eq, «fun_apply_domain:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+      simp only [Lynx.apply_eq, «fun_apply_domain:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
         Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
       obtain ⟨⟨⟨⟨⟨hf, ha⟩, -⟩, inh⟩, ne⟩, sub⟩ := requires
       have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
         simpa using hf
       obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
-      obtain ⟨r, run⟩ := Nest.apply_domain_law (Nest.arrows_static_ok hf) (fun a ma => Nest.arrows_static_ok (hl a ma))
-        (m := depth) (by rw [Nest.level_K]; omega) inh ne sub
-      simp only [Lynx.apply_eq, «fun_apply_domain:ensures/4»]
+      obtain ⟨r, run⟩ := Nest.apply_domain_law (s := «static?») (Nest.arrows_static_ok hf)
+        (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) inh ne sub
+      simp only [Lynx.apply_eq, «fun_apply_domain:ensures/5»]
       simp [run, Lynx.Term.true]
       """
 
-    law fun_apply_badfun(fun, args, depth, node),
+    law fun_apply_badfun(fun, args, static?, depth, node),
       requires:
         arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
           inhabited?(args) and (Descr.empty?(fun) or not Descr.subtype?(fun, Descr.fun())),
-      expects: Descr.fun_apply(fun, args) == :badfun,
+      expects: Descr.fun_apply(fun, args, static?) == :badfun,
       proof: ~LEAN"""
       -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
       -- `d + 1` on, and the precondition from its own bound.
       obtain ⟨bound, requires⟩ := requires
       have checked := requires bound (Nat.le_refl _)
-      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/4», Lynx.Term.true] at checked
+      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/5», Lynx.Term.true] at checked
       obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
         cases h : Erlang.erlang.«+/2» depth (.integer 1) with
         | error err => rw [h] at checked; cases checked
@@ -3504,16 +3540,334 @@ defmodule STTDescrProofsTest do
       refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
       obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
       have requires := requires depth hb
-      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+      simp only [Lynx.apply_eq, «fun_apply_badfun:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
         Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
       obtain ⟨⟨⟨⟨hf, ha⟩, -⟩, inh⟩, bad⟩ := requires
       have hf : «arrows_static?/2» «fun» (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
         simpa using hf
       obtain ⟨l, rfl, hl⟩ := Nest.arguments_ok ha
-      have run := Nest.apply_badfun_law (Nest.arrows_static_ok hf) (fun a ma => Nest.arrows_static_ok (hl a ma))
-        (m := depth) (by rw [Nest.level_K]; omega) inh bad
-      simp only [Lynx.apply_eq, «fun_apply_badfun:ensures/4»]
+      have run := Nest.apply_badfun_law (s := «static?») (Nest.arrows_static_ok hf)
+        (fun a ma => Nest.arrows_static_ok (hl a ma)) (m := depth) (by rw [Nest.level_K]; omega) inh bad
+      simp only [Lynx.apply_eq, «fun_apply_badfun:ensures/5»]
       simp [run, Erlang.erlang.«==/2», Lynx.Term.true]
+      """
+
+    law fun_apply_sound(fun, args, static?, g, ss, depth, node),
+      requires:
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and is_boolean(static?) and
+          arrows_static?(g, {depth + 1, node}) and arguments?(ss, {depth, node}) and depth?(depth) and
+          materializes?(g, fun) and all_materialize?(ss, args) and
+          match?({:ok, _}, Descr.fun_apply(fun, args, static?)) and match?({:ok, _}, Descr.fun_apply(g, ss, static?)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.fun_apply(g, ss, static?), 1),
+          Descr.upper_bound(elem(Descr.fun_apply(fun, args, static?), 1))
+        ),
+      proof: ~LEAN"""
+      -- Both bounds of the result for the materializations are in the image of the upper bounds of the arguments by
+      -- the upper bound of the function, which is the upper bound of the result.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_sound:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_sound:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hf, ha⟩, hs⟩, hg⟩, hss⟩, -⟩, mg⟩, mss⟩, ok₁⟩, ok₂⟩ := requires
+      have hs := Nest.boolean_mode hs
+      have hf := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := depth) (by rw [Nest.level_K]; omega)
+        (by simpa using hf)
+      have hg : «arrows_static?/2» g (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hg
+      have hg := Nest.arrows_static_ok hg
+      obtain ⟨l, rfl, hl⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ha
+      obtain ⟨sl, rfl, hsl⟩ := Nest.arguments_ok hss
+      have hsl : ∀ a ∈ sl, Nest.DE (Nest.level node d).E a := fun a ma => Nest.arrows_static_ok (hsl a ma)
+      obtain ⟨gg, -, ug⟩ := Nest.de_gd hg
+      have gsl : ∀ a ∈ sl, Nest.GD node d a := fun a ma => (Nest.de_gd (hsl a ma)).1
+      have mg := Nest.materializes_ok (m := depth) (by rw [Nest.level_K]; omega) hg hf mg
+      have mss := Nest.all_materialize_ok (m := depth) (by rw [Nest.level_K]; omega) hsl hl mss
+      have hm : (Nest.level node (d + 1)).K + 41 ≤ depth := by rw [Nest.level_K]; omega
+      obtain ⟨T₁, F₁⟩ := Nest.apply_law hf hl hs hm
+      obtain ⟨T₂, F₂⟩ := Nest.apply_law gg gsl hs hm
+      obtain ⟨r₁, run₁⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» with
+        | error err => rw [h] at ok₁; cases ok₁
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at ok₁
+          split at ok₁
+          · exact ⟨_, rfl⟩
+          · simp at ok₁
+      obtain ⟨r₂, run₂⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) g (Lynx.Term.list sl) «static?» =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) g (Lynx.Term.list sl) «static?» with
+        | error err => rw [h] at ok₂; cases ok₂
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at ok₂
+          split at ok₂
+          · exact ⟨_, rfl⟩
+          · simp at ok₂
+      have C₁ : Nest.AppC node d «fun» l := Classical.byContradiction fun nC => F₁ nC r₁ run₁
+      have C₂ : Nest.AppC node d g sl := Classical.byContradiction fun nC => F₂ nC r₂ run₂
+      obtain ⟨r₁', e₁, -, u₁, -, ub₁, -, d₁, U₁, -⟩ := T₁ C₁
+      obtain ⟨r₂', e₂, l₂, u₂, -, -, -, -, U₂, -, S₂, LU₂⟩ := T₂ C₂
+      rw [run₁] at e₁
+      rw [run₂] at e₂
+      obtain rfl : r₁ = r₁' := by simpa using e₁
+      obtain rfl : r₂ = r₂' := by simpa using e₂
+      have len := Nest.pairwise2_length mss
+      have up : Nest.SubN node d u₂ u₁ := fun v h => by
+        refine (U₁ v).mpr ?_
+        have h := (U₂ v).mp h
+        simp only [Nest.UpI] at h ⊢
+        rw [← len]
+        refine Nest.imgP_mono (fun g' vg h => ?_) (fun w hw => Nest.inDomR_sub (fun a ma => (gsl a ma).2.2)
+          (fun b mb => (hl b mb).2.2) (Nest.pairwise2_imp_mem (fun a ma b h => ?_) mss) hw) h
+        · rw [ug] at h
+          exact Nest.funT_mono hg hf.2.2 mg.2 vg h
+        · rw [(Nest.de_gd (hsl a ma)).2.2]; exact h.2
+      obtain ⟨gu, lu, uu⟩ := Nest.de_gd d₁
+      simp only [Lynx.apply_eq, «fun_apply_sound:ensures/7»]
+      simp [run₁, run₂, Erlang.erlang.«element/2», ub₁, S₂ u₁ gu, lu, uu,
+        Nest.bp_true.mpr (⟨fun v h => up v (LU₂ v h), up⟩ : Nest.SubN node d l₂ u₁ ∧ Nest.SubN node d u₂ u₁),
+        Lynx.Term.true]
+      """
+
+    law fun_apply_upper(fun, args, others, static?, depth, node),
+      requires:
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
+          gradual_arguments?(others, {depth, node}) and is_boolean(static?) and depth?(depth) and
+          uppers_in?(args, others) and match?({:ok, _}, Descr.fun_apply(fun, args, static?)) and
+          match?({:ok, _}, Descr.fun_apply(fun, others, static?)),
+      expects:
+        Descr.subtype?(
+          Descr.upper_bound(elem(Descr.fun_apply(fun, args, static?), 1)),
+          Descr.upper_bound(elem(Descr.fun_apply(fun, others, static?), 1))
+        ),
+      proof: ~LEAN"""
+      -- The upper bound of the result is the image of the upper bounds of the arguments by the upper bound of the
+      -- function, which grows with them.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_upper:requires/6», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_upper:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨hf, ha⟩, ho⟩, hs⟩, -⟩, hu⟩, ok₁⟩, ok₂⟩ := requires
+      have hs := Nest.boolean_mode hs
+      have hf := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := depth) (by rw [Nest.level_K]; omega)
+        (by simpa using hf)
+      obtain ⟨l, rfl, hl⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ha
+      obtain ⟨l', rfl, hl'⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ho
+      have pw := Nest.uppers_in_ok (m := depth) (by rw [Nest.level_K]; omega) hl hl' hu
+      have hm : (Nest.level node (d + 1)).K + 41 ≤ depth := by rw [Nest.level_K]; omega
+      obtain ⟨T₁, F₁⟩ := Nest.apply_law hf hl hs hm
+      obtain ⟨T₂, F₂⟩ := Nest.apply_law hf hl' hs hm
+      obtain ⟨r₁, run₁⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) «static?» with
+        | error err => rw [h] at ok₁; cases ok₁
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at ok₁
+          split at ok₁
+          · exact ⟨_, rfl⟩
+          · simp at ok₁
+      obtain ⟨r₂, run₂⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l') «static?» =
+          .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l') «static?» with
+        | error err => rw [h] at ok₂; cases ok₂
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at ok₂
+          split at ok₂
+          · exact ⟨_, rfl⟩
+          · simp at ok₂
+      have C₁ : Nest.AppC node d «fun» l := Classical.byContradiction fun nC => F₁ nC r₁ run₁
+      have C₂ : Nest.AppC node d «fun» l' := Classical.byContradiction fun nC => F₂ nC r₂ run₂
+      obtain ⟨r₁', e₁, -, u₁, -, ub₁, -, d₁, U₁, -⟩ := T₁ C₁
+      obtain ⟨r₂', e₂, -, u₂, -, ub₂, -, d₂, U₂, -⟩ := T₂ C₂
+      rw [run₁] at e₁
+      rw [run₂] at e₂
+      obtain rfl : r₁ = r₁' := by simpa using e₁
+      obtain rfl : r₂ = r₂' := by simpa using e₂
+      have len := Nest.pairwise2_length pw
+      have sub : Nest.SubN node d u₁ u₂ := fun v h => by
+        refine (U₂ v).mpr ?_
+        have h := (U₁ v).mp h
+        simp only [Nest.UpI] at h ⊢
+        rw [← len]
+        exact Nest.imgP_mono (fun g _ h => h)
+          (fun w hw => Nest.inDomR_sub (fun a ma => (hl a ma).2.2) (fun b mb => (hl' b mb).2.2) pw hw) h
+      simp only [Lynx.apply_eq, «fun_apply_upper:ensures/6»]
+      simp [run₁, run₂, Erlang.erlang.«element/2», ub₁, ub₂,
+        Nest.next_sub d₁ d₂ (m := depth) (by rw [Nest.level_K]; omega), Nest.bp_true.mpr sub, Lynx.Term.true]
+      """
+
+    law fun_apply_precise(fun, args, fun2, args2, depth, node),
+      requires:
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
+          arrows_gradual?(fun2, {depth + 1, node}) and gradual_arguments?(args2, {depth, node}) and depth?(depth) and
+          precise?(fun, fun2) and all_precise?(args, args2) and match?({:ok, _}, Descr.fun_apply(fun, args, false)),
+      expects:
+        (case Descr.fun_apply(fun2, args2, false) do
+           {:ok, result2} -> precise?(elem(Descr.fun_apply(fun, args, false), 1), result2)
+           _ -> false
+         end),
+      proof: ~LEAN"""
+      -- Less precise functions and arguments succeed too, and the bounds of their results are the images of their
+      -- bounds, which grow with them.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_precise:requires/6», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨hf, ha⟩, hf₂⟩, ha₂⟩, -⟩, pf⟩, pa⟩, ok₁⟩ := requires
+      have hf := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := depth) (by rw [Nest.level_K]; omega)
+        (by simpa using hf)
+      have hf₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := depth) (by rw [Nest.level_K]; omega)
+        (by simpa using hf₂)
+      obtain ⟨l, rfl, hl⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ha
+      obtain ⟨l₂, rfl, hl₂⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ha₂
+      have pf := Nest.precise_ok (m := depth) (by rw [Nest.level_K]; omega) hf hf₂ pf
+      have pa := Nest.all_precise_ok (m := depth) (by rw [Nest.level_K]; omega) hl hl₂ pa
+      have hm : (Nest.level node (d + 1)).K + 41 ≤ depth := by rw [Nest.level_K]; omega
+      obtain ⟨T₁, F₁⟩ := Nest.apply_law hf hl (s := .atom "false") (Or.inr rfl) hm
+      obtain ⟨T₂, -⟩ := Nest.apply_law hf₂ hl₂ (s := .atom "false") (Or.inr rfl) hm
+      obtain ⟨r₁, run₁⟩ : ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l)
+          (.atom "false") = .ok (.tuple #[.atom "ok", r]) := by
+        cases h : Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) (.atom "false") with
+        | error err => rw [h] at ok₁; cases ok₁
+        | ok v =>
+          rw [h, Lynx.Except.ok_bind] at ok₁
+          split at ok₁
+          · exact ⟨_, rfl⟩
+          · simp at ok₁
+      have C₁ : Nest.AppC node d «fun» l := Classical.byContradiction fun nC => F₁ nC r₁ run₁
+      have C₂ := Nest.appC_mono hf hf₂ pf hl hl₂ pa C₁
+      obtain ⟨r₁', e₁, lr₁, ur₁, lb₁, ub₁, dl₁, du₁, U₁, L₁, -⟩ := T₁ C₁
+      obtain ⟨r₂, e₂, lr₂, ur₂, lb₂, ub₂, dl₂, du₂, U₂, L₂, -⟩ := T₂ C₂
+      rw [run₁] at e₁
+      obtain rfl : r₁ = r₁' := by simpa using e₁
+      have len := Nest.pairwise2_length pa
+      have lo : Nest.SubN node d lr₂ lr₁ := fun v h => by
+        refine (L₁ rfl v).mpr ?_
+        have h := (L₂ rfl v).mp h
+        simp only [Nest.LoI] at h ⊢
+        rw [len]
+        exact Nest.imgP_mono (fun g vg h => Nest.funT_mono hf₂.2.1 hf.2.1 pf.1 vg h)
+          (fun w hw => Nest.inDomR_sub (fun a ma => (hl₂ a ma).2.1) (fun b mb => (hl b mb).2.1)
+            (Nest.pairwise2_swap (Nest.pairwise2_imp (fun _ _ h => h.1) pa)) hw) h
+      have up : Nest.SubN node d ur₁ ur₂ := fun v h => by
+        refine (U₂ v).mpr ?_
+        have h := (U₁ v).mp h
+        simp only [Nest.UpI] at h ⊢
+        rw [← len]
+        exact Nest.imgP_mono (fun g vg h => Nest.funT_mono hf.2.2 hf₂.2.2 pf.2 vg h)
+          (fun w hw => Nest.inDomR_sub (fun a ma => (hl a ma).2.2) (fun b mb => (hl₂ b mb).2.2)
+            (Nest.pairwise2_imp (fun _ _ h => h.2) pa) hw) h
+      have hmd : (Nest.level node d).K + 23 ≤ depth := by rw [Nest.level_K]; omega
+      simp only [Lynx.apply_eq, «fun_apply_precise:ensures/6»]
+      simp [run₁, e₂, Erlang.erlang.«element/2», «precise?/2», lb₁, lb₂, ub₁, ub₂, Nest.next_sub dl₂ dl₁ hmd,
+        Nest.next_sub du₁ du₂ hmd, Nest.bp_true.mpr lo, Nest.bp_true.mpr up, Lynx.Term.true]
+      """
+
+    law fun_apply_modes(fun, args, depth, node),
+      requires:
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and depth?(depth) and
+          (match?({:ok, _}, Descr.fun_apply(fun, args, true)) or match?({:ok, _}, Descr.fun_apply(fun, args, false))),
+      expects:
+        (case {Descr.fun_apply(fun, args, true), Descr.fun_apply(fun, args, false)} do
+           {{:ok, strict}, {:ok, gradual}} -> Descr.equal?(Descr.upper_bound(strict), Descr.upper_bound(gradual))
+           _ -> false
+         end),
+      proof: ~LEAN"""
+      -- Both modes succeed on the same condition, with the same upper bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «fun_apply_modes:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «fun_apply_modes:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨hf, ha⟩, -⟩, hok⟩ := requires
+      have hf := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := depth) (by rw [Nest.level_K]; omega)
+        (by simpa using hf)
+      obtain ⟨l, rfl, hl⟩ := Nest.gradual_arguments_ok (t := node) (n := d) (m := depth)
+        (by rw [Nest.level_K]; omega) ha
+      have hm : (Nest.level node (d + 1)).K + 41 ≤ depth := by rw [Nest.level_K]; omega
+      obtain ⟨T₁, F₁⟩ := Nest.apply_law hf hl (s := .atom "true") (Or.inl rfl) hm
+      obtain ⟨T₂, F₂⟩ := Nest.apply_law hf hl (s := .atom "false") (Or.inr rfl) hm
+      by_cases C : Nest.AppC node d «fun» l
+      · obtain ⟨r₁, e₁, -, u₁, -, ub₁, -, d₁, U₁, -⟩ := T₁ C
+        obtain ⟨r₂, e₂, -, u₂, -, ub₂, -, d₂, U₂, -⟩ := T₂ C
+        obtain ⟨g₁, lo₁, up₁⟩ := Nest.de_gd d₁
+        obtain ⟨g₂, lo₂, up₂⟩ := Nest.de_gd d₂
+        have eq := Nest.gd_eq_true g₁ g₂ (m := depth) (by rw [Nest.level_K]; omega)
+          (fun v => by rw [lo₁, lo₂]; exact (U₁ v).trans (U₂ v).symm)
+          (fun v => by rw [up₁, up₂]; exact (U₁ v).trans (U₂ v).symm)
+        simp only [Lynx.apply_eq, «fun_apply_modes:ensures/4»]
+        simp [e₁, e₂, ub₁, ub₂, eq, Lynx.Term.true]
+      · exfalso
+        have F₁ := F₁ C
+        have F₂ := F₂ C
+        generalize Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) (.atom "true") = x₁
+          at F₁ hok
+        generalize Elixir.Module.Types.Descr.«fun_apply/3» (D depth) «fun» (Lynx.Term.list l) (.atom "false") = x₂
+          at F₂ hok
+        cases x₁ with
+        | error err => simp at hok
+        | ok v₁ =>
+          simp only [Lynx.Except.ok_bind] at hok
+          split at hok
+          · exact F₁ _ rfl
+          · simp only [pure, Except.pure, Lynx.Except.ok_bind] at hok
+            cases x₂ with
+            | error err => simp at hok
+            | ok v₂ =>
+              simp only [Lynx.Except.ok_bind] at hok
+              split at hok
+              · exact F₂ _ rfl
+              · simp at hok
       """
   end
 end

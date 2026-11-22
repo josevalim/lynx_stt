@@ -3,6 +3,9 @@
 namespace Elixir.STTDescrProofsTest.Nest
 open Lynx Lynx.Term BddProofs
 
+-- The mode of applications, whether the module is static: static types apply alike in both modes.
+variable {s : Term}
+
 theorem filter_list (d : Dispatcher) (mo nm : String) (caps : Array Term) (res : Term → Bool) (l : List Term)
     (hf : ∀ x ∈ l, d.pure (.function mo nm 1 caps) #[x] = .ok (boolAtom (res x))) :
     Erlang.lists.«filter/2» d (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filter res)) := by
@@ -1296,6 +1299,50 @@ theorem normalize_both_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E 
 
 end
 
+section
+variable {V : Type} {E : Term → Prop} {den : Term → V → Prop}
+
+/-- A row with real arguments and a result is allowed by an arrow when the result is in its return whenever the
+arguments are in its domain. -/
+theorem allows_row (p : FunSem.Arrow V) (x : List V) (v : V) :
+    FunSem.Allows p (x.map some, some v) ↔ (FunSem.InDomR p.1 x → p.2 v) := by
+  simp only [FunSem.Allows, FunSem.inDom_real]
+  exact ⟨fun h hd => by obtain ⟨y, e, hy⟩ := h hd; cases e; exact hy, fun h hd => ⟨v, rfl, h hd⟩⟩
+
+/-- The image of the functions of a BDD of arrows of arity `n` on argument lists `I`: the results of their rows
+whose arguments are in `I`. -/
+def ImgB (E₀ : Term → Prop) (den : Term → V → Prop) (n : Nat) (b : Term) (I : List V → Prop) (v : V) : Prop :=
+  ∃ g : List (FunSem.Row V), (∀ r ∈ g, FunSem.ValidRow n r) ∧ eval (valF E₀ den g) b = Bool.true ∧
+    ∃ x, I x ∧ (x.map some, some v) ∈ g
+
+/-- Applying the lines `fun_normalize/2` keeps for a BDD gives its image: a function of a line can return any result
+the arrows of the line allow, by adding a row. -/
+theorem app_image {E₀ : Term → Prop} {n : Nat} {b : Term} {Q : List (List (Term × List Term × Term))}
+    (nQ : NormOk E E₀ den n b Q) {I : List V → Prop} (len : ∀ x, I x → x.length = n) (ne : ∃ x, I x) (v : V) :
+    (∃ q ∈ Q, FunSem.App I (fun _ => True) (semP den q) v) ↔ ImgB E₀ den n b I v := by
+  constructor
+  · rintro ⟨q, mq, app⟩
+    obtain ⟨x, hx, -, hall⟩ := (FunSem.app_iff _ I _ ne v).mp app
+    obtain ⟨N, -, lv, sat⟩ := nQ.live q mq
+    rw [lineEmpty_iff_none] at lv
+    obtain ⟨g, hg⟩ := Classical.not_forall.mp lv
+    obtain ⟨vg, hab⟩ := Classical.not_imp.mp hg
+    obtain ⟨allP, noN⟩ := Classical.not_not.mp hab
+    let row : FunSem.Row V := (x.map some, some v)
+    refine ⟨row :: g, fun r mr => ?_, sat _ (fun p mp r mr => ?_) (fun q' mq' h => noN q' mq' fun r mr =>
+      h r (List.mem_cons_of_mem _ mr)), x, hx, List.mem_cons_self⟩
+    · rcases List.mem_cons.mp mr with rfl | mr
+      · exact ⟨by simp [row, len x hx], fun h => by simp [row] at h⟩
+      · exact vg r mr
+    · rcases List.mem_cons.mp mr with rfl | mr
+      · exact (allows_row p x v).mpr (hall p mp)
+      · exact allP p mp r mr
+  · rintro ⟨g, vg, hg, x, hx, mr⟩
+    obtain ⟨q, mq, allP⟩ := nQ.cover g vg hg
+    exact ⟨q, mq, (FunSem.app_iff _ I _ ne v).mpr ⟨x, hx, trivial, fun p mp => (allows_row p x v).mp (allP p mp _ mr)⟩⟩
+
+end
+
 theorem normalize_both_ok {X : List (Term × Term)} (F : Term) (hF : mapLookup X (.atom "fun") = some F)
     (hneg : ∀ R, F ≠ .tuple #[.atom "negation", R]) {d : Dispatcher} {len res : Term}
     (h : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") len = .ok res)
@@ -1360,7 +1407,7 @@ theorem strategy_ok {X : List (Term × Term)} {args : List Term} {d : Dispatcher
     (sT : mapLookup T (.atom "dynamic") = none) (hdom : dom = .map Y) (sY : mapLookup Y (.atom "dynamic") = none)
     (hall : Erlang.lists.«all/2» d (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
       (Term.list args) = .ok (.atom "true"))
-    (run : Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) (.atom "false") =
+    (run : Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) s =
       .ok (.tuple #[.atom "ok", r])) :
     Elixir.Module.Types.Descr.«subtype?/2» d (.map T) (.map Y) = .ok (.atom "true") ∧
       Elixir.Module.Types.Descr.«fun_apply_static/2» d (Term.list args) a = .ok r := by
@@ -1376,7 +1423,7 @@ theorem strategy_ok {X : List (Term × Term)} {args : List Term} {d : Dispatcher
       unfold Elixir.Module.Types.Descr.«fun_apply_result/5» at run
       cases hf : Elixir.Module.Types.Descr.«fun_apply_static/2» d (Term.list args) a <;>
         simp_all [Erlang.erlang.«/=/2», Lynx.Except.andAlso]
-    · simp [Elixir.Module.Types.Descr.«domain_to_flat_args/2»] at run
+    · simp [Elixir.Module.Types.Descr.«domain_to_flat_args/2», Erlang.erlang.«/=/2», Lynx.Except.andAlso] at run
     · simp at run
 
 theorem strategy_needs {X : List (Term × Term)} {args : List Term} {d : Dispatcher} {r : Term}
@@ -1384,7 +1431,7 @@ theorem strategy_needs {X : List (Term × Term)} {args : List Term} {d : Dispatc
       .ok (.atom "false"))
     {nb : Term} (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok nb) (n2 : ∀ x, nb ≠ .tuple #[.atom "ok", x])
-    (run : Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) (.atom "false") =
+    (run : Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) s =
       .ok (.tuple #[.atom "ok", r])) :
     ∃ dom a₁ a₂, nb = .tuple #[.atom "ok", dom, a₁, a₂] := by
   unfold Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» at run
@@ -1400,7 +1447,7 @@ theorem strategy_fail {X : List (Term × Term)} {args : List Term} {d : Dispatch
       .ok (.atom "false"))
     {nb : Term} (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok nb) (n4 : ∀ a b c, nb ≠ .tuple #[.atom "ok", a, b, c]) :
-    Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) (.atom "false") =
+    Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) s =
       .ok nb := by
   unfold Elixir.Module.Types.Descr.«fun_apply_with_strategy/4»
   simp [hany, length_list, hnb]
@@ -1419,7 +1466,7 @@ theorem strategy_run {X : List (Term × Term)} {args : List Term} {d : Dispatche
       (Term.list args) = .ok (.atom "true"))
     (sub : Elixir.Module.Types.Descr.«subtype?/2» d (.map T) (.map Y) = .ok (.atom "true"))
     (app : Elixir.Module.Types.Descr.«fun_apply_static/2» d (Term.list args) a = .ok r) :
-    Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) (.atom "false") =
+    Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) s =
       .ok (.tuple #[.atom "ok", r]) := by
   unfold Elixir.Module.Types.Descr.«fun_apply_with_strategy/4»
   simp [hany, length_list, hnb, hT, hall, getMapKeys_single, sT, sY, sub]
@@ -1432,10 +1479,9 @@ variable {t : Term} {n : Nat}
 /-- `fun_apply/2` on a static map: `:badfun` unless it only holds functions. -/
 theorem apply_head {X : List (Term × Term)} (hd : mapLookup X (.atom "dynamic") = none) (args : Term) {m : Nat}
     {fo : Bool} (run : Elixir.Module.Types.Descr.«fun_only?/1» (D m) (.map X) = .ok (boolAtom fo)) :
-    Elixir.Module.Types.Descr.«fun_apply/2» (D m) (.map X) args =
-      if fo then Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» (D m) (.map X) (.atom "nil") args (.atom "false")
+    Elixir.Module.Types.Descr.«fun_apply/3» (D m) (.map X) args s =
+      if fo then Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» (D m) (.map X) (.atom "nil") args s
       else .ok (.atom "badfun") := by
-  unfold Elixir.Module.Types.Descr.«fun_apply/2»
   rw [Elixir.Module.Types.Descr.«fun_apply/3».eq_def]
   cases fo <;> simp [Erlang.maps.«take/2», hd, run, boolAtom]
 
@@ -1468,7 +1514,7 @@ its functions have the arity of the arguments, and the arrow from the arguments 
 theorem apply_ok_facts {H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
     (hlX : lh (.map X) < H) {args : List Term} (hargs : ∀ a ∈ args, ArgOk t n H a) {m : Nat}
     (hm : (level t n).K + 30 ≤ m) {r : Term}
-    (run : Elixir.Module.Types.Descr.«fun_apply/2» (D m) (.map X) (Term.list args) = .ok (.tuple #[.atom "ok", r])) :
+    (run : Elixir.Module.Types.Descr.«fun_apply/3» (D m) (.map X) (Term.list args) s = .ok (.tuple #[.atom "ok", r])) :
     (level t n).E r ∧ Static r ∧ (∀ v : PN t n, v.1.1 ≠ "fun" → ¬denD (.map X) v) ∧
       ∀ (a : Nat) g, (∀ row ∈ g, FunSem.ValidRow a row) → FunIn t n X a g →
         a = args.length ∧ ∀ row ∈ g, FunSem.Allows (args.map (level t n).den, (level t n).den r) row := by
@@ -1645,14 +1691,13 @@ theorem argOk_of {d H : Nat} {a : Term} (h : DE (level t d).E a) (hl : lh a < H)
 function of their arity. -/
 theorem apply_ok_sub {d : Nat} {fn : Term} {l : List Term} (hf : DE (level t (d + 1)).E fn)
     (hl : ∀ a ∈ l, DE (level t d).E a) {m : Nat} (hm : (level t (d + 1)).K + 30 ≤ m) {r : Term}
-    (run : Elixir.Module.Types.Descr.«fun_apply/2» (D m) fn (Term.list l) = .ok (.tuple #[.atom "ok", r])) :
+    (run : Elixir.Module.Types.Descr.«fun_apply/3» (D m) fn (Term.list l) s = .ok (.tuple #[.atom "ok", r])) :
     (∃ F, Elixir.Module.Types.Descr.«fun/2» (D m) (Term.list l) r = .ok F ∧
       Elixir.Module.Types.Descr.«subtype?/2» (D m) fn F = .ok (.atom "true")) ∧
     Elixir.Module.Types.Descr.«subtype?/2» (D m)
       fn (.map [(.atom "fun", .tuple #[.atom "union", .map [(.integer l.length, .atom "bdd_top")]])]) = .ok (.atom "true") := by
   rcases hf with rfl | ⟨X, rfl, sX⟩
-  · unfold Elixir.Module.Types.Descr.«fun_apply/2» at run
-    rw [Elixir.Module.Types.Descr.«fun_apply/3».eq_def] at run
+  · rw [Elixir.Module.Types.Descr.«fun_apply/3».eq_def] at run
     simp at run
   let H := max (lh (.map X)) ((l.map lh).foldr max 0) + 1
   have hX : DE (level t (d + 1)).E (.map X) := Or.inr ⟨X, rfl, sX⟩
@@ -1717,10 +1762,9 @@ theorem apply_badfun {n H : Nat} (one : 1 ≤ H) {fn : Term} (hX : DE (level t n
     {args : List Term} (hargs : ∀ a ∈ args, ArgOk t n H a) (inh : ∀ a ∈ args, ∃ v, (level t n).den a v)
     (bad : (∀ v : PN t n, ¬denD fn v) ∨ ¬∀ v : PN t n, denD fn v → v.1.1 = "fun") {m : Nat}
     (hm : (level t n).K + 30 ≤ m) :
-    Elixir.Module.Types.Descr.«fun_apply/2» (D m) fn (Term.list args) = .ok (.atom "badfun") := by
+    Elixir.Module.Types.Descr.«fun_apply/3» (D m) fn (Term.list args) s = .ok (.atom "badfun") := by
   rcases hX with rfl | ⟨X, rfl, sX⟩
-  · unfold Elixir.Module.Types.Descr.«fun_apply/2»
-    rw [Elixir.Module.Types.Descr.«fun_apply/3».eq_def]
+  · rw [Elixir.Module.Types.Descr.«fun_apply/3».eq_def]
     rfl
   have hX : DE (level t n).E (.map X) := Or.inr ⟨X, rfl, sX⟩
   have fe : FunElem (EB (level t n).E H) (level t n).den ((level t n).K + 6) (.map []) :=
@@ -1789,7 +1833,7 @@ theorem apply_badfun_law {d : Nat} {fn : Term} {l : List Term} (hf : DE (level t
         let f ← Elixir.Module.Types.Descr.«fun/0»
         let s ← Elixir.Module.Types.Descr.«subtype?/2» (D m) fn f
         Erlang.erlang.«not/1» s) true = .ok (.atom "true")) :
-    Elixir.Module.Types.Descr.«fun_apply/2» (D m) fn (Term.list l) = .ok (.atom "badfun") := by
+    Elixir.Module.Types.Descr.«fun_apply/3» (D m) fn (Term.list l) s = .ok (.atom "badfun") := by
   have hm' : (level t (d + 1)).K + 23 ≤ m := by omega
   have hd : (level t d).K + 23 ≤ m := by rw [level_K] at hm ⊢; omega
   have ne := inhabited_ok hd l hl inh
@@ -1818,7 +1862,7 @@ theorem apply_domain {n H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
     (arrow : ∀ (a : Nat) g, (∀ r ∈ g, FunSem.ValidRow a r) → FunIn t n X a g →
       a = args.length ∧ ∀ row ∈ g, FunSem.Allows (args.map (level t n).den, (level t n).den (.atom "term")) row)
     {m : Nat} (hm : (level t n).K + 30 ≤ m) :
-    ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D m) (.map X) (Term.list args) = .ok (.tuple #[.atom "ok", r]) := by
+    ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D m) (.map X) (Term.list args) s = .ok (.tuple #[.atom "ok", r]) := by
   obtain ⟨X', eX, sX⟩ : ∃ X', Term.map X = .map X' ∧ DescrC (FunA (level t n).E) (TField (level t n).E)
       (LF (level t n).E) (MField (level t n).E) X' := by
     rcases hX with h | h
@@ -1960,7 +2004,7 @@ theorem apply_domain_law {d : Nat} {fn : Term} {l : List Term} (hf : DE (level t
       let tm ← Elixir.Module.Types.Descr.«term/0»
       let F ← Elixir.Module.Types.Descr.«fun/2» (D m) (Term.list l) tm
       Elixir.Module.Types.Descr.«subtype?/2» (D m) fn F) = .ok (.atom "true")) :
-    ∃ r, Elixir.Module.Types.Descr.«fun_apply/2» (D m) fn (Term.list l) = .ok (.tuple #[.atom "ok", r]) := by
+    ∃ r, Elixir.Module.Types.Descr.«fun_apply/3» (D m) fn (Term.list l) s = .ok (.tuple #[.atom "ok", r]) := by
   have hm' : (level t (d + 1)).K + 23 ≤ m := by omega
   have hd : (level t d).K + 23 ≤ m := by rw [level_K] at hm ⊢; omega
   have inh := inhabited_ok hd l hl inh
