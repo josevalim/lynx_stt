@@ -10,13 +10,13 @@ theorem filter_list (d : Dispatcher) (mo nm : String) (caps : Array Term) (res :
     (hf : ∀ x ∈ l, d.pure (.function mo nm 1 caps) #[x] = .ok (boolAtom (res x))) :
     Erlang.lists.«filter/2» d (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filter res)) := by
   have loop : ∀ l' : List Term, (∀ x ∈ l', d.pure (.function mo nm 1 caps) #[x] = .ok (boolAtom (res x))) →
-      Erlang.lists.«lynx_local_79/2» d (Term.list l') (.function mo nm 1 caps) = .ok (Term.list (l'.filter res)) := by
+      Erlang.lists.«-filter/2-lc$^0/1-/2» d (Term.list l') (.function mo nm 1 caps) = .ok (Term.list (l'.filter res)) := by
     intro l'
     induction l' with
-    | nil => intro _; simp [Erlang.lists.«lynx_local_79/2», Term.list]
+    | nil => intro _; simp [Erlang.lists.«-filter/2-lc$^0/1-/2», Term.list]
     | cons x xs ih =>
       intro hf
-      rw [Erlang.lists.«lynx_local_79/2».eq_def]
+      rw [Erlang.lists.«-filter/2-lc$^0/1-/2».eq_def]
       have tail := ih fun y m => hf y (List.mem_cons_of_mem _ m)
       cases h : res x <;> simp [Term.list, hf x List.mem_cons_self, h, boolAtom] at tail ⊢ <;>
         simp [tail]

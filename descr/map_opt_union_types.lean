@@ -56,12 +56,13 @@ theorem denMF_leaf (ef : EF nd E V den tl K) {k : Int} {tag : Term} {l : List (T
 
 theorem map_union_field {x y : Term} (hx : MField E x) (hy : MField E y) :
     ∃ r, Elixir.Module.Types.Descr.«map_union/2» x y = .ok r ∧ MField E r ∧
+      (∀ ok : Term → Prop, OField ok x → OField ok y → OField ok r) ∧
       ∀ w, denMF E den r w = (denMF E den x w || denMF E den y w) := by
   rcases hx with ⟨k, rfl⟩ | wx
-  · exact ⟨_, by unfold Elixir.Module.Types.Descr.«map_union/2»; rfl, Or.inl ⟨k, rfl⟩,
+  · exact ⟨_, by unfold Elixir.Module.Types.Descr.«map_union/2»; rfl, Or.inl ⟨k, rfl⟩, fun _ ox _ => ox,
       fun w => by simp [denMF_top]⟩
   rcases hy with ⟨k, rfl⟩ | wy
-  · refine ⟨_, ?_, Or.inl ⟨k, rfl⟩, fun w => by simp [denMF_top]⟩
+  · refine ⟨_, ?_, Or.inl ⟨k, rfl⟩, fun _ _ oy => oy, fun w => by simp [denMF_top]⟩
     unfold Elixir.Module.Types.Descr.«map_union/2»
     split
     · exact (not_top_of_ok wx mlit_not _ rfl).elim
@@ -69,7 +70,12 @@ theorem map_union_field {x y : Term} (hx : MField E x) (hy : MField E y) :
     · rename_i h; exact (h _ rfl).elim
   obtain ⟨r, hr, okr, semr⟩ := union_ok wx wy
   refine ⟨r, by rw [map_union_bdd (not_top_of_ok wx mlit_not) (not_top_of_ok wy mlit_not), hr],
-    Or.inr (okr _ wx wy), fun w => ?_⟩
+    Or.inr (okr _ wx wy), fun ok ox oy => ?_, fun w => ?_⟩
+  · rcases ox with ⟨k, rfl⟩ | ox
+    · exact absurd rfl (not_top_of_ok wx mlit_not (.integer k))
+    rcases oy with ⟨k, rfl⟩ | oy
+    · exact absurd rfl (not_top_of_ok wy mlit_not (.integer k))
+    exact Or.inr (okr _ ox oy)
   rw [denMF_bdd (okr _ wx wy), denMF_bdd wx, denMF_bdd wy, semr _ (valM_resp w)]
 
 /-- Leaves of map types are literals, the top one included. -/
@@ -131,25 +137,35 @@ theorem atoms_guard {t₁ t₂ : Term} (g₁ : TagV E t₁) (g₂ : TagV E t₂)
       | (cases dl₂ <;> simp [Erlang.erlang.«is_atom/1», Lynx.Except.andAlso, fieldsTerm, Term.list] <;> done)
       | (cases dl₁ <;> cases dl₂ <;> simp [Erlang.erlang.«is_atom/1», Lynx.Except.andAlso, fieldsTerm, Term.list])
 
-/-- Optimized unions of map types hold the maps of either. -/
+/-- Literal predicates that hold of a literal storing a field into another at one of its atom keys, when they hold of
+the other. -/
+def MergeOk (E : Term → Prop) (ok : Term → Prop) : Prop :=
+  ∀ (k₁ k : Int) (tag : Term) (l₁ l : List (Term × Term)) (s : String),
+    ok (.tuple #[.integer k₁, tag, fieldsTerm l₁]) → mapLookup l₁ (.atom s) ≠ none →
+    (∀ s', s ≠ s' → mapLookup l (.atom s') = mapLookup l₁ (.atom s')) →
+    MLit E (.tuple #[.integer k, tag, fieldsTerm l]) → ok (.tuple #[.integer k, tag, fieldsTerm l])
+
+/-- Optimized unions of map types hold the maps of either, with literals of either or literals merging one into
+the other at one key. -/
 theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x y : Term} (hx : MField E x) (hy : MField E y)
     (S : List (Term × Term)) :
     ∃ r, Elixir.Module.Types.Descr.«opt_map_union/3» (D m) x y (.map S) = .ok r ∧ MField E r ∧
+      (∀ ok : Term → Prop, MergeOk E ok → OField ok x → OField ok y → OField ok r) ∧
       ∀ w, denMF E den r w = (denMF E den x w || denMF E den y w) := by
-  obtain ⟨r₀, run₀, f₀, sem₀⟩ := map_union_field hx hy
+  obtain ⟨r₀, run₀, f₀, k₀, sem₀⟩ := map_union_field hx hy
   by_cases leaves : (∃ a b c, x = .tuple #[a, b, c]) ∧ (∃ a b c, y = .tuple #[a, b, c])
   · obtain ⟨⟨a₁, b₁, c₁, rfl⟩, ⟨a₂, b₂, c₂, rfl⟩⟩ := leaves
     obtain ⟨k₁, l₁, rfl, rfl, g₁, s₁, el₁⟩ := leafE hx
     obtain ⟨k₂, l₂, rfl, rfl, g₂, s₂, el₂⟩ := leafE hy
     by_cases n₁ : b₁ = .atom "open" ∧ l₁ = []
     · obtain ⟨rfl, rfl⟩ := n₁
-      refine ⟨_, by unfold Elixir.Module.Types.Descr.«opt_map_union/3»; rfl, hx, fun w => ?_⟩
+      refine ⟨_, by unfold Elixir.Module.Types.Descr.«opt_map_union/3»; rfl, hx, fun _ _ ox _ => ox, fun w => ?_⟩
       have top := denMF_top (E := E) (den := den) (.integer k₁) w
       simp only [fieldsTerm, Term.list, List.map] at top ⊢
       rw [top]; rfl
     by_cases n₂ : b₂ = .atom "open" ∧ l₂ = []
     · obtain ⟨rfl, rfl⟩ := n₂
-      refine ⟨_, ?_, hy, fun w => ?_⟩
+      refine ⟨_, ?_, hy, fun _ _ _ oy => oy, fun w => ?_⟩
       · unfold Elixir.Module.Types.Descr.«opt_map_union/3»
         split
         · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -163,7 +179,7 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
     have w₂ : Bdd (MLit E) (.tuple #[.integer k₂, b₂, fieldsTerm l₂]) :=
       hy.resolve_left fun ⟨k, e⟩ => leaf_not_top n₂ e
     by_cases same : compareExact (fuel (.tuple #[.integer k₂, b₂, fieldsTerm l₂]) (.tuple #[.integer k₁, b₁, fieldsTerm l₁])) (.tuple #[.integer k₂, b₂, fieldsTerm l₂]) (.tuple #[.integer k₁, b₁, fieldsTerm l₁]) = .eq
-    · refine ⟨_, ?_, hx, fun w => by rw [denMF_exact hx hy same, Bool.or_self]⟩
+    · refine ⟨_, ?_, hx, fun _ _ ox _ => ox, fun w => by rw [denMF_exact hx hy same, Bool.or_self]⟩
       unfold Elixir.Module.Types.Descr.«opt_map_union/3»
       split
       · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -173,7 +189,7 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
       rfl
     rcases opt_bdd_seen_map S (.atom "map_union") (.tuple #[.integer k₁, b₁, fieldsTerm l₁])
       (.tuple #[.integer k₂, b₂, fieldsTerm l₂]) with seen | ⟨S', ok⟩
-    · refine ⟨r₀, ?_, f₀, sem₀⟩
+    · refine ⟨r₀, ?_, f₀, fun ok _ => k₀ ok, sem₀⟩
       unfold Elixir.Module.Types.Descr.«opt_map_union/3»
       split
       · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -185,7 +201,7 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
     have d₂ := fun w => denMF_leaf ef (k := k₂) s₂ g₂ w
     -- leaves with domains are unioned as BDDs
     by_cases atoms : ¬∃ t₁ t₂ : String, b₁ = .atom t₁ ∧ b₂ = .atom t₂
-    · refine ⟨r₀, ?_, f₀, sem₀⟩
+    · refine ⟨r₀, ?_, f₀, fun ok _ => k₀ ok, sem₀⟩
       rw [← run₀, map_union_bdd (not_top_of_ok w₁ mlit_not) (not_top_of_ok w₂ mlit_not)]
       unfold Elixir.Module.Types.Descr.«opt_map_union/3»
       split
@@ -199,9 +215,15 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
     replace g₂ := g₂.of_atom
     obtain ⟨st, run, strat⟩ := strat_val ef hm g₁ g₂ s₁ s₂ (fieldsV_elem s₁) (fieldsV_elem s₂) S'
     rcases strat with ⟨key, v₁, v₂, f, l, rfl, rf, rs, sl, el, sem⟩ | ⟨rfl, sub⟩ | ⟨rfl, sub⟩ | rfl
-    · obtain ⟨len, sem⟩ := sem
+    · obtain ⟨len, ⟨s, rfl, ls, look⟩, sem⟩ := sem
       obtain ⟨k, hk, key⟩ := leaf_new_key t₁ g₁ (l.map fun e => .tuple #[e.1, e.2])
-      refine ⟨.tuple #[.integer k, .atom t₁, fieldsTerm l], ?_, leaf_field (TagV.atom g₁) sl key, fun w => ?_⟩
+      have nt : ¬(Term.atom t₁ = .atom "open" ∧ l = []) := by
+        rintro ⟨-, rfl⟩
+        cases l₁ with
+        | nil => simp [mapLookup] at ls
+        | cons _ _ => simp at len
+      refine ⟨.tuple #[.integer k, .atom t₁, fieldsTerm l], ?_, leaf_field (TagV.atom g₁) sl key,
+        fun ok mok ox _ => ?_, fun w => ?_⟩
       · unfold Elixir.Module.Types.Descr.«opt_map_union/3»
         split
         · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -211,10 +233,15 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
         have hk' : Elixir.Module.Types.Descr.«bdd_leaf_new/2» (.atom t₁) (fieldsTerm l) =
             .ok (.tuple #[.integer k, .atom t₁, fieldsTerm l]) := hk
         simp [ok, run, Erlang.erlang.«is_atom/1», Lynx.Except.andAlso, rf, rs, hk']
+      · have ml : MLit E (.tuple #[.integer k, .atom t₁, fieldsTerm l]) :=
+          ⟨⟨k, .atom t₁, l, rfl, TagV.atom g₁, sl⟩, fun ⟨_, e⟩ => leaf_not_top nt e, key⟩
+        rcases ox with ⟨k', e⟩ | ox
+        · exact absurd e (leaf_not_top n₁)
+        exact Or.inr (Bdd.leaf_iff.mpr (mok k₁ k (.atom t₁) l₁ l s (Bdd.leaf_iff.mp ox) ls look ml))
       · apply Bool.eq_iff_iff.mpr
         rw [Bool.or_eq_true, denMF_leaf ef sl (TagV.atom g₁) w, d₁, d₂]
         exact sem w
-    · refine ⟨_, ?_, hy, fun w => ?_⟩
+    · refine ⟨_, ?_, hy, fun _ _ _ oy => oy, fun w => ?_⟩
       · unfold Elixir.Module.Types.Descr.«opt_map_union/3»
         split
         · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -225,7 +252,7 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
       · apply Bool.eq_iff_iff.mpr
         rw [Bool.or_eq_true, d₁, d₂]
         exact ⟨Or.inr, fun h => h.elim (sub w) id⟩
-    · refine ⟨_, ?_, hx, fun w => ?_⟩
+    · refine ⟨_, ?_, hx, fun _ _ ox _ => ox, fun w => ?_⟩
       · unfold Elixir.Module.Types.Descr.«opt_map_union/3»
         split
         · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -237,7 +264,7 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
         rw [Bool.or_eq_true, d₁, d₂]
         exact ⟨Or.inl, fun h => h.elim id (sub w)⟩
     · obtain ⟨r, hr, okr, semr⟩ := union_ok w₁ w₂
-      refine ⟨r, ?_, Or.inr (okr _ w₁ w₂), fun w => ?_⟩
+      refine ⟨r, ?_, Or.inr (okr _ w₁ w₂), fun ok _ ox oy => ?_, fun w => ?_⟩
       · unfold Elixir.Module.Types.Descr.«opt_map_union/3»
         split
         · rename_i heq; exact (leaf_not_top n₁ heq).elim
@@ -245,8 +272,13 @@ theorem opt_map_union_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {x 
         simp only [leaf_guard]
         rw [ite_eq_right (by simpa using same)]
         simp [ok, run, Erlang.erlang.«is_atom/1», Lynx.Except.andAlso, hr]
+      · rcases ox with ⟨k', e⟩ | ox
+        · exact absurd e (leaf_not_top n₁)
+        rcases oy with ⟨k', e⟩ | oy
+        · exact absurd e (leaf_not_top n₂)
+        exact Or.inr (okr _ ox oy)
       · rw [denMF_bdd (okr _ w₁ w₂), denMF_bdd w₁, denMF_bdd w₂, semr _ (valM_resp w)]
-  · refine ⟨r₀, ?_, f₀, sem₀⟩
+  · refine ⟨r₀, ?_, f₀, fun ok _ => k₀ ok, sem₀⟩
     rw [opt_map_union_fallback _ _ _ _ (by
       by_cases h : ∃ a b c, x = .tuple #[a, b, c]
       · exact Or.inr fun a b c e => leaves ⟨h, a, b, c, e⟩

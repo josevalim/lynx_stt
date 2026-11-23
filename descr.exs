@@ -30,7 +30,8 @@
 #   * Tuples: fetching an index of a static type of tuples gives the least type including
 #     the values of its tuples there, and :badindex exactly when one of them is too short.
 #     Inserting a non-empty type at an index and fetching that index gives the type back,
-#     and deleting that index gives the tuples back.
+#     and deleting that index gives the tuples back. Inserting is monotone in the tuples
+#     and the inserted type.
 #   * Maps: fetching a key of a static type of maps gives the least type including the
 #     values of its maps there, and :badkey exactly when one of them lacks the key.
 #     Getting the keys of given atoms and kinds of keys gives the least type including
@@ -45,6 +46,15 @@
 #     domain, and at the keys of each kind the union of the domain pairs naming it, or
 #     else any value for open maps and none for closed ones, all of them least. Closed
 #     maps are open maps, and the empty map is the closed map of no pairs.
+#     Putting a non-empty static type at an atom key gives :badmap exactly for types
+#     other than non-empty types of maps; fetching the key afterwards gives the type
+#     back, and other keys are unchanged. Putting is monotone in the maps and the type,
+#     keeps the maps whose key already holds such a value, and putting twice is putting
+#     once. Deleting the key after putting it is deleting it from the maps. Putting keys
+#     of any static key type should be monotone too, but fails, see map_put_domain_subtype.
+#     Forcing a static value at an atom key with map_update/5 puts the key, and returns the
+#     values its maps held there, as map_get/2 gets them. Keeping or rejecting missing keys
+#     instead gives a badkey error when some map lacks the key, and otherwise does the same.
 #   * Functions: applying a static function type to non-empty static arguments succeeds exactly when the type is
 #     a non-empty type of functions in the arrow from the arguments to term(), and then the function type is in the
 #     top function type of their arity and in the arrow from the arguments to the result. Function types that are
@@ -506,6 +516,10 @@ defmodule STTDescrProofsTest do
   def key_type([], kinds), do: kinds_type(kinds, Descr.none())
   def key_type(atoms, kinds), do: kinds_type(kinds, Descr.atom(atoms))
 
+  # The type map_get/2 found, or none() when no map holds such a key.
+  def got({:ok, type}), do: type
+  def got(_), do: Descr.none()
+
   defp kinds_type([kind | kinds], acc), do: kinds_type(kinds, Descr.bare_union(kind_type(kind), acc))
   defp kinds_type([], acc), do: acc
 
@@ -640,6 +654,10 @@ defmodule STTDescrProofsTest do
     termination_suffix &Descr.tuple_elim_sizes/4, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.tuple_delete_at/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.tuple_insert_at/3, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_union_all/1, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_update_static/5, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_update_unchecked/4, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_put/3, ~LEAN"partial_fixpoint", recur: true
     # Nested types are finite, so their specification terminates.
     termination_suffix &__MODULE__.nested?/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &__MODULE__.keyed?/2, ~LEAN"partial_fixpoint", recur: true
@@ -872,6 +890,9 @@ defmodule STTDescrProofsTest do
     postlude "descr/points_above.lean"
     postlude "descr/map_line_pairs.lean"
     postlude "descr/single_atom.lean"
+    # Putting a key into map types pops the key from the lines of their maps, unites the remaining maps, and stores
+    # the key into every literal of the result, and into the open map that ends the paths without a positive literal.
+    postlude "descr/map_put_key.lean"
     postlude "descr/map_swap_keys.lean"
     postlude "descr/optional_fields.lean"
     postlude "descr/map_dnf_nonempty.lean"
@@ -2347,6 +2368,856 @@ defmodule STTDescrProofsTest do
         simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», rom, sub, Erlang.erlang.«not/1», Lynx.Term.true]
       """
 
+    law map_put_fetch(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        match?({false, _}, Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), key)) and
+          Descr.equal?(elem(Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), key), 1), value),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_fetch:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_fetch:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- The value has values.
+      obtain ⟨y₀, hy₀⟩ : ∃ y, (Nest.level node (d + 1)).den value y := by
+        have ne := Nest.next_empty dv (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        rw [ne] at hne
+        obtain ⟨y, hy⟩ : ∃ v : Nest.PN node d, Nest.denD value v := by
+          cases h : Nest.bp (∀ v : Nest.PN node d, ¬Nest.denD value v)
+          · exact Classical.byContradiction fun none => by
+              have := Nest.bp_true.mpr fun v hv => none ⟨v, hv⟩
+              rw [h] at this; cases this
+          · rw [h] at hne; simp [Erlang.erlang.«not/1»] at hne
+        exact ⟨y, (Nest.denN_of dv.notT).mpr hy⟩
+      -- The put type holds the maps of the type with the key set to a value of the value type.
+      obtain ⟨w₀, hw₀⟩ := onlyX.2
+      have inY : ∀ y, (Nest.level node (d + 1)).den value y → Nest.MT node (d + 1) Y (Nest.setK a (some y) w₀) := by
+        intro y hy
+        refine (semY _).mpr ⟨⟨y, by simp [Nest.setK], hy⟩, w₀ (.atom a), ?_⟩
+        have e : Nest.setK a (w₀ (.atom a)) (Nest.setK a (some y) w₀) = w₀ := by
+          funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+        rw [e]; exact hw₀
+      obtain ⟨res', fetch, ⟨rfl, nonly⟩ | ⟨rfl, -, w, hw, wa⟩ | ⟨e, rfl, he, -, s₁, s₂⟩⟩ :=
+        Nest.fetch_map (t := node) (n := d + 1) dY a hm
+      · exact absurd ⟨onlyY, _, inY y₀ hy₀⟩ nonly
+      · obtain ⟨⟨x, wx, -⟩, -⟩ := (semY w).mp hw
+        rw [wa] at wx; cases wx
+      have sem : ∀ y, (Nest.level node (d + 1)).den e y ↔ (Nest.level node (d + 1)).den value y := by
+        intro y
+        constructor
+        · intro hy
+          obtain ⟨w, hw, wa⟩ := s₂ y hy
+          obtain ⟨⟨x, wx, hx⟩, -⟩ := (semY w).mp hw
+          rw [wa] at wx; cases wx; exact hx
+        · intro hy
+          obtain ⟨x, wx, hx⟩ := s₁ _ (inY y hy)
+          simp [Nest.setK] at wx; subst wx; exact hx
+      simp only [Lynx.apply_eq, «map_put_fetch:ensures/5», run, Lynx.Except.ok_bind]
+      simp [Erlang.erlang.«element/2», fetch, Nest.elem_equal (Nest.level node (d + 1)).ef he del sem (m := δ + 100)
+        (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
+      """
+
+    law map_put_other(map, key, other, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and is_atom(other) and key != other and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        (Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), other) == :badkey) ==
+          (Descr.map_fetch_key(map, other) == :badkey) and
+          (Descr.map_fetch_key(map, other) == :badkey or
+             Descr.equal?(
+               elem(Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), other), 1),
+               elem(Descr.map_fetch_key(map, other), 1)
+             )),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_other:requires/6», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_other:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hi₂⟩, hne'⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨c, rfl⟩ : ∃ c : String, other = .atom c := by
+        cases other <;> simp [Erlang.erlang.«is_atom/1»] at hi₂
+        exact ⟨_, rfl⟩
+      have ac : a ≠ c := by
+        rintro rfl
+        simp [Erlang.erlang.«/=/2»] at hne'
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- The value has values.
+      obtain ⟨y₀, hy₀⟩ : ∃ y, (Nest.level node (d + 1)).den value y := by
+        have ne := Nest.next_empty dv (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        rw [ne] at hne
+        obtain ⟨y, hy⟩ : ∃ v : Nest.PN node d, Nest.denD value v := by
+          cases h : Nest.bp (∀ v : Nest.PN node d, ¬Nest.denD value v)
+          · exact Classical.byContradiction fun none => by
+              have := Nest.bp_true.mpr fun v hv => none ⟨v, hv⟩
+              rw [h] at this; cases this
+          · rw [h] at hne; simp [Erlang.erlang.«not/1»] at hne
+        exact ⟨y, (Nest.denN_of dv.notT).mpr hy⟩
+      have ka : (Nest.MKey.atom c) ≠ .atom a := fun h => ac (Nest.MKey.atom.inj h).symm
+      -- Maps of either type have a map of the other with the same value at the other key.
+      have toX : ∀ w, Nest.MT node (d + 1) Y w → ∃ w₀, Nest.MT node (d + 1) X w₀ ∧ w₀ (.atom c) = w (.atom c) := by
+        intro w hw
+        obtain ⟨-, o, ho⟩ := (semY w).mp hw
+        exact ⟨_, ho, by simp [Nest.setK, ka]⟩
+      have toY : ∀ w₀, Nest.MT node (d + 1) X w₀ → ∃ w, Nest.MT node (d + 1) Y w ∧ w (.atom c) = w₀ (.atom c) := by
+        intro w₀ hw₀
+        refine ⟨Nest.setK a (some y₀) w₀, (semY _).mpr ⟨⟨y₀, by simp [Nest.setK], hy₀⟩, w₀ (.atom a), ?_⟩, by
+          simp [Nest.setK, ka]⟩
+        have e : Nest.setK a (w₀ (.atom a)) (Nest.setK a (some y₀) w₀) = w₀ := by
+          funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+        rw [e]; exact hw₀
+      obtain ⟨w₀, hw₀⟩ := onlyX.2
+      obtain ⟨wY, hwY, -⟩ := toY w₀ hw₀
+      obtain ⟨rX, fX, ⟨rfl, nX⟩ | ⟨rfl, -, u, hu, ua⟩ | ⟨eX, rfl, heX, -, sX₁, sX₂⟩⟩ :=
+        Nest.fetch_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) c hm
+      · exact absurd onlyX nX
+      · obtain ⟨rY, fY, ⟨rfl, nY⟩ | ⟨rfl, -, -, -, -⟩ | ⟨eY, rfl, -, -, sY₁, -⟩⟩ :=
+          Nest.fetch_map (t := node) (n := d + 1) dY c hm
+        · exact absurd ⟨onlyY, wY, hwY⟩ nY
+        · simp only [Lynx.apply_eq, «map_put_other:ensures/6», run, fX, Lynx.Except.ok_bind]
+          simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», fY, Lynx.Term.true]
+        · obtain ⟨w, hw, wc⟩ := toY u hu
+          obtain ⟨x, wx, -⟩ := sY₁ w hw
+          rw [wc, ua] at wx; cases wx
+      · obtain ⟨rY, fY, ⟨rfl, nY⟩ | ⟨rfl, -, u, hu, ua⟩ | ⟨eY, rfl, heY, -, sY₁, sY₂⟩⟩ :=
+          Nest.fetch_map (t := node) (n := d + 1) dY c hm
+        · exact absurd ⟨onlyY, wY, hwY⟩ nY
+        · obtain ⟨w, hw, wc⟩ := toX u hu
+          obtain ⟨x, wx, -⟩ := sX₁ w hw
+          rw [wc, ua] at wx; cases wx
+        have sem : ∀ y, (Nest.level node (d + 1)).den eY y ↔ (Nest.level node (d + 1)).den eX y := by
+          intro y
+          constructor
+          · intro hy
+            obtain ⟨w, hw, wc⟩ := sY₂ y hy
+            obtain ⟨w', hw', wc'⟩ := toX w hw
+            obtain ⟨x, wx, hx⟩ := sX₁ w' hw'
+            rw [wc', wc] at wx; cases wx; exact hx
+          · intro hy
+            obtain ⟨w, hw, wc⟩ := sX₂ y hy
+            obtain ⟨w', hw', wc'⟩ := toY w hw
+            obtain ⟨x, wx, hx⟩ := sY₁ w' hw'
+            rw [wc', wc] at wx; cases wx; exact hx
+        simp only [Lynx.apply_eq, «map_put_other:ensures/6», run, fX, Lynx.Except.ok_bind]
+        simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», fY, Nest.elem_equal (Nest.level node (d + 1)).ef heY heX sem
+          (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
+      """
+
+    law map_put_subtype(left, right, key, small, large, depth, node),
+      requires:
+        arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          is_atom(key) and Descr.subtype?(left, right) and Descr.subtype?(small, large) and
+          match?({:ok, _}, Descr.map_put_key(left, key, small)) and
+          match?({:ok, _}, Descr.map_put_key(right, key, large)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.map_put_key(left, key, small), 1),
+          elem(Descr.map_put_key(right, key, large), 1)
+        ),
+      proof: ~LEAN"""
+      -- The maps nest at most `d + 1` levels and the values `d`, so the proofs run from the bound of level `d + 1` on,
+      -- and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_subtype:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_subtype:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hl, hr⟩, hs⟩, hg⟩, -⟩, hi⟩, hsub⟩, hsubv⟩, hputL⟩, hputR⟩ := requires
+      have hl : «arrows_static?/2» left (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hl
+      have hr : «arrows_static?/2» right (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hr
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have ds := Nest.arrows_static_ok hs
+      have dg := Nest.arrows_static_ok hg
+      have es : (Nest.level node (d + 1)).E small := Or.inl ds
+      have eg : (Nest.level node (d + 1)).E large := Or.inl dg
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have static : ∀ {x : Lynx.Term}, Nest.DE (Nest.level node d).E x →
+          x = .atom "term" ∨ ∃ Z, x = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := fun h => by
+        rcases h with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      -- Values of the small type are values of the large one.
+      have subV := Nest.next_sub ds dg (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [subV, Except.ok.injEq] at hsubv
+      have subV := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsubv)
+      have vals : ∀ y, (Nest.level node (d + 1)).den small y → (Nest.level node (d + 1)).den large y := fun y hy =>
+        (Nest.denN_of dg.notT).mpr (subV y ((Nest.denN_of ds.notT).mp hy))
+      have dl := Nest.arrows_static_ok hl
+      have dr := Nest.arrows_static_ok hr
+      -- Maps of the left type are maps of the right one.
+      have subM := Nest.next_sub dl dr (m := δ + 100) (by omega)
+      rw [subM, Except.ok.injEq] at hsub
+      have subM := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsub)
+      rcases dl with rfl | ⟨XL, rfl, sXL⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hputL
+      rcases dr with rfl | ⟨XR, rfl, sXR⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hputR
+      have maps : ∀ w, Nest.MT node (d + 1) XL w → Nest.MT node (d + 1) XR w := fun w hw =>
+        (Nest.denD_mpt w).mp (subM _ ((Nest.denD_mpt w).mpr hw))
+      obtain ⟨resL, runL, ⟨rfl, -⟩ | ⟨YL, rfl, -, dYL, onlyL, semL⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨XL, rfl, sXL⟩) a es (static ds) (m := δ + 100) hm
+      · rw [runL] at hputL; simp at hputL
+      obtain ⟨resR, runR, ⟨rfl, -⟩ | ⟨YR, rfl, -, dYR, -, semR⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨XR, rfl, sXR⟩) a eg (static dg) (m := δ + 100) hm
+      · rw [runR] at hputR; simp at hputR
+      have sub := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
+      rw [Nest.bp_true.mpr (show Nest.SubN node (d + 1) (.map YL) (.map YR) from fun v hv => by
+        obtain ⟨w, hw⟩ := Nest.pt_map v (onlyL v hv)
+        rw [hw] at hv ⊢
+        obtain ⟨⟨x, wx, hx⟩, o, ho⟩ := (semL w).mp hv
+        exact (semR w).mpr ⟨⟨x, wx, vals x hx⟩, o, maps _ ho⟩)] at sub
+      simp only [Lynx.apply_eq, «map_put_subtype:ensures/7»]
+      simp [runL, runR, Erlang.erlang.«element/2», sub, Lynx.Term.true]
+      """
+
+    law map_put_hold(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        Descr.subtype?(
+          Descr.opt_intersection(map, Descr.open_map([{key, {value, false}}])),
+          elem(Descr.map_put_key(map, key, value), 1)
+        ),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_hold:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_hold:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- The maps of the type whose key already holds a value of the type are maps of the put.
+      obtain ⟨k, rom, key⟩ := Nest.open_map_run a ((Nest.level node (d + 1)).ef.static del) (δ + 99)
+      have dO := Nest.mfused_de (Nest.mleaf_field (Or.inl rfl) (Nest.fieldsV_req (t := node) (n := d + 1) del) key)
+      obtain ⟨i, gi, ri, si⟩ := Nest.gc_opt_inter2 (Nest.GC.tc (Or.inr ⟨X, rfl, sX⟩)) (Nest.GC.tc dO) (m := δ + 100)
+        (by rw [Nest.level_K] at hm ⊢; omega)
+      have incl : ∀ v : Nest.PN node (d + 1), Nest.denD (.map X) v → Nest.denD
+          (.map [(.atom "map", .tuple #[.integer k, .atom "open", fieldsTerm [(.atom a, .tuple #[value, .atom "false"])]])])
+          v → Nest.denD (.map Y) v := by
+        intro v hX hO
+        have h : v.1.1 = "map" := by
+          rw [Nest.denD_map] at hO
+          by_cases e : v.1.1 = "map"
+          · exact e
+          · simp [Lynx.Term.mapLookup, e, Elixir.STTDescrProofsTest.dn_none] at hO
+        obtain ⟨w, hw⟩ := Nest.pt_map v h
+        rw [hw] at hX hO ⊢
+        have e : Nest.setK a (w (.atom a)) w = w := by funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+        exact (semY w).mpr ⟨(Nest.mt_open_at del a k w).mp hO, w (.atom a), by rw [e]; exact hX⟩
+      have sub := Nest.gc_sub gi (Nest.GC.tc dY) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        (fun v h => incl v ((si.1 v).mp h).1 ((si.1 v).mp h).2) (fun v h => by
+          rw [Nest.upper_tc dY]
+          have := (si.2 v).mp h
+          rw [Nest.upper_tc (Or.inr ⟨X, rfl, sX⟩), Nest.upper_tc dO] at this
+          exact incl v this.1 this.2)
+      simp only [Lynx.apply_eq, «map_put_hold:ensures/5»]
+      simp [run, rom, ri, sub, Erlang.erlang.«element/2», Lynx.Term.true]
+      """
+
+    law map_put_idempotent(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        Descr.equal?(
+          elem(Descr.map_put_key(elem(Descr.map_put_key(map, key, value), 1), key, value), 1),
+          elem(Descr.map_put_key(map, key, value), 1)
+        ),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_idempotent:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_idempotent:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- The value has values.
+      obtain ⟨y₀, hy₀⟩ : ∃ y, (Nest.level node (d + 1)).den value y := by
+        have ne := Nest.next_empty dv (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        rw [ne] at hne
+        obtain ⟨y, hy⟩ : ∃ v : Nest.PN node d, Nest.denD value v := by
+          cases h : Nest.bp (∀ v : Nest.PN node d, ¬Nest.denD value v)
+          · exact Classical.byContradiction fun none => by
+              have := Nest.bp_true.mpr fun v hv => none ⟨v, hv⟩
+              rw [h] at this; cases this
+          · rw [h] at hne; simp [Erlang.erlang.«not/1»] at hne
+        exact ⟨y, (Nest.denN_of dv.notT).mpr hy⟩
+      -- The put type holds the maps of the type with the key set to a value of the value type.
+      obtain ⟨w₀, hw₀⟩ := onlyX.2
+      have inY : ∀ y, (Nest.level node (d + 1)).den value y → Nest.MT node (d + 1) Y (Nest.setK a (some y) w₀) := by
+        intro y hy
+        refine (semY _).mpr ⟨⟨y, by simp [Nest.setK], hy⟩, w₀ (.atom a), ?_⟩
+        have e : Nest.setK a (w₀ (.atom a)) (Nest.setK a (some y) w₀) = w₀ := by
+          funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+        rw [e]; exact hw₀
+      -- Putting the key again sets it to a value of the type in maps whose key already holds one.
+      have onlyY' : Nest.MOnly node (d + 1) Y := ⟨onlyY, _, inY y₀ hy₀⟩
+      obtain ⟨res₂, run₂, ⟨rfl, nY⟩ | ⟨Y₂, rfl, -, dY₂, onlyY₂, semY₂⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) dY a del sx (m := δ + 100) hm
+      · exact absurd onlyY' nY
+      have twice : ∀ (o o' : Option (Nest.level node (d + 1)).V) (w : Nest.MW (Nest.level node (d + 1)).V),
+          Nest.setK a o' (Nest.setK a o w) = Nest.setK a o' w := fun o o' w => by
+        funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+      have same : ∀ v : Nest.PN node (d + 1), Nest.denD (.map Y₂) v ↔ Nest.denD (.map Y) v := by
+        intro v
+        by_cases h : v.1.1 = "map"
+        · obtain ⟨w, hw⟩ := Nest.pt_map v h
+          rw [hw, hw, semY₂, semY]
+          refine and_congr_right fun hp => ⟨fun ⟨o, ho⟩ => ?_, fun ⟨o', ho'⟩ => ?_⟩
+          · obtain ⟨-, o', ho'⟩ := (semY _).mp ho
+            exact ⟨o', by rwa [twice] at ho'⟩
+          · refine ⟨w (.atom a), ?_⟩
+            have e : Nest.setK a (w (.atom a)) w = w := by funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+            rw [e]
+            exact (semY w).mpr ⟨hp, o', ho'⟩
+        · exact ⟨fun h' => absurd (onlyY₂ v h') h, fun h' => absurd (onlyY v h') h⟩
+      simp only [Lynx.apply_eq, «map_put_idempotent:ensures/5», run, Lynx.Except.ok_bind]
+      simp [Erlang.erlang.«element/2», run₂, Nest.next_eq_true dY₂ dY (m := δ + 100) (by omega) same, Lynx.Term.true]
+      """
+
+    law map_put_delete(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        Descr.equal?(
+          elem(Descr.map_update(elem(Descr.map_put_key(map, key, value), 1), Descr.atom([key]), :delete, :force, false), 1),
+          elem(Descr.map_update(map, Descr.atom([key]), :delete, :force, false), 1)
+        ),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_delete:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_delete:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- The value has values.
+      obtain ⟨y₀, hy₀⟩ : ∃ y, (Nest.level node (d + 1)).den value y := by
+        have ne := Nest.next_empty dv (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        rw [ne] at hne
+        obtain ⟨y, hy⟩ : ∃ v : Nest.PN node d, Nest.denD value v := by
+          cases h : Nest.bp (∀ v : Nest.PN node d, ¬Nest.denD value v)
+          · exact Classical.byContradiction fun none => by
+              have := Nest.bp_true.mpr fun v hv => none ⟨v, hv⟩
+              rw [h] at this; cases this
+          · rw [h] at hne; simp [Erlang.erlang.«not/1»] at hne
+        exact ⟨y, (Nest.denN_of dv.notT).mpr hy⟩
+      -- The put type holds the maps of the type with the key set to a value of the value type.
+      obtain ⟨w₀, hw₀⟩ := onlyX.2
+      have inY : ∀ y, (Nest.level node (d + 1)).den value y → Nest.MT node (d + 1) Y (Nest.setK a (some y) w₀) := by
+        intro y hy
+        refine (semY _).mpr ⟨⟨y, by simp [Nest.setK], hy⟩, w₀ (.atom a), ?_⟩
+        have e : Nest.setK a (w₀ (.atom a)) (Nest.setK a (some y) w₀) = w₀ := by
+          funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+        rw [e]; exact hw₀
+      -- Deleting the key from the put type gives the maps of the type without the key, as deleting it from the type.
+      have onlyY' : Nest.MOnly node (d + 1) Y := ⟨onlyY, _, inY y₀ hy₀⟩
+      obtain ⟨r₁, run₁, ⟨rfl, n₁⟩ | ⟨Y₁, rfl, -, dY₁, only₁, sem₁⟩⟩ := Nest.del_map (t := node) (n := d + 1) dY a hm
+      · exact absurd onlyY' n₁
+      obtain ⟨r₂, run₂, ⟨rfl, n₂⟩ | ⟨Y₂, rfl, -, dY₂, only₂, sem₂⟩⟩ :=
+        Nest.del_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a hm
+      · exact absurd onlyX n₂
+      have twice : ∀ (o o' : Option (Nest.level node (d + 1)).V) (w : Nest.MW (Nest.level node (d + 1)).V),
+          Nest.setK a o' (Nest.setK a o w) = Nest.setK a o' w := fun o o' w => by
+        funext k; by_cases h : k = .atom a <;> simp [Nest.setK, h]
+      have same : ∀ v : Nest.PN node (d + 1), Nest.denD (.map Y₁) v ↔ Nest.denD (.map Y₂) v := by
+        intro v
+        by_cases h : v.1.1 = "map"
+        · obtain ⟨w, hw⟩ := Nest.pt_map v h
+          rw [hw, hw, sem₁, sem₂]
+          refine and_congr Iff.rfl ⟨fun ⟨o, ho⟩ => ?_, fun ⟨o', ho'⟩ => ?_⟩
+          · obtain ⟨-, o', ho'⟩ := (semY _).mp ho
+            exact ⟨o', by rwa [twice] at ho'⟩
+          · exact ⟨some y₀, (semY _).mpr ⟨⟨y₀, by simp [Nest.setK], hy₀⟩, o', by rwa [twice]⟩⟩
+        · exact ⟨fun h' => absurd (only₁ v h') h, fun h' => absurd (only₂ v h') h⟩
+      simp only [Lynx.apply_eq, «map_put_delete:ensures/5», run, Lynx.Except.ok_bind]
+      rw [Nest.atom_one a]
+      simp [Erlang.erlang.«element/2», run₁, run₂,
+        Nest.next_eq_true dY₁ dY₂ (m := δ + 100) (by omega) same, Lynx.Term.true]
+      """
+
+    # Fails on Elixir 472f0983f: putting atom() into an equal rewrite of a map type loses precision, e.g.
+    # a = open_map(a: {none(), true}), cover = opt_union(a, closed_map([{[:atom], term()}])) and
+    # a2 = opt_intersection(cover, opt_negation(opt_difference(cover, a))) are equal, but
+    # map_put(a2, atom(), atom([:new])) is not a subtype of map_put(a, atom(), atom([:new])).
+    law map_put_domain_subtype(left, right, small_key, large_key, small, large, depth, node),
+      requires:
+        arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
+          arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          Descr.subtype?(left, right) and Descr.subtype?(small_key, large_key) and Descr.subtype?(small, large) and
+          match?({:ok, _}, Descr.map_put(left, small_key, small)) and
+          match?({:ok, _}, Descr.map_put(right, large_key, large)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.map_put(left, small_key, small), 1),
+          elem(Descr.map_put(right, large_key, large), 1)
+        ),
+      proof: ~LEAN"""
+      sorry
+      """
+
+    law map_update_force(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        Descr.equal?(
+          elem(Descr.map_update(map, Descr.atom([key]), value, :force, true), 1),
+          elem(Descr.map_put_key(map, key, value), 1)
+        ) and elem(Descr.map_update(map, Descr.atom([key]), value, :force, true), 2) == [] and
+          Descr.equal?(
+            elem(Descr.map_update(map, Descr.atom([key]), value, :force, true), 0),
+            got(Descr.map_get(map, Descr.atom([key])))
+          ),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_update_force:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_update_force:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      -- Forcing the key gives the maps of the put, and the values the maps of the type hold at the key.
+      obtain ⟨ru, runU, ⟨rfl, nU⟩ | ⟨T, Y', rfl, -, hT, sT, dY', onlyY', semY'⟩⟩ :=
+        Nest.update_force (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · exact absurd onlyX nU
+      have same : ∀ v : Nest.PN node (d + 1), Nest.denD (.map Y') v ↔ Nest.denD (.map Y) v := by
+        intro v
+        by_cases h : v.1.1 = "map"
+        · obtain ⟨w, hw⟩ := Nest.pt_map v h
+          rw [hw, hw, semY', semY]
+        · exact ⟨fun h' => absurd (onlyY' v h') h, fun h' => absurd (onlyY v h') h⟩
+      have hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (Nest.atomT a) =
+          .ok (Nest.splitT [.atom a] (.atom "nil") []) := by
+        rw [show δ + 100 = (δ + 99) + 1 from rfl, Nest.split_one]; rfl
+      have hs : Nest.SplitOk [.atom a] (.atom "nil") [] := ⟨by simp, Or.inl rfl, by simp, by simp⟩
+      have key : ∀ κ, Nest.SplitKey [.atom a] (.atom "nil") [] κ ↔ κ = .atom a := fun κ => by
+        cases κ with
+        | atom s => simp [Nest.SplitKey]
+        | dom k i => simp [Nest.SplitKey]
+      have none : ∀ y, ¬(Nest.level node (d + 1)).den (.map []) y := fun y h => (Nest.none_field (Nest.level node (d + 1)).ef).2
+        (some y) (by rw [show (Lynx.Term.atom "false") = boolAtom Bool.false from rfl, Nest.fieldSem_mk]; exact Or.inr ⟨y, rfl, h⟩)
+      obtain ⟨rg, runG, ⟨rfl, nG⟩ | ⟨rfl, -, noKey⟩ | ⟨G, rfl, hG, -, -, sG⟩⟩ :=
+        Nest.get_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) hs hm hk
+      · exact absurd onlyX nG
+      · have sem : ∀ y, (Nest.level node (d + 1)).den T y ↔ (Nest.level node (d + 1)).den (.map []) y := by
+          intro y
+          refine ⟨fun h => ?_, fun h => absurd h (none y)⟩
+          obtain ⟨w, hw, wa⟩ := (sT y).mp h
+          rw [noKey w hw _ ((key _).mpr rfl)] at wa
+          cases wa
+        simp only [Lynx.apply_eq, «map_update_force:ensures/5», run, Lynx.Except.ok_bind]
+        rw [Nest.atom_one a]
+        simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», runU, runG, «got/1», Elixir.Module.Types.Descr.«none/0»,
+          Nest.next_eq_true dY' dY (m := δ + 100) (by omega) same,
+          Nest.elem_equal (Nest.level node (d + 1)).ef hT (Nest.level node (d + 1)).ef.none sem (m := δ + 100)
+            (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
+      · have sem : ∀ y, (Nest.level node (d + 1)).den T y ↔ (Nest.level node (d + 1)).den G y := fun y => by
+          rw [sT, sG]
+          exact ⟨fun ⟨w, hw, wa⟩ => ⟨w, hw, _, (key _).mpr rfl, wa⟩,
+            fun ⟨w, hw, κ, hκ, wκ⟩ => by rw [(key κ).mp hκ] at wκ; exact ⟨w, hw, wκ⟩⟩
+        simp only [Lynx.apply_eq, «map_update_force:ensures/5», run, Lynx.Except.ok_bind]
+        rw [Nest.atom_one a]
+        simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», runU, runG, «got/1»,
+          Nest.next_eq_true dY' dY (m := δ + 100) (by omega) same,
+          Nest.elem_equal (Nest.level node (d + 1)).ef hT hG sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
+          Lynx.Term.true]
+      """
+
+    law map_update_missing(map, key, value, mode, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key) and mode in [:keep, :reject] and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
+      expects:
+        (if Descr.map_fetch_key(map, key) == :badkey do
+          Descr.map_update(map, Descr.atom([key]), value, mode, true) == {:error, [badkey: key]}
+        else
+          Descr.equal?(
+            elem(Descr.map_update(map, Descr.atom([key]), value, mode, true), 1),
+            elem(Descr.map_put_key(map, key, value), 1)
+          ) and elem(Descr.map_update(map, Descr.atom([key]), value, mode, true), 2) == [] and
+            Descr.equal?(
+              elem(Descr.map_update(map, Descr.atom([key]), value, mode, true), 0),
+              got(Descr.map_get(map, Descr.atom([key])))
+            )
+        end),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
+      -- the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_update_missing:requires/6», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_update_missing:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨ht, hel⟩, -⟩, hi⟩, hmode⟩, hne⟩, hput⟩ := requires
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨keep, rfl⟩ : ∃ keep, mode = Nest.modeT keep := by
+        by_cases h : mode = .atom "keep"
+        · exact ⟨true, by simp [h, Nest.modeT]⟩
+        · by_cases h' : mode = .atom "reject"
+          · exact ⟨false, by simp [h', Nest.modeT]⟩
+          · simp [Lynx.Term.isMember, h, h'] at hmode
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      -- The value has values.
+      obtain ⟨y₀, hy₀⟩ : ∃ y, (Nest.level node (d + 1)).den value y := by
+        have ne := Nest.next_empty dv (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        rw [ne] at hne
+        obtain ⟨y, hy⟩ : ∃ v : Nest.PN node d, Nest.denD value v := by
+          cases h : Nest.bp (∀ v : Nest.PN node d, ¬Nest.denD value v)
+          · exact Classical.byContradiction fun none => by
+              have := Nest.bp_true.mpr fun v hv => none ⟨v, hv⟩
+              rw [h] at this; cases this
+          · rw [h] at hne; simp [Erlang.erlang.«not/1»] at hne
+        exact ⟨y, (Nest.denN_of dv.notT).mpr hy⟩
+      rcases Nest.arrows_static_ok ht with rfl | ⟨X, rfl, sX⟩
+      · simp [Elixir.Module.Types.Descr.«map_put_key/3»] at hput
+      obtain ⟨res, run, ⟨rfl, -⟩ | ⟨Y, rfl, onlyX, dY, onlyY, semY⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [run] at hput; simp at hput
+      obtain ⟨ru, runU, ⟨rfl, nU⟩ | ⟨-, hbad, hgood⟩⟩ :=
+        Nest.update_keep (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del ⟨y₀, hy₀⟩ sx keep (m := δ + 100) hm
+      · exact absurd onlyX nU
+      obtain ⟨rf, runF, ⟨rfl, nF⟩ | ⟨rfl, -, lack⟩ | ⟨e, rfl, -, -, all, -⟩⟩ :=
+        Nest.fetch_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a (m := δ + 100) hm
+      · exact absurd onlyX nF
+      · -- Some map lacks the key: `badkey`.
+        simp only [Lynx.apply_eq, «map_update_missing:ensures/6», runF, Lynx.Except.ok_bind]
+        rw [Nest.atom_one a]
+        simp [Erlang.erlang.«==/2», runU, hbad lack, Lynx.Term.true]
+      -- Every map holds the key: the put, and the old values.
+      have nlack : ¬∃ w, Nest.MT node (d + 1) X w ∧ w (.atom a) = none := fun ⟨w, hw, wa⟩ => by
+        obtain ⟨x, hx, -⟩ := all w hw
+        rw [wa] at hx; cases hx
+      obtain ⟨T, Y', rfl, hT, sT, dY', onlyY', semY'⟩ := hgood nlack
+      have same : ∀ v : Nest.PN node (d + 1), Nest.denD (.map Y') v ↔ Nest.denD (.map Y) v := by
+        intro v
+        by_cases h : v.1.1 = "map"
+        · obtain ⟨w, hw⟩ := Nest.pt_map v h
+          rw [hw, hw, semY', semY]
+        · exact ⟨fun h' => absurd (onlyY' v h') h, fun h' => absurd (onlyY v h') h⟩
+      have hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (Nest.atomT a) =
+          .ok (Nest.splitT [.atom a] (.atom "nil") []) := by
+        rw [show δ + 100 = (δ + 99) + 1 from rfl, Nest.split_one]; rfl
+      have hs : Nest.SplitOk [.atom a] (.atom "nil") [] := ⟨by simp, Or.inl rfl, by simp, by simp⟩
+      have key : ∀ κ, Nest.SplitKey [.atom a] (.atom "nil") [] κ ↔ κ = .atom a := fun κ => by
+        cases κ with
+        | atom s => simp [Nest.SplitKey]
+        | dom k i => simp [Nest.SplitKey]
+      have none : ∀ y, ¬(Nest.level node (d + 1)).den (.map []) y := fun y h => (Nest.none_field (Nest.level node (d + 1)).ef).2
+        (some y) (by rw [show (Lynx.Term.atom "false") = boolAtom Bool.false from rfl, Nest.fieldSem_mk]; exact Or.inr ⟨y, rfl, h⟩)
+      have fetchE : Erlang.erlang.«==/2» (.tuple #[.atom "false", e]) (.atom "badkey") = .ok (.atom "false") := by
+        simp [Erlang.erlang.«==/2»]
+      obtain ⟨rg, runG, ⟨rfl, nG⟩ | ⟨rfl, -, noKey⟩ | ⟨G, rfl, hG, -, -, sG⟩⟩ :=
+        Nest.get_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) hs hm hk
+      · exact absurd onlyX nG
+      · have sem : ∀ y, (Nest.level node (d + 1)).den T y ↔ (Nest.level node (d + 1)).den (.map []) y := by
+          intro y
+          refine ⟨fun h => ?_, fun h => absurd h (none y)⟩
+          obtain ⟨w, hw, wa⟩ := (sT y).mp h
+          rw [noKey w hw _ ((key _).mpr rfl)] at wa
+          cases wa
+        simp only [Lynx.apply_eq, «map_update_missing:ensures/6», runF, fetchE, run, Lynx.Except.ok_bind]
+        rw [Nest.atom_one a]
+        simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», runU, runG, «got/1», Elixir.Module.Types.Descr.«none/0»,
+          Nest.next_eq_true dY' dY (m := δ + 100) (by omega) same,
+          Nest.elem_equal (Nest.level node (d + 1)).ef hT (Nest.level node (d + 1)).ef.none sem (m := δ + 100)
+            (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
+      · have sem : ∀ y, (Nest.level node (d + 1)).den T y ↔ (Nest.level node (d + 1)).den G y := fun y => by
+          rw [sT, sG]
+          exact ⟨fun ⟨w, hw, wa⟩ => ⟨w, hw, _, (key _).mpr rfl, wa⟩,
+            fun ⟨w, hw, κ, hκ, wκ⟩ => by rw [(key κ).mp hκ] at wκ; exact ⟨w, hw, wκ⟩⟩
+        simp only [Lynx.apply_eq, «map_update_missing:ensures/6», runF, fetchE, run, Lynx.Except.ok_bind]
+        rw [Nest.atom_one a]
+        simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», runU, runG, «got/1»,
+          Nest.next_eq_true dY' dY (m := δ + 100) (by omega) same,
+          Nest.elem_equal (Nest.level node (d + 1)).ef hT hG sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
+          Lynx.Term.true]
+      """
+
+    law map_put_badmap(map, key, value, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+          is_atom(key),
+      expects:
+        (Descr.map_put_key(map, key, value) == :badmap) ==
+          not (Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map)),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on.
+      simp only [«map_put_badmap:requires/5», Lynx.Term.true] at requires
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at requires; cases requires
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at requires
+      simp only [Lynx.Except.andAlso_eq_true] at requires
+      obtain ⟨⟨⟨ht, hel⟩, hd⟩, hi⟩ := requires
+      obtain ⟨d, rfl⟩ := Nest.depth_nat hd
+      simp only [Erlang.erlang.«+/2_integers», Except.ok.injEq] at hp
+      subst hp
+      have ht : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using ht
+      refine ⟨100 + 24 * (d + 1), fun depth deep => ?_⟩
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have dv := Nest.arrows_static_ok hel
+      have del : (Nest.level node (d + 1)).E value := Or.inl dv
+      obtain ⟨a, rfl⟩ : ∃ a : String, key = .atom a := by
+        cases key <;> simp [Erlang.erlang.«is_atom/1»] at hi
+        exact ⟨_, rfl⟩
+      have sx : value = .atom "term" ∨ ∃ Z, value = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := by
+        rcases dv with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      have dt := Nest.arrows_static_ok ht
+      have top : Elixir.Module.Types.Descr.«open_map/0» =
+          .ok (.map [(.atom "map", .tuple #[.integer 61102469, .atom "open", .nil])]) := rfl
+      have sT := Nest.next_sub dt Nest.mapTop_de (m := δ + 100) (by omega)
+      rcases dt with rfl | ⟨X, rfl, sX⟩
+      · rw [Nest.bp_false.mpr fun h => by
+          have := (Nest.mapTop_den Nest.bitPt).mp (h Nest.bitPt (Nest.denD_term _))
+          simp [Nest.bitPt] at this] at sT
+        simp only [Lynx.apply_eq, «map_put_badmap:ensures/5»]
+        simp [Elixir.Module.Types.Descr.«map_put_key/3», Erlang.erlang.«==/2», top, sT, Lynx.Term.true]
+      have ne := Nest.next_empty (Or.inr ⟨X, rfl, sX⟩) (m := δ + 100) (by omega)
+      obtain ⟨res, run, ⟨rfl, nonly⟩ | ⟨Y, rfl, only, -⟩⟩ :=
+        Nest.put_map (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) a del sx (m := δ + 100) hm
+      · rw [Nest.monly_iff] at nonly
+        simp only [Lynx.apply_eq, «map_put_badmap:ensures/5»]
+        by_cases h : Nest.SubN node (d + 1) (.map X) (.map [(.atom "map", .tuple #[.integer 61102469, .atom "open", .nil])])
+        · rw [Nest.bp_true.mpr h] at sT
+          rw [Nest.bp_true.mpr (Classical.not_not.mp fun h' => nonly ⟨h, h'⟩)] at ne
+          simp [run, Erlang.erlang.«==/2», top, sT, ne, Erlang.erlang.«not/1», Lynx.Term.true]
+        · rw [Nest.bp_false.mpr h] at sT
+          simp [run, Erlang.erlang.«==/2», top, sT, Lynx.Term.true]
+      · obtain ⟨h₁, h₂⟩ := Nest.monly_iff.mp only
+        rw [Nest.bp_true.mpr h₁] at sT
+        rw [Nest.bp_false.mpr h₂] at ne
+        simp only [Lynx.apply_eq, «map_put_badmap:ensures/5»]
+        simp [run, Erlang.erlang.«==/2», top, sT, ne, Erlang.erlang.«not/1», Lynx.Term.true]
+      """
+
     law tuple_insert_fetch(tuple, index, value, depth, node),
       requires:
         arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
@@ -2438,6 +3309,105 @@ defmodule STTDescrProofsTest do
         fetch]
       simp [Erlang.erlang.«element/2», Nest.elem_equal (Nest.level node (d + 1)).ef he del sem (m := δ + 100)
         (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
+      """
+
+    law tuple_insert_subtype(left, right, index, small, large, depth, node),
+      requires:
+        arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          is_integer(index) and Descr.subtype?(left, right) and Descr.subtype?(small, large) and
+          is_map(Descr.tuple_insert_at(left, index, small)) and is_map(Descr.tuple_insert_at(right, index, large)),
+      expects:
+        Descr.subtype?(Descr.tuple_insert_at(left, index, small), Descr.tuple_insert_at(right, index, large)),
+      proof: ~LEAN"""
+      -- The tuples nest at most `d + 1` levels and the values `d`, so the proofs run from the bound of level `d + 1` on,
+      -- and the precondition from its own bound.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_insert_subtype:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_insert_subtype:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hl, hr⟩, hs⟩, hg⟩, -⟩, hi⟩, hsub⟩, hsubv⟩, hmapL⟩, hmapR⟩ := requires
+      have hl : «arrows_static?/2» left (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hl
+      have hr : «arrows_static?/2» right (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hr
+      have hm : (Nest.level node (d + 1)).K + 25 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have ds := Nest.arrows_static_ok hs
+      have dg := Nest.arrows_static_ok hg
+      have es : (Nest.level node (d + 1)).E small := Or.inl ds
+      have eg : (Nest.level node (d + 1)).E large := Or.inl dg
+      have static : ∀ {x : Lynx.Term}, Nest.DE (Nest.level node d).E x →
+          x = .atom "term" ∨ ∃ Z, x = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := fun h => by
+        rcases h with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      -- Values of the small type are values of the large one.
+      have subV := Nest.next_sub ds dg (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [subV, Except.ok.injEq] at hsubv
+      have subV := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsubv)
+      have vals : ∀ y, (Nest.level node (d + 1)).den small y → (Nest.level node (d + 1)).den large y := fun y hy =>
+        (Nest.denN_of dg.notT).mpr (subV y ((Nest.denN_of ds.notT).mp hy))
+      have dl := Nest.arrows_static_ok hl
+      have dr := Nest.arrows_static_ok hr
+      -- Tuples of the left type are tuples of the right one.
+      have subT := Nest.next_sub dl dr (m := δ + 100) (by omega)
+      rw [subT, Except.ok.injEq] at hsub
+      have subT := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsub)
+      rcases dl with rfl | ⟨XL, rfl, sXL⟩
+      · rw [Nest.insert_at_term] at hmapL; simp [Erlang.erlang.«is_map/1»] at hmapL
+      rcases dr with rfl | ⟨XR, rfl, sXR⟩
+      · rw [Nest.insert_at_term] at hmapR; simp [Erlang.erlang.«is_map/1»] at hmapR
+      by_cases neg : z < 0
+      · rw [Nest.insert_at_neg _ _ _ neg] at hmapL; simp [Erlang.erlang.«is_map/1»] at hmapL
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by omega⟩
+      have tuples : ∀ w, Nest.TT node (d + 1) XL w → Nest.TT node (d + 1) XR w := fun w hw =>
+        (Nest.denD_tpt w).mp (subT _ ((Nest.denD_tpt w).mpr hw))
+      rw [Nest.insert_at_static _ _ _ (static ds)] at hmapL
+      rw [Nest.insert_at_static _ _ _ (static dg)] at hmapR
+      obtain ⟨YL, runL⟩ : ∃ Y, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XL) (.integer i) small = .ok (.map Y) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XL) (.integer i) small with
+        | error _ => rw [h] at hmapL; cases hmapL
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hmapL
+          cases r <;> simp [Erlang.erlang.«is_map/1»] at hmapL
+          exact ⟨_, rfl⟩
+      obtain ⟨YR, runR⟩ : ∃ Y, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XR) (.integer i) large = .ok (.map Y) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XR) (.integer i) large with
+        | error _ => rw [h] at hmapR; cases hmapR
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hmapR
+          cases r <;> simp [Erlang.erlang.«is_map/1»] at hmapR
+          exact ⟨_, rfl⟩
+      obtain ⟨-, -, dYL, onlyL, ttL⟩ := Nest.insert_tuple (Or.inr ⟨XL, rfl, sXL⟩) es i hm runL
+      obtain ⟨-, -, dYR, -, ttR⟩ := Nest.insert_tuple (Or.inr ⟨XR, rfl, sXR⟩) eg i hm runR
+      have sub := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
+      rw [Nest.bp_true.mpr (show Nest.SubN node (d + 1) (.map YL) (.map YR) from fun v hv => by
+        obtain ⟨w, hw⟩ := Nest.pt_tuple v (onlyL v hv)
+        rw [hw] at hv ⊢
+        obtain ⟨w₁, y, w₂, e, len, hy, hw'⟩ := (ttL w).mp hv
+        exact (ttR w).mpr ⟨w₁, y, w₂, e, len, vals y hy, tuples _ hw'⟩)] at sub
+      simp only [Lynx.apply_eq, «tuple_insert_subtype:ensures/7»]
+      simp [Nest.insert_at_static _ _ _ (static ds), Nest.insert_at_static _ _ _ (static dg), runL, runR, sub,
+        Lynx.Term.true]
       """
 
     law tuple_insert_delete(tuple, index, value, depth, node),

@@ -80,7 +80,7 @@ theorem map_field_opt_union (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {
     (fy : MField E y) (S : List (Term × Term)) :
     ∃ r, Elixir.Module.Types.Descr.«opt_union/4» (D m) (.atom "map") x y (.map S) = .ok r ∧ MField E r ∧
       ∀ w, denMF E den r w = (denMF E den x w || denMF E den y w) := by
-  obtain ⟨r, run, fr, sem⟩ := opt_map_union_sem ef hm fx fy S
+  obtain ⟨r, run, fr, -, sem⟩ := opt_map_union_sem ef hm fx fy S
   exact ⟨r, by simpa [Elixir.Module.Types.Descr.«opt_union/4»] using run, fr, sem⟩
 
 /-- F4: optimized intersections of map fields. -/

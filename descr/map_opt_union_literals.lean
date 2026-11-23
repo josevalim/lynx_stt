@@ -701,6 +701,7 @@ def StratM (E : Term → Prop) (den : Term → V → Prop) (m : Nat) (S : List (
     Elixir.Module.Types.Descr.«field_opt_union/3» (D m) v₁ v₂ (.map S) = .ok f ∧
     Erlang.orddict.«store/3» key f (fieldsTerm l₁) = .ok (fieldsTerm l) ∧ FieldsV E l ∧ ElemFields E l ∧
     l.length = l₁.length ∧
+    (∃ s, key = .atom s ∧ mapLookup l₁ (.atom s) ≠ none ∧ ∀ s', s ≠ s' → mapLookup l (.atom s') = mapLookup l₁ (.atom s')) ∧
     ∀ w, MSem den (.atom t₁) l w ↔ MSem den (.atom t₁) l₁ w ∨ MSem den (.atom t₂) l₂ w) ∨
   (st = .atom "left_subtype_of_right" ∧ ∀ w, MSem den (.atom t₁) l₁ w → MSem den (.atom t₂) l₂ w) ∨
   (st = .atom "right_subtype_of_left" ∧ ∀ w, MSem den (.atom t₂) l₂ w → MSem den (.atom t₁) l₁ w) ∨
@@ -734,7 +735,8 @@ theorem strat_val (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {t₁ t₂ 
       obtain ⟨l'', runS', len⟩ := store_len a ⟨t, o₁ || o₂, rfl, ht⟩ s₁ (by rw [la₁]; rfl)
       have ll : l' = l'' := by rw [runS] at runS'; exact fieldsTerm_inj (Except.ok.inj runS')
       subst ll
-      refine Or.inl ⟨_, _, _, _, l', rfl, runF, runS, sl', fun e me => ?_, len, fun w => ?_⟩
+      refine Or.inl ⟨_, _, _, _, l', rfl, runF, runS, sl', fun e me => ?_, len,
+        ⟨a, rfl, by rw [la₁]; simp, fun s' ne => by rw [look s', ite_eq_right ne]⟩, fun w => ?_⟩
       · rcases mem e me with rfl | me
         · exact ⟨t, _, rfl, ht⟩
         · exact e₁ e me

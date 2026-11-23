@@ -7,6 +7,43 @@ variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} 
 /-- Pairs of a field and a map type, as maps split at a key. -/
 def MPairOk (E : Term → Prop) (p : Term) : Prop := ∃ f b, p = .tuple #[f, b] ∧ FieldValue E f ∧ MField E b
 
+/-- Pairs whose rests have literals of a kind. -/
+def KeepsQ (ok : Term → Prop) (Q : List Term) : Prop := ∀ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ OField ok b
+
+/-- Pairs whose fields allow some value at the key. -/
+def FilledQ (den : Term → V → Prop) (Q : List Term) : Prop := ∀ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ ∃ o, FieldSem den f o
+
+/-- Differences of map types keep their literals. -/
+theorem map_diff_keeps {ok : Term → Prop} {x y w : Term} (fx : MField E x) (fy : MField E y)
+    (run : Elixir.Module.Types.Descr.«map_difference/2» x y = .ok w) (ox : OField ok x) (oy : OField ok y) :
+    OField ok w := by
+  rcases fy with ⟨k, rfl⟩ | wy
+  · have e : Elixir.Module.Types.Descr.«map_difference/2» x (.tuple #[.integer k, .atom "open", .nil]) =
+        .ok (.atom "bdd_bot") := by unfold Elixir.Module.Types.Descr.«map_difference/2»; rfl
+    rw [e] at run; cases run; exact Or.inr Bdd.bot
+  have ny := not_top_of_ok wy mlit_not
+  have oy : Bdd ok y := oy.resolve_left fun ⟨k, e⟩ => ny _ e
+  rcases fx with ⟨kt, rfl⟩ | wx
+  · rcases wy.shape with rfl | rfl | ⟨k', a, b, rfl⟩ | ⟨h, lit, c, u, d, rfl⟩
+    · have e : Elixir.Module.Types.Descr.«map_difference/2» (.tuple #[.integer kt, .atom "open", .nil])
+          (.atom "bdd_top") = .ok (.atom "bdd_bot") := by
+        unfold Elixir.Module.Types.Descr.«map_difference/2»; simp [diff_leaf_top]
+      rw [e] at run; cases run; exact Or.inr Bdd.bot
+    · have e : Elixir.Module.Types.Descr.«map_difference/2» (.tuple #[.integer kt, .atom "open", .nil])
+          (.atom "bdd_bot") = .ok (.tuple #[.integer kt, .atom "open", .nil]) := by
+        unfold Elixir.Module.Types.Descr.«map_difference/2»; simp [diff_leaf_bot]
+      rw [e] at run; cases run; exact ox
+    all_goals
+      obtain ⟨w', run', keep, -⟩ := neg_ok wy
+      rw [map_difference_neg ny _ rfl, run'] at run
+      cases run
+      exact Or.inr (keep _ oy)
+  · have ox : Bdd ok x := ox.resolve_left fun ⟨k, e⟩ => not_top_of_ok wx mlit_not _ e
+    obtain ⟨w', run', keep, -⟩ := diff_ok wx wy
+    rw [map_difference_bdd (not_top_of_ok wx mlit_not) ny, run'] at run
+    cases run
+    exact Or.inr (keep _ ox oy)
+
 /-- A value at the key and the rest of a map in a pair. -/
 def MPairIn (E : Term → Prop) (den : Term → V → Prop) (p : Term) (o : Option V) (w : MW V) : Prop :=
   ∃ f b, p = .tuple #[f, b] ∧ FieldSem den f o ∧ denMF E den b w = Bool.true
@@ -127,17 +164,22 @@ def MInPairs (E : Term → Prop) (den : Term → V → Prop) (Q : List Term) (y 
 theorem mprepend_pair (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {f nv b : Term} (hf : FieldValue E f) (hnv : FieldValue E nv)
     (hb : MField E b) (nb : ∃ w, denMF E den b w = Bool.true) :
     ∃ new, (∀ A, Elixir.Module.Types.Descr.«prepend_map_pair_unless_empty_diff/4» (D m) f nv b (Term.list A) =
-        .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧
+        .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧ (∀ ok, OField ok b → KeepsQ ok new) ∧ FilledQ den new ∧
       ∀ y w, MInPairs E den new y w ↔ (FieldSem den f y ∧ ¬FieldSem den nv y) ∧ denMF E den b w = Bool.true := by
   obtain ⟨d, hd, rd, sd⟩ := field_diff_val (den := den) ef hm hf hnv
   obtain ⟨e, re, se⟩ := field_empty_val (den := den) ef hm hd
   cases e
-  · refine ⟨[.tuple #[d, b]], fun A => ?_, ?_, fun y w => ?_⟩
+  · refine ⟨[.tuple #[d, b]], fun A => ?_, ?_, fun ok ob p mp => ?_, fun p mp => ?_, fun y w => ?_⟩
     · simp [Elixir.Module.Types.Descr.«prepend_map_pair_unless_empty_diff/4»,
         rd, re, Lynx.Term.isMember, Term.list]
     · intro p mp; simp at mp; subst mp; exact ⟨d, b, rfl, hd, hb, nb⟩
+    · simp at mp; subst mp; exact ⟨d, b, rfl, ob⟩
+    · simp at mp; subst mp
+      refine ⟨d, b, rfl, Classical.byContradiction fun none => ?_⟩
+      have := se.mpr fun o h => none ⟨o, h⟩
+      cases this
     · simp [MInPairs, mpairIn_iff, sd]
-  · refine ⟨[], fun A => ?_, by simp [MQOk], fun y w => ?_⟩
+  · refine ⟨[], fun A => ?_, by simp [MQOk], fun _ _ => by simp [KeepsQ], by simp [FilledQ], fun y w => ?_⟩
     · simp [Elixir.Module.Types.Descr.«prepend_map_pair_unless_empty_diff/4»,
         rd, re, Lynx.Term.isMember]
     · simp only [MInPairs, List.not_mem_nil, false_and, exists_false, false_iff, not_and]
@@ -148,9 +190,15 @@ theorem mprepend_pair (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {f nv b
 theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv nb x : Term} (hnv : FieldValue E nv)
     (hnb : MField E nb) (hx : MQOk E den [x]) :
     ∃ new, (∀ A, Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4» (D m) nb nv x (Term.list A) =
-        .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧
+        .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧ (∀ ok, OField ok nb → KeepsQ ok [x] → KeepsQ ok new) ∧
+      (FilledQ den [x] → FilledQ den new) ∧
       ∀ y w, MInPairs E den new y w ↔ MPairIn E den x y w ∧ ¬(FieldSem den nv y ∧ denMF E den nb w = Bool.true) := by
   obtain ⟨f, b, rfl, hf, hb, nbw⟩ := hx _ List.mem_cons_self
+  have kx : ∀ ok, KeepsQ ok [.tuple #[f, b]] → OField ok b := fun ok k => by
+    obtain ⟨f', b', e, ob⟩ := k _ List.mem_cons_self
+    simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at e
+    obtain ⟨-, rfl⟩ := e
+    exact ob
   obtain ⟨ib, rib, tib, sib, -⟩ := map_inter_lh (den := den) hb hnb
   obtain ⟨eib, reib, seib⟩ := map_empty_exact ef tib []
   have seib := seib (lh ib + 1) (by omega) (safeN_nil _)
@@ -159,12 +207,12 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
   obtain ⟨db, rdb, tdb, sdb, -⟩ := map_diff_lh hb hnb
   obtain ⟨e2, re2, se2⟩ := map_empty_exact ef tdb []
   have se2 := se2 (lh db + 1) (by omega) (safeN_nil _)
-  obtain ⟨pnew, rp, qp, sp⟩ := mprepend_pair ef (m := m) (by omega) hf hnv hb nbw
+  obtain ⟨pnew, rp, qp, kp, fp, sp⟩ := mprepend_pair ef (m := m) (by omega) hf hnv hb nbw
   have keepSem : ∀ y w, MInPairs E den [.tuple #[f, b]] y w ↔ MPairIn E den (.tuple #[f, b]) y w := fun y w => by
     simp [MInPairs]
   by_cases keep : (∃ k r, nb = .tuple #[k, .atom "closed", r]) ∧ eib = Bool.true
   · obtain ⟨⟨k, r, rfl⟩, rfl⟩ := keep
-    refine ⟨[.tuple #[f, b]], fun A => ?_, hx, fun y w => ?_⟩
+    refine ⟨[.tuple #[f, b]], fun A => ?_, hx, fun _ _ k => k, id, fun y w => ?_⟩
     · rw [Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4».eq_def]
       simp [rib, reib m hm, Lynx.Term.isMember, Term.list]
     · rw [keepSem, mpairIn_iff]
@@ -175,7 +223,7 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
   -- The pair meets the negated pair: the intersection of the remaining tuples is not known to be empty.
   cases e1
   · cases e2
-    · refine ⟨pnew ++ [.tuple #[i_f, db]], fun A => ?_, ?_, fun y w => ?_⟩
+    · refine ⟨pnew ++ [.tuple #[i_f, db]], fun A => ?_, ?_, fun ok onb k p mp => ?_, fun _ p mp => ?_, fun y w => ?_⟩
       · rw [Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4».eq_def]
         have rp' := rp (.tuple #[i_f, db] :: A)
         simp only [Term.list] at rp'
@@ -203,6 +251,15 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
               · rfl
               · exact absurd ⟨v, h⟩ none
             cases this
+      · rcases List.mem_append.mp mp with mp | mp
+        · exact kp ok (kx ok k) p mp
+        · simp at mp; subst mp; exact ⟨i_f, db, rfl, map_diff_keeps hb hnb rdb (kx ok k) onb⟩
+      · rcases List.mem_append.mp mp with mp | mp
+        · exact fp p mp
+        · simp at mp; subst mp
+          refine ⟨i_f, db, rfl, Classical.byContradiction fun none => ?_⟩
+          have := se1.mpr fun o h => none ⟨o, h⟩
+          cases this
       · simp only [MInPairs, List.mem_append, List.mem_singleton] at sp ⊢
         rw [mpairIn_iff]
         constructor
@@ -222,7 +279,7 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
             · exact absurd ⟨hn, h⟩ h₃
           · obtain ⟨p, mp, hp⟩ := (sp y w).mpr ⟨⟨h₁, hn⟩, h₂⟩
             exact ⟨p, Or.inl mp, hp⟩
-    · refine ⟨pnew, fun A => ?_, qp, fun y w => ?_⟩
+    · refine ⟨pnew, fun A => ?_, qp, fun ok _ k => kp ok (kx ok k), fun _ => fp, fun y w => ?_⟩
       · rw [Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4».eq_def]
         by_cases hc : ∃ k r, nb = .tuple #[k, .atom "closed", r]
         · obtain ⟨k, r, rfl⟩ := hc
@@ -244,7 +301,7 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
         constructor
         · rintro ⟨⟨h₁, h₂⟩, h₃⟩; exact ⟨⟨h₁, h₃⟩, fun h => h₂ h.1⟩
         · rintro ⟨⟨h₁, h₂⟩, h₃⟩; exact ⟨⟨h₁, fun hn => h₃ ⟨hn, cover w h₂⟩⟩, h₂⟩
-  · refine ⟨[.tuple #[f, b]], fun A => ?_, hx, fun y w => ?_⟩
+  · refine ⟨[.tuple #[f, b]], fun A => ?_, hx, fun _ _ k => k, id, fun y w => ?_⟩
     · rw [Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4».eq_def]
       by_cases hc : ∃ k r, nb = .tuple #[k, .atom "closed", r]
       · obtain ⟨k, r, rfl⟩ := hc
@@ -265,23 +322,28 @@ theorem mproject_step (ef : EF nd E V den tl K) {m : Nat} (hm : K + 4 ≤ m) {nv
 theorem mproject_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P : List Term) (hP : ∀ p ∈ P, MPairOk E p)
     {value rest : Term} (hv : FieldValue E value) (hr : MField E rest) (nr : ∃ w, denMF E den rest w = Bool.true) :
     ∃ Q, Elixir.Module.Types.Descr.«map_remove_negative/3» (D (n + 2)) (Term.list P) value rest =
-        .ok (Term.list Q) ∧ MQOk E den Q ∧
+        .ok (Term.list Q) ∧ MQOk E den Q ∧ (∀ ok, OField ok rest → KeepsQ ok P → KeepsQ ok Q) ∧
+      ((∃ o, FieldSem den value o) → FilledQ den Q) ∧
       ∀ y w, MInPairs E den Q y w ↔ FieldSem den value y ∧ denMF E den rest w = Bool.true ∧ ∀ p ∈ P, ¬MPairIn E den p y w := by
-  obtain ⟨r, ⟨Q, rfl, qQ, sQ⟩, run⟩ := foldl_rel_at (m := n + 2) "Elixir.Module.Types.Descr"
+  obtain ⟨r, ⟨Q, rfl, qQ, kQ, fQ, sQ⟩, run⟩ := foldl_rel_at (m := n + 2) "Elixir.Module.Types.Descr"
     "-map_remove_negative/3-fun-1-" #[]
-    (fun pre a => ∃ Q, a = Term.list Q ∧ MQOk E den Q ∧ ∀ y w, MInPairs E den Q y w ↔
-      FieldSem den value y ∧ denMF E den rest w = Bool.true ∧ ∀ p ∈ pre, ¬MPairIn E den p y w) P
-    (fun pre x a mx ⟨Q, ea, qQ, sQ⟩ => by
+    (fun pre a => ∃ Q, a = Term.list Q ∧ MQOk E den Q ∧ (∀ ok, OField ok rest → KeepsQ ok pre → KeepsQ ok Q) ∧
+      ((∃ o, FieldSem den value o) → FilledQ den Q) ∧
+      ∀ y w, MInPairs E den Q y w ↔
+        FieldSem den value y ∧ denMF E den rest w = Bool.true ∧ ∀ p ∈ pre, ¬MPairIn E den p y w) P
+    (fun pre x a mx ⟨Q, ea, qQ, kQ, fQ, sQ⟩ => by
       subst ea
       obtain ⟨nv, nb, rfl, hnv, hnb⟩ := hP x mx
       have each : ∀ p ∈ Q, ∃ new, (∀ A, Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4» (D n) nb nv
           p (Term.list A) = .ok (Term.list (new ++ A))) ∧ MQOk E den new ∧
+          (∀ ok, OField ok nb → KeepsQ ok [p] → KeepsQ ok new) ∧ (FilledQ den [p] → FilledQ den new) ∧
           ∀ y w, MInPairs E den new y w ↔ MPairIn E den p y w ∧ ¬(FieldSem den nv y ∧ denMF E den nb w = Bool.true) :=
         fun p mp => mproject_step ef hn hnv hnb fun p' mp' => by rw [List.mem_singleton] at mp'; rw [mp']; exact qQ p mp
       classical
       let h : Term → List Term := fun p => if hp : p ∈ Q then Classical.choose (each p hp) else []
       have hh : ∀ p ∈ Q, (∀ A, Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-0-/4» (D n) nb nv
           p (Term.list A) = .ok (Term.list (h p ++ A))) ∧ MQOk E den (h p) ∧
+          (∀ ok, OField ok nb → KeepsQ ok [p] → KeepsQ ok (h p)) ∧ (FilledQ den [p] → FilledQ den (h p)) ∧
           ∀ y w, MInPairs E den (h p) y w ↔ MPairIn E den p y w ∧ ¬(FieldSem den nv y ∧ denMF E den nb w = Bool.true) := by
         intro p mp
         simp only [h, dite_eq_left mp]
@@ -290,14 +352,25 @@ theorem mproject_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P
         #[nb, nv] h Q (fun p mp A => by
           rw [Erlang.program.«Elixir.Module.Types.Descr:-map_remove_negative/3-fun-0-/2».pure]
           exact (hh p mp).1 A) []
-      refine ⟨Term.list (Q.reverse.flatMap h), ⟨Q.reverse.flatMap h, rfl, fun p mp => ?_, fun y w => ?_⟩, ?_⟩
+      refine ⟨Term.list (Q.reverse.flatMap h), ⟨Q.reverse.flatMap h, rfl, fun p mp => ?_, fun ok orest kpre p mp => ?_,
+        fun nv p mp => ?_, fun y w => ?_⟩, ?_⟩
       · simp only [List.mem_flatMap, List.mem_reverse] at mp
         obtain ⟨q, mq, mp⟩ := mp
         exact (hh q mq).2.1 p mp
+      · simp only [List.mem_flatMap, List.mem_reverse] at mp
+        obtain ⟨q, mq, mp⟩ := mp
+        have kq := kQ ok orest (fun p' mp' => kpre p' (List.mem_append_left _ mp'))
+        obtain ⟨f', b', ex, onb⟩ := kpre _ (List.mem_append_right _ List.mem_cons_self)
+        simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at ex
+        obtain ⟨rfl, rfl⟩ := ex
+        exact (hh q mq).2.2.1 ok onb (fun p' mp' => by rw [List.mem_singleton] at mp'; rw [mp']; exact kq q mq) p mp
+      · simp only [List.mem_flatMap, List.mem_reverse] at mp
+        obtain ⟨q, mq, mp⟩ := mp
+        exact (hh q mq).2.2.2.1 (fun p' mp' => by rw [List.mem_singleton] at mp'; rw [mp']; exact fQ nv q mq) p mp
       · simp only [MInPairs, List.mem_flatMap, List.mem_reverse, List.mem_append, List.mem_singleton]
         constructor
         · rintro ⟨p, ⟨q, mq, mp⟩, hp⟩
-          obtain ⟨hq, hn'⟩ := ((hh q mq).2.2 y w).mp ⟨p, mp, hp⟩
+          obtain ⟨hq, hn'⟩ := ((hh q mq).2.2.2.2 y w).mp ⟨p, mp, hp⟩
           obtain ⟨h₁, h₂, h₃⟩ := (sQ y w).mp ⟨q, mq, hq⟩
           refine ⟨h₁, h₂, fun p' mp' hp' => ?_⟩
           rcases mp' with mp' | rfl
@@ -305,13 +378,16 @@ theorem mproject_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P
           · exact hn' (mpairIn_iff.mp hp')
         · rintro ⟨h₁, h₂, h₃⟩
           obtain ⟨q, mq, hq⟩ := (sQ y w).mpr ⟨h₁, h₂, fun p' mp' => h₃ p' (Or.inl mp')⟩
-          obtain ⟨p, mp, hp⟩ := ((hh q mq).2.2 y w).mpr ⟨hq, fun h => h₃ _ (Or.inr rfl) (mpairIn_iff.mpr h)⟩
+          obtain ⟨p, mp, hp⟩ := ((hh q mq).2.2.2.2 y w).mpr ⟨hq, fun h => h₃ _ (Or.inr rfl) (mpairIn_iff.mpr h)⟩
           exact ⟨p, ⟨q, mq, mp⟩, hp⟩
       · rw [Erlang.program.«Elixir.Module.Types.Descr:-map_remove_negative/3-fun-1-/2».pure]
         simpa [Elixir.Module.Types.Descr.«-map_remove_negative/3-fun-1-/2»] using inner)
     (Term.list [.tuple #[value, rest]]) ⟨[.tuple #[value, rest]], rfl, fun p mp => by
-      simp at mp; subst mp; exact ⟨value, rest, rfl, hv, hr, nr⟩, fun y w => by simp [MInPairs, mpairIn_iff]⟩
-  exact ⟨Q, by simp [Elixir.Module.Types.Descr.«map_remove_negative/3», run], qQ, sQ⟩
+      simp at mp; subst mp; exact ⟨value, rest, rfl, hv, hr, nr⟩,
+      fun ok orest _ p mp => by simp at mp; subst mp; exact ⟨value, rest, rfl, orest⟩,
+      fun nv p mp => by simp at mp; subst mp; exact ⟨value, rest, rfl, nv⟩,
+      fun y w => by simp [MInPairs, mpairIn_iff]⟩
+  exact ⟨Q, by simp [Elixir.Module.Types.Descr.«map_remove_negative/3», run], qQ, kQ, fQ, sQ⟩
 
 theorem fieldValue_cases {f : Term} (hf : FieldValue E f) : ∃ t o, f = .tuple #[t, boolAtom o] ∧ E t := hf
 
@@ -365,7 +441,7 @@ theorem mproj_value (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P : 
         ∃ w, FieldSem den field o ∧ denMF E den rest w = Bool.true ∧ ∀ p ∈ P, ¬MPairIn E den p o w := by
   obtain ⟨s, rs, ss⟩ := mkeeps_full (den := den) ef (m := n + 2) (by omega) P hP hr
   cases s
-  · obtain ⟨Q, rQ, qQ, sQ⟩ := mproject_pairs ef hn P hP hv hr nr
+  · obtain ⟨Q, rQ, qQ, -, -, sQ⟩ := mproject_pairs ef hn P hP hv hr nr
     obtain ⟨u, hu, ru, su⟩ := munion_fields ef (n := n + 1) (by omega) Q (fun p mp => by
       obtain ⟨f, b, e, hf, -⟩ := qQ p mp
       exact ⟨f, b, e, hf⟩) ha

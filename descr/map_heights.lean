@@ -45,7 +45,7 @@ theorem mlh_top_leaf (k : Term) : lh (.tuple #[k, .atom "open", .nil]) = 0 := lh
 theorem map_union_lh {x y : Term} (hx : MField E x) (hy : MField E y) :
     ∃ r, Elixir.Module.Types.Descr.«map_union/2» x y = .ok r ∧ MField E r ∧
       (∀ w, denMF E den r w = (denMF E den x w || denMF E den y w)) ∧ lh r ≤ max (lh x) (lh y) := by
-  obtain ⟨r, run, fr, sem⟩ := map_union_field (den := den) hx hy
+  obtain ⟨r, run, fr, -, sem⟩ := map_union_field (den := den) hx hy
   refine ⟨r, run, fr, sem, ?_⟩
   rcases hx with ⟨k, rfl⟩ | wx
   · have e : Elixir.Module.Types.Descr.«map_union/2» (.tuple #[.integer k, .atom "open", .nil]) y =
