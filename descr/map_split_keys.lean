@@ -167,40 +167,36 @@ theorem tag_witness (ef : EF nd E V den tl K) {L : Term} (hL : MLine E L) (ne : 
     obtain ⟨i, -, rfl⟩ := List.mem_map.mp mκ
     exact ⟨w, hw, .dom k i, Or.inr ⟨k, i, rfl, rfl⟩, wκ⟩
 
-/-- `map_get_static_dnf/3` on the non-empty lines of a map type and a split of static keys unites the values its maps
-hold at the keys the split selects. -/
-theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term} (fb : MField E b) (lines : List Term)
-    (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
-    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rs : List Term} {neg : Term}
+/-- The atoms `map_keys_from_negated_set/2` adds for a split: none without a negated set, otherwise atoms outside it
+whose swaps with other such atoms leave the maps of the type unchanged. -/
+theorem neg_keys_split (ef : EF nd E V den tl K) {b : Term} (fb : MField E b) (m : Nat) {rs : List Term} {neg : Term}
     {ds : List Term} (hs : SplitOk rs neg ds) :
-    ∃ T, Elixir.Module.Types.Descr.«map_get_static_dnf/3» (D (n + 4)) b (Term.list lines)
-        (.tuple #[Term.list rs, .nil, neg, Term.list ds, .nil]) = .ok T ∧ E T ∧
-      ∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey rs neg ds κ ∧ w κ = some x := by
-  have hl' : ∀ L ∈ lines, MLine E L := fun L m => (hl L m).1
-  obtain ⟨T₂, r₂, h₂, s₂⟩ := get_keys ef hn lines hl rs hs.hrs ef.none
-  obtain ⟨T₃, r₃, h₃, s₃⟩ := get_keys ef hn lines hl [] (by simp) h₂
-  obtain ⟨R, rR, hR, swR⟩ : ∃ R, Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 4)) neg b =
-      .ok (Term.list R) ∧ (∀ r ∈ R, ∃ s, r = .atom s ∧ ∃ N, neg = .map N ∧ mapLookup N (.atom s) = none) ∧
+    ∃ R, Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (m + 1)) neg b = .ok (Term.list R) ∧
+      (∀ r ∈ R, ∃ s, r = .atom s ∧ ∃ N, neg = .map N ∧ mapLookup N (.atom s) = none) ∧
       ∀ N, neg = .map N → ∀ s c, mapLookup N (.atom s) = none → mapLookup N (.atom c) = none → .atom s ∉ R →
         .atom c ∉ R → ∀ w, denMF E den b (swapW s c w) = denMF E den b w := by
-    rcases hs.hneg with rfl | ⟨N, rfl⟩
-    · exact ⟨[], by simp [Elixir.Module.Types.Descr.«map_keys_from_negated_set/2»], by simp, fun N e => by cases e⟩
-    · obtain ⟨R, rR, hR, swR⟩ := neg_keys ef N (n + 3) fb
-      exact ⟨R, rR, fun r mr => let ⟨s, e, h⟩ := hR r mr; ⟨s, e, N, rfl, h⟩, fun N' e => by cases e; exact swR⟩
-  obtain ⟨T₄, r₄, h₄, s₄⟩ := get_keys ef hn lines hl R (fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩) h₃
-  obtain ⟨T₅, r₅, h₅, s₅⟩ := get_domains ef hn lines hl' ds (fun d md => let ⟨s, _, e⟩ := hs.hds d md; ⟨s, e⟩) h₄
-  refine ⟨T₅, ?_, h₅, fun x => ?_⟩
-  · have nil : Erlang.lists.«foldl/3» (D (n + 4))
-        (.function "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) T₅ .nil = .ok T₅ := by
-      simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
-    simp only [Term.list] at r₃
-    simp [Elixir.Module.Types.Descr.«map_get_static_dnf/3», r₂, r₃, rR, r₄, r₅, nil]
-  rw [s₅, s₄, s₃, s₂]
+  rcases hs.hneg with rfl | ⟨N, rfl⟩
+  · exact ⟨[], by simp [Elixir.Module.Types.Descr.«map_keys_from_negated_set/2»], by simp, fun N e => by cases e⟩
+  · obtain ⟨R, rR, hR, swR⟩ := neg_keys ef N m fb
+    exact ⟨R, rR, fun r mr => let ⟨s, e, h⟩ := hR r mr; ⟨s, e, N, rfl, h⟩, fun N' e => by cases e; exact swR⟩
+
+/-- The values a split selects in the maps of the non-empty lines of a type: those at its atoms and at the atoms
+`map_keys_from_negated_set/2` adds, and those the tags of the lines give its kinds. -/
+theorem pieces_sem (ef : EF nd E V den tl K) {b : Term} (lines : List Term)
+    (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rs : List Term} {neg : Term}
+    {ds : List Term} (hs : SplitOk rs neg ds) {R : List Term}
+    (hR : ∀ r ∈ R, ∃ s, r = .atom s ∧ ∃ N, neg = .map N ∧ mapLookup N (.atom s) = none)
+    (swR : ∀ N, neg = .map N → ∀ s c, mapLookup N (.atom s) = none → mapLookup N (.atom c) = none → .atom s ∉ R →
+      .atom c ∉ R → ∀ w, denMF E den b (swapW s c w) = denMF E den b w) (x : V) :
+    (((∃ s, .atom s ∈ rs ∧ ∃ L ∈ lines, LongM den L s (some x)) ∨
+        ∃ s, .atom s ∈ R ∧ ∃ L ∈ lines, LongM den L s (some x)) ∨
+      ∃ kind, .atom kind ∈ ds ∧ ∃ L ∈ lines, LineTag den L kind x) ↔
+      ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey rs neg ds κ ∧ w κ = some x := by
+  have hl' : ∀ L ∈ lines, MLine E L := fun L m => (hl L m).1
   constructor
-  · rintro ((((h | ⟨s, ms, L, mL, w, hw, hx⟩) | ⟨s, ms, -⟩) | ⟨s, ms, L, mL, w, hw, hx⟩) | ⟨kind, mk, L, mL, hx⟩)
-    · exact absurd h (ef.den_none x)
+  · rintro ((⟨s, ms, L, mL, w, hw, hx⟩ | ⟨s, ms, L, mL, w, hw, hx⟩) | ⟨kind, mk, L, mL, hx⟩)
     · exact ⟨w, (sl w).mpr ⟨L, mL, hw⟩, .atom s, Or.inl ms, hx⟩
-    · simp at ms
     · obtain ⟨s', e, N, eN, hN⟩ := hR _ ms
       obtain rfl : s = s' := Term.atom.inj e
       exact ⟨w, (sl w).mpr ⟨L, mL, hw⟩, .atom s, Or.inr ⟨N, eN, hN⟩, hx⟩
@@ -220,7 +216,7 @@ theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term
     cases κ with
     | atom s =>
       rcases sk with ms | ⟨N, eN, hN⟩
-      · exact Or.inl (Or.inl (Or.inl (Or.inr ⟨s, ms, L, mL, w, hL, hx⟩)))
+      · exact Or.inl (Or.inl ⟨s, ms, L, mL, w, hL, hx⟩)
       · by_cases sR : .atom s ∈ R
         · exact Or.inl (Or.inr ⟨s, sR, L, mL, w, hL, hx⟩)
         · obtain ⟨L', mL', ht⟩ := unnamed_tag ef lines hl' sl (swR N eN) hN sR hw hx
@@ -230,6 +226,30 @@ theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term
       have := (inMLine_iff.mp hL).1.doms k i
       rw [hx] at this
       exact Or.inr ⟨domKind k, sk, _, mL, tag, l, negs, rfl, (tagSem_some ef g _ x).mp this⟩
+
+/-- `map_get_static_dnf/3` on the non-empty lines of a map type and a split of static keys unites the values its maps
+hold at the keys the split selects. -/
+theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term} (fb : MField E b) (lines : List Term)
+    (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rs : List Term} {neg : Term}
+    {ds : List Term} (hs : SplitOk rs neg ds) :
+    ∃ T, Elixir.Module.Types.Descr.«map_get_static_dnf/3» (D (n + 4)) b (Term.list lines)
+        (.tuple #[Term.list rs, .nil, neg, Term.list ds, .nil]) = .ok T ∧ E T ∧
+      ∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey rs neg ds κ ∧ w κ = some x := by
+  have hl' : ∀ L ∈ lines, MLine E L := fun L m => (hl L m).1
+  obtain ⟨T₂, r₂, h₂, s₂⟩ := get_keys ef hn lines hl rs hs.hrs ef.none
+  obtain ⟨T₃, r₃, h₃, s₃⟩ := get_keys ef hn lines hl [] (by simp) h₂
+  obtain ⟨R, rR, hR, swR⟩ := neg_keys_split ef fb (n + 3) hs
+  obtain ⟨T₄, r₄, h₄, s₄⟩ := get_keys ef hn lines hl R (fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩) h₃
+  obtain ⟨T₅, r₅, h₅, s₅⟩ := get_domains ef hn lines hl' ds (fun d md => let ⟨s, _, e⟩ := hs.hds d md; ⟨s, e⟩) h₄
+  refine ⟨T₅, ?_, h₅, fun x => ?_⟩
+  · have nil : Erlang.lists.«foldl/3» (D (n + 4))
+        (.function "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) T₅ .nil = .ok T₅ := by
+      simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
+    simp only [Term.list] at r₃
+    simp [Elixir.Module.Types.Descr.«map_get_static_dnf/3», r₂, r₃, rR, r₄, r₅, nil]
+  rw [s₅, s₄, s₃, s₂, ← pieces_sem ef lines hl sl hs hR swR x]
+  simp only [ef.den_none x, false_or, List.not_mem_nil, false_and, exists_false, or_false]
 
 end
 
