@@ -65,10 +65,10 @@ theorem fillT_len {tag : String} {l : List Term} {i : Nat} (fits : tag = "open" 
     · simp_all
     · exact h
 
-/-- `tuple_insert_leaf/4` inserts an element into a literal, unless the literal is closed and too short. -/
+/-- `tuple_insert_leaf/4` inserts an element into a literal, and skips closed literals that are too short. -/
 theorem insert_leaf_run {tag : String} (g : tag = "open" ∨ tag = "closed") (l : List Term) (i : Nat) (x : Term) :
-    (tag = "closed" ∧ l.length < i ∧ ∀ r, Elixir.Module.Types.Descr.«tuple_insert_leaf/4» (.atom tag) (Term.list l)
-        (.integer i) x ≠ .ok r) ∨
+    (tag = "closed" ∧ l.length < i ∧ Elixir.Module.Types.Descr.«tuple_insert_leaf/4» (.atom tag) (Term.list l)
+        (.integer i) x = .ok (.atom "bdd_bot")) ∨
       ((tag = "open" ∨ i ≤ l.length) ∧ ∃ k : Int, Elixir.Module.Types.Descr.«tuple_insert_leaf/4» (.atom tag) (Term.list l)
         (.integer i) x = .ok (.tuple #[.integer k, .atom tag, Term.list (insL tag l i x)]) ∧
         KeyOk (.tuple #[.integer k, .atom tag, Term.list (insL tag l i x)])) := by
@@ -94,18 +94,18 @@ theorem insert_leaf_run {tag : String} (g : tag = "open" ∨ tag = "closed") (l 
   · have e : fillT "closed" l i = l := by simp [fillT]
     by_cases short : l.length < i
     · left
-      refine ⟨rfl, short, fun r h => ?_⟩
-      simp only [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», Lynx.Except.andAlso, Erlang.erlang.«==/2»] at h
-      simp at h
-      cases hs : Erlang.lists.«split/2» (.integer i) (Term.list l) with
-      | error _ => simp [hs] at h
-      | ok s => exact split_short l i short s hs
+      refine ⟨rfl, short, ?_⟩
+      have lt : (l.length : Int) < i := by omega
+      simp [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», Lynx.Except.guard, Lynx.Except.tryWith, length_list,
+        Erlang.erlang.«</2», Int.compare_eq_lt, lt, pure, Except.pure]
     · right
       have sp := split_list l i (by omega)
       rw [insL, e] at run
       refine ⟨Or.inr (by omega), k, ?_, key⟩
+      have nlt : ¬(l.length : Int) < i := by omega
       simp [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», Lynx.Except.andAlso, sp, ← list_cons,
-        Erlang.erlang.«==/2», insL, e]
+        Erlang.erlang.«==/2», insL, e, Lynx.Except.guard, Lynx.Except.tryWith, length_list, Erlang.erlang.«</2»,
+        Int.compare_eq_lt, nlt]
       rw [append_list, Lynx.Except.ok_bind, run]
 
 section
@@ -184,8 +184,15 @@ theorem insert_leaf (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
     (hl : ∀ e ∈ l, E e) {x : Term} (hx : E x) (i : Nat) {r : Term}
     (run : Elixir.Module.Types.Descr.«tuple_insert_leaf/4» (.atom tag) (Term.list l) (.integer i) x = .ok r) :
     TField E r ∧ ∀ w, denTF E den r w = Bool.true ↔ Ins (InT den (tag == "closed") l) i (den x) w := by
-  rcases insert_leaf_run g l i x with ⟨-, -, none⟩ | ⟨fits, k, run', key⟩
-  · exact absurd run (none r)
+  rcases insert_leaf_run g l i x with ⟨rfl, short, run'⟩ | ⟨fits, k, run', key⟩
+  · rw [run'] at run
+    cases run
+    refine ⟨Or.inr Bdd.bot, fun w => ?_⟩
+    rw [denTF_bot]
+    simp only [Bool.false_eq_true, false_iff]
+    rintro ⟨w₁, y, w₂, -, len, -, h⟩
+    have := InT.closed_length h
+    simp at this; omega
   rw [run'] at run
   cases run
   have hl' := insL_els (i := i) (x := x) (tag := tag) ef hl hx
