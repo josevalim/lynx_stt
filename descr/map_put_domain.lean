@@ -4361,20 +4361,44 @@ theorem dnf_put (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (bdd : Te
       · exact Or.inr ⟨r, rfl, fr, fun w => by rw [sr w]; simp [putSem_empty vne w]⟩
 
 
-/-- `map_update_static/5` putting a static value at a split of static keys. -/
-theorem dput_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v)
-    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
-    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
-    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
+/-- Split terms that `map_update_static_dnf/6`, forcing a static value, updates with the maps `P` gives from the maps
+of the lines and the value, given the keys outside the negated set `neg`, if any. -/
+def DnfPuts (s neg : Term) (P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop) : Prop :=
+  ∀ (nd : Term) (E : Term → Prop) (V : Type) (den : Term → V → Prop) (tl : V → Prop) (K : Nat),
+    EF nd E V den tl K → ∀ {n : Nat}, K + 4 ≤ n → ∀ (bdd : Term) (lines : List Term),
+    (∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) → lines ≠ [] → ∀ {v : Term}, E v →
+    (v = .atom "term" ∨ ∃ Z, v = .map Z) →
+    (∀ N, neg = .map N → (∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) ∧ ∃ ks : List String,
+      Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 6)) (.map N) bdd =
+        .ok (Term.list (ks.map Term.atom)) ∧ (∀ s ∈ ks, mapLookup N (.atom s) = none) ∧
+      ∀ L ∈ lines, ∀ s, LineNames L s → mapLookup N (.atom s) ≠ none ∨ s ∈ ks) →
+    ∃ Y f, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines) s (forceOp v)
+        (.atom "false") (.atom "true") = .ok (.tuple #[.map [], Y, .nil, f]) ∧
+      (f = .atom "true" ∨ ∀ w, ¬P den (fun u => ∃ L ∈ lines, InMLine den L u) v w) ∧
+      ((Y = .map [] ∧ ∀ w, ¬P den (fun u => ∃ L ∈ lines, InMLine den L u) v w) ∨
+        ∃ r, Y = .map [(.atom "map", r)] ∧ MField E r ∧ ∀ w, denMF E den r w = Bool.true ↔
+          P den (fun u => ∃ L ∈ lines, InMLine den L u) v w)
+
+theorem dnfPuts_split {rs : List Term} {neg : Term} {ds : List Term} (ok : SplitOk rs neg ds)
+    (nr : ∀ N, neg = .map N → rs = []) :
+    DnfPuts (splitT rs neg ds) neg (fun den M v w => PutSem den M rs neg ds v w) :=
+  fun _ _ _ _ _ _ ef {_} hn bdd lines hl hne {_} hv sv hneg => dnf_put ef hn bdd lines hl hne hv sv ok nr hneg
+
+/-- `map_update_static/5` putting a static value at a split of keys `map_update_static_dnf/6` updates with `P`. -/
+theorem dput_update_static_g {s neg : Term}
+    {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts s neg P) (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
+    (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z)
     {X : List (Term × Term)} {b : Term} (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) :
-    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) (splitT rs neg ds)
+    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) s
         (forceOp v) (.atom "false") (.atom "true") = .ok res ∧
       ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨
         ∃ Y f, res = .tuple #[.map [], Y, .nil, f] ∧ (∃ w, denMF E den b w = Bool.true) ∧
-          (f = .atom "true" ∨ ∀ w, ¬PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w) ∧
-          ((Y = .map [] ∧ ∀ w, ¬PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w) ∨
+          (f = .atom "true" ∨ ∀ w, ¬P den (fun u => denMF E den b u = Bool.true) v w) ∧
+          ((Y = .map [] ∧ ∀ w, ¬P den (fun u => denMF E den b u = Bool.true) v w) ∨
             ∃ r, Y = .map [(.atom "map", r)] ∧ MField E r ∧ ∀ w, denMF E den r w = Bool.true ↔
-              PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w)) := by
+              P den (fun u => denMF E den b u = Bool.true) v w)) := by
   -- For negated sets, the keys outside the set, and the literals of the field naming only those or the set's.
   have negInfo : ∀ N, neg = .map N → ∃ ks : List String,
       Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 6)) (.map N) b =
@@ -4444,7 +4468,7 @@ theorem dput_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
         rcases h with h | ⟨N', mN', -⟩
         · exact names s h
         · rw [← list_inj e₃] at mN'; simp at mN'
-      obtain ⟨Y, f, rY, hf, hY⟩ := dnf_put ef hn (.tuple #[.integer k, tag, fieldsTerm l]) _ hl (by simp) hv sv ok nr hneg
+      obtain ⟨Y, f, rY, hf, hY⟩ := hP _ _ _ _ _ _ ef hn (.tuple #[.integer k, tag, fieldsTerm l]) _ hl (by simp) hv sv hneg
       rw [conv inB] at hY hf
       refine ⟨_, ?_, Or.inr ⟨Y, f, rfl, ⟨w₀, (sem w₀).mpr h₀⟩, hf, hY⟩⟩
       unfold Elixir.Module.Types.Descr.«map_update_static/5»
@@ -4492,7 +4516,7 @@ theorem dput_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
         · rfl
         · simpa using (inB w).mp h
     | cons L rest =>
-      obtain ⟨Y, f, rY, hf, hY⟩ := dnf_put ef hn b (L :: rest) hl (by simp) hv sv ok nr hneg
+      obtain ⟨Y, f, rY, hf, hY⟩ := hP _ _ _ _ _ _ ef hn b (L :: rest) hl (by simp) hv sv hneg
       rw [conv inB] at hY hf
       obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
       refine ⟨_, ?_, Or.inr ⟨Y, f, rfl, ⟨w₀, (inB w₀).mpr ⟨L, List.mem_cons_self, h₀⟩⟩, hf, hY⟩⟩
@@ -4503,23 +4527,40 @@ theorem dput_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
       · exact absurd ⟨_, _, _, rfl⟩ three
       · simpa [getMapKeys_single, hb, rl, Term.list] using rY
 
+/-- `map_update_static/5` putting a static value at a split of static keys. -/
+theorem dput_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
+    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
+    {X : List (Term × Term)} {b : Term} (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) :
+    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) (splitT rs neg ds)
+        (forceOp v) (.atom "false") (.atom "true") = .ok res ∧
+      ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨
+        ∃ Y f, res = .tuple #[.map [], Y, .nil, f] ∧ (∃ w, denMF E den b w = Bool.true) ∧
+          (f = .atom "true" ∨ ∀ w, ¬PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w) ∧
+          ((Y = .map [] ∧ ∀ w, ¬PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w) ∨
+            ∃ r, Y = .map [(.atom "map", r)] ∧ MField E r ∧ ∀ w, denMF E den r w = Bool.true ↔
+              PutSem den (fun u => denMF E den b u = Bool.true) rs neg ds v w)) :=
+  dput_update_static_g (P := fun den M v w => PutSem den M rs neg ds v w) (dnfPuts_split ok nr) hNa ef hn hv sv hb fb
+
 
 section
 variable {t : Term} {n : Nat}
 
 /-- `map_update_unchecked/4` putting a static value at a split of static keys, in static types of the next level:
 `:badmap` unless the type holds only maps, otherwise the puts at the split of its maps, or an error with none. -/
-theorem dput_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
-    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
-    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+theorem dput_map_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {s neg : Term}
+    {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts s neg P)
     (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
     (hm : (level t n).K + 26 ≤ m) :
-    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (splitT rs neg ds)
+    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (s)
         (forceOp v) (.atom "false") = .ok res ∧
       ((res = .atom "badmap" ∧ ¬MOnly t n X) ∨
         ∃ Y, (res = .tuple #[.map [], .map Y, .nil] ∨ (∃ er, res = .tuple #[.atom "error", er]) ∧ Y = []) ∧
           MOnly t n X ∧ DE (level t n).E (.map Y) ∧ (∀ q : PN t n, denD (.map Y) q → q.1.1 = "map") ∧
-          ∀ w, MT t n Y w ↔ PutSem (level t n).den (MT t n X) rs neg ds v w) := by
+          ∀ w, MT t n Y w ↔ P (level t n).den (MT t n X) v w) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 6 := ⟨m - 6, by omega⟩
   have sX := de_map hX
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
@@ -4556,7 +4597,7 @@ theorem dput_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v :
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo
       obtain ⟨res, run, ⟨rfl, emp⟩ | ⟨Y, f, rfl, ⟨w₀, hw₀⟩, hf, hY⟩⟩ :=
-        dput_update_static (level t n).ef (n := k) (by omega) hv sv ok nr hNa hb fb
+        dput_update_static_g hP hNa (level t n).ef (n := k) (by omega) hv sv hb fb
       · refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun h => ?_⟩⟩
         · simp [key, mo, run, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1»]
         · obtain ⟨-, w, hw⟩ := only.mp h
@@ -4565,7 +4606,7 @@ theorem dput_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v :
       have mOnly := only.mpr ⟨restE, w₀, hw₀⟩
       -- The error when nothing is found holds no map, as the puts hold none then.
       by_cases fe : f = .atom "false" ∨ f = .atom "nil"
-      · have emp : ∀ w, ¬PutSem (level t n).den (MT t n X) rs neg ds v w := by
+      · have emp : ∀ w, ¬P (level t n).den (MT t n X) v w := by
           rcases hf with rfl | h
           · rcases fe with h | h <;> simp at h
           · exact h
@@ -4596,6 +4637,20 @@ theorem dput_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v :
     · rw [bp_false.mpr restE] at mo
       refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun h => restE (only.mp h).1⟩⟩
       simp [key, mo, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1», boolAtom]
+
+theorem dput_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
+    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
+    (hm : (level t n).K + 26 ≤ m) :
+    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (splitT rs neg ds)
+        (forceOp v) (.atom "false") = .ok res ∧
+      ((res = .atom "badmap" ∧ ¬MOnly t n X) ∨
+        ∃ Y, (res = .tuple #[.map [], .map Y, .nil] ∨ (∃ er, res = .tuple #[.atom "error", er]) ∧ Y = []) ∧
+          MOnly t n X ∧ DE (level t n).E (.map Y) ∧ (∀ q : PN t n, denD (.map Y) q → q.1.1 = "map") ∧
+          ∀ w, MT t n Y w ↔ PutSem (level t n).den (MT t n X) rs neg ds v w) :=
+  dput_map_g (P := fun den M v w => PutSem den M rs neg ds v w) hX hv sv (dnfPuts_split ok nr) hNa hm
+
 
 /-- `map_put/3` of a static value at a static key type, in static types of the next level: `:badmap` unless the type
 holds only maps, otherwise the puts at the split of the keys. -/

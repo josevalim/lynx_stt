@@ -95,22 +95,23 @@ variable {t : Term} {n : Nat}
 
 /-- `map_update_static/5` forcing a static value at a split of static keys, on a static map type of the next level,
 for either flag: types without maps give no map; others the maps of the puts, and whether some put holds. -/
-theorem upd_static {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
-    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
-    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+theorem upd_static_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {s neg : Term}
+    {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts s neg P)
     (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
     (hm : (level t n).K + 27 ≤ m) (st : Bool) :
-    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) (splitT rs neg ds) (forceOp v)
+    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) (s) (forceOp v)
         (.atom "false") (boolAtom st) = .ok res ∧
       (((res = .atom "badmap" ∨ res = .tuple #[.map [], .map [], .nil, .atom "false"]) ∧ ∀ w, ¬MT t n X w) ∨
         (∃ w, MT t n X w) ∧ ∃ Y f, res = .tuple #[.map [], .map Y, .nil, f] ∧ DE (level t n).E (.map Y) ∧
           (∀ q : PN t n, denD (.map Y) q → q.1.1 = "map") ∧
-          (∀ w, MT t n Y w ↔ PutSem (level t n).den (MT t n X) rs neg ds v w) ∧
-          (f = .atom "true" ∨ ∀ w, ¬PutSem (level t n).den (MT t n X) rs neg ds v w)) := by
+          (∀ w, MT t n Y w ↔ P (level t n).den (MT t n X) v w) ∧
+          (f = .atom "true" ∨ ∀ w, ¬P (level t n).den (MT t n X) v w)) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 7 := ⟨m - 7, by omega⟩
-  have flag : Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 7)) (.map X) (splitT rs neg ds) (forceOp v)
+  have flag : Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 7)) (.map X) (s) (forceOp v)
       (.atom "false") (boolAtom st) = Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 6 + 1)) (.map X)
-      (splitT rs neg ds) (forceOp v) (.atom "false") (.atom "true") := by
+      (s) (forceOp v) (.atom "false") (.atom "true") := by
     cases st
     · exact update_static_flag (k + 6) _ _ _ _
     · rfl
@@ -127,7 +128,7 @@ theorem upd_static {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
     have conv : (fun u => denMF (level t n).E (level t n).den b u = Bool.true) = MT t n X :=
       funext fun u => propext (mt u).symm
     obtain ⟨res, run, ⟨rfl, emp⟩ | ⟨Y, f, rfl, ⟨w₀, hw₀⟩, hf, hY⟩⟩ :=
-      dput_update_static (level t n).ef (n := k + 1) (by rw [level_K] at hm ⊢; omega) hv sv ok nr hNa hb fb
+      dput_update_static_g hP hNa (level t n).ef (n := k + 1) (by rw [level_K] at hm ⊢; omega) hv sv hb fb
     · exact ⟨_, run, Or.inl ⟨Or.inl rfl, fun w hw => by have := emp w; rw [(mt w).mp hw] at this; cases this⟩⟩
     simp only [conv] at hY hf
     refine ⟨_, run, Or.inr ⟨⟨w₀, (mt w₀).mpr hw₀⟩, ?_⟩⟩
@@ -142,6 +143,21 @@ theorem upd_static {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
         · exact e
         · simp [mapLookup, e, dn_none] at hq
       · rw [← sr]; simp [MT, mapLookup]
+
+theorem upd_static {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
+    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
+    (hm : (level t n).K + 27 ≤ m) (st : Bool) :
+    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) (splitT rs neg ds) (forceOp v)
+        (.atom "false") (boolAtom st) = .ok res ∧
+      (((res = .atom "badmap" ∨ res = .tuple #[.map [], .map [], .nil, .atom "false"]) ∧ ∀ w, ¬MT t n X w) ∨
+        (∃ w, MT t n X w) ∧ ∃ Y f, res = .tuple #[.map [], .map Y, .nil, f] ∧ DE (level t n).E (.map Y) ∧
+          (∀ q : PN t n, denD (.map Y) q → q.1.1 = "map") ∧
+          (∀ w, MT t n Y w ↔ PutSem (level t n).den (MT t n X) rs neg ds v w) ∧
+          (f = .atom "true" ∨ ∀ w, ¬PutSem (level t n).den (MT t n X) rs neg ds v w)) :=
+  upd_static_g (P := fun den M v w => PutSem den M rs neg ds v w) hX hv sv (dnfPuts_split ok nr) hNa hm st
+
 
 end
 
@@ -162,28 +178,34 @@ def PutOf (t : Term) (n : Nat) (Y : List (Term × Term)) (rs : List Term) (neg :
     (w : MW (level t n).V) : Prop :=
   (∃ u, MT t n Y u) ∧ PutSem (level t n).den (MT t n Y) rs neg ds v w
 
+/-- The maps of the updates `P` gives at a static map type, if it holds maps. -/
+def PutOfP (P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop) (t : Term) (n : Nat)
+    (Y : List (Term × Term)) (v : Term) (w : MW (level t n).V) : Prop :=
+  (∃ u, MT t n Y u) ∧ P (level t n).den (MT t n Y) v w
+
 theorem mt_top (w : MW (level t n).V) : MT t n topM w := by
   have := (mapTop_den (t := t) (n := n) (mpt w)).mpr rfl
   exact (denD_mpt w).mp this
 
 /-- `map_update_unchecked/4` forcing a static value at a split of static keys, on a gradual map type of the next
 level: the puts at the static maps, and in the upper bound also at the dynamic maps. -/
-theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
+theorem gupd_g {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
     (hD : mapLookup X (.atom "dynamic") = some Dy) {v : Term} (hv : (level t n).E v)
-    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
-    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {s neg : Term}
+    {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts s neg P)
     (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
     (hm : (level t n).K + 30 ≤ m) :
-    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (splitT rs neg ds) (forceOp v)
+    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (s) (forceOp v)
         (.atom "false") = .ok res ∧
       (res = .atom "badmap" ∨
-        (∃ er, res = .tuple #[.atom "error", er] ∧ ∀ w, ¬PutOf t n (dynL Dy) rs neg ds v w) ∨
+        (∃ er, res = .tuple #[.atom "error", er] ∧ ∀ w, ¬PutOfP P t n (dynL Dy) v w) ∨
         ∃ T R er, res = .tuple #[T, R, er] ∧ GC (level t n) R ∧
           (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
           (∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∧
-          (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w) ∧
+          (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOfP P t n (rmDyn X) v w) ∧
           ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔
-            PutOf t n (rmDyn X) rs neg ds v w ∨ PutOf t n (dynL Dy) rs neg ds v w) := by
+            PutOfP P t n (rmDyn X) v w ∨ PutOfP P t n (dynL Dy) v w) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
   rcases gX with tX | ⟨X', Dy', e, hD', tD, dS, incl⟩
   · rcases tX with h | ⟨X', e, sX'⟩
@@ -211,9 +233,9 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
     rcases tD with rfl | ⟨Y, rfl, sY⟩
     · exact mapTop_de
     · exact Or.inr ⟨Y, rfl, sY⟩
-  have stD : ∀ st, Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) Dy (splitT rs neg ds) (forceOp v)
+  have stD : ∀ st, Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) Dy (s) (forceOp v)
       (.atom "false") st = Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) (.map (dynL Dy))
-      (splitT rs neg ds) (forceOp v) (.atom "false") st := by
+      (s) (forceOp v) (.atom "false") st := by
     intro st
     rcases tD with rfl | ⟨Y, rfl, -⟩
     · conv => lhs; rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def]
@@ -239,7 +261,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
     simp only [Bool.not_eq_false] at hbm
     simp [keyD, hbm, boolAtom]
   -- The static part: its maps put, or none.
-  obtain ⟨rS, rrS, hS⟩ := upd_static dSt hv sv ok nr hNa (m := k + 8) (by omega) Bool.true
+  obtain ⟨rS, rrS, hS⟩ := upd_static_g dSt hv sv hP hNa (m := k + 8) (by omega) Bool.true
   simp only [boolAtom, ↓reduceIte] at rrS
   -- The union of a static part with the dynamic part of the maps of a put.
   have fin : ∀ Sd Yd : List (Term × Term), DE (level t n).E (.map Sd) → DE (level t n).E (.map Yd) →
@@ -271,7 +293,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
   obtain ⟨Sd, fs, eS, dSd, oSd, sSd⟩ : ∃ Sd fs, ((rS = .atom "badmap" ∧ Sd = [] ∧ fs = .atom "false") ∨
       rS = .tuple #[.map [], .map Sd, .nil, fs]) ∧ DE (level t n).E (.map Sd) ∧
       (∀ q : PN t n, denD (.map Sd) q → q.1.1 = "map") ∧
-      ∀ w, denD (.map Sd) (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w := by
+      ∀ w, denD (.map Sd) (mpt (t := t) (n := n) w) ↔ PutOfP P t n (rmDyn X) v w := by
     rcases hS with ⟨hrS, noS⟩ | ⟨exS, Ys, fs, rfl, dYs, onlyYs, semYs, -⟩
     · refine ⟨[], .atom "false", by rcases hrS with rfl | rfl <;> simp, Or.inr ⟨_, rfl, descrC_nil⟩,
         fun q h => by simp [denD_map, mapLookup, dn_none] at h, fun w => ?_⟩
@@ -282,7 +304,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
     · refine ⟨Ys, fs, Or.inr rfl, dYs, onlyYs, fun w => ?_⟩
       rw [denD_mpt, semYs]
       exact ⟨fun h => ⟨exS, h⟩, fun h => h.2⟩
-  obtain ⟨rd, rrd, hd⟩ := upd_static dDy hv sv ok nr hNa (m := k + 8) (by omega) Bool.false
+  obtain ⟨rd, rrd, hd⟩ := upd_static_g dDy hv sv hP hNa (m := k + 8) (by omega) Bool.false
   simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rrd
   simp only [kt, mo, boolAtom, ↓reduceIte, Lynx.Except.andAlso, rrd, rrS, Lynx.Except.ok_bind]
   rcases hd with ⟨hrd | hrd, noD⟩ | ⟨exD, Yd, fd, rfl, dYd, onlyYd, semYd, hfd⟩
@@ -293,7 +315,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
     rcases eS with ⟨rfl, rfl, rfl⟩ | rfl <;>
       simp [Lynx.Term.isMember, Erlang.erlang.«++/2», pure, Except.pure]
   · by_cases fe : fd = .atom "false" ∨ fd = .atom "nil"
-    · have emp : ∀ w, ¬PutOf t n (dynL Dy) rs neg ds v w := by
+    · have emp : ∀ w, ¬PutOfP P t n (dynL Dy) v w := by
         rcases hfd with rfl | h
         · rcases fe with h | h <;> simp at h
         · exact fun w ⟨_, hw⟩ => h w hw
@@ -321,6 +343,25 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
             Except.pure]
       · rw [sc₂, sSd, denD_mpt, semYd]
         exact ⟨fun h => h.imp id fun h => ⟨exD, h⟩, fun h => h.imp id fun h => h.2⟩
+
+theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
+    (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = [])
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
+    (hm : (level t n).K + 30 ≤ m) :
+    ∃ res, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (splitT rs neg ds) (forceOp v)
+        (.atom "false") = .ok res ∧
+      (res = .atom "badmap" ∨
+        (∃ er, res = .tuple #[.atom "error", er] ∧ ∀ w, ¬PutOf t n (dynL Dy) rs neg ds v w) ∨
+        ∃ T R er, res = .tuple #[T, R, er] ∧ GC (level t n) R ∧
+          (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
+          (∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∧
+          (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w) ∧
+          ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔
+            PutOf t n (rmDyn X) rs neg ds v w ∨ PutOf t n (dynL Dy) rs neg ds v w) :=
+  gupd_g (P := fun den M v w => PutSem den M rs neg ds v w) gX hD hv sv (dnfPuts_split ok nr) hNa hm
+
 
 /-- The type `dynamic/1` gives a map type: its dynamic part, or the whole type. -/
 def dynG (X : List (Term × Term)) : List (Term × Term) :=
@@ -376,6 +417,46 @@ theorem putOf_mono {Y Y' : List (Term × Term)} (sub : ∀ u, MT t n Y u → MT 
 
 /-- `map_put/3` of a static value at static keys of a gradual map type: `:badmap`, or a gradual type holding the puts
 at the static maps, whose upper bound holds the puts at the dynamic maps. -/
+theorem gres_g {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {s neg : Term}
+    {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts s neg P)
+    (hmono : ∀ M₁ M₂ : MW (level t n).V → Prop, (∀ u, M₁ u → M₂ u) → ∀ w, P (level t n).den M₁ v w → P (level t n).den M₂ v w)
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) {m : Nat}
+    (hm : (level t n).K + 30 ≤ m) :
+    ∃ res, (do
+        let r ← Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) (s) (forceOp v)
+          (.atom "false")
+        putRes r) = .ok res ∧
+      (res = .atom "badmap" ∨ ∃ R, res = .tuple #[.atom "ok", R] ∧ GC (level t n) R ∧
+        (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
+        ((∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∨ ∀ w, ¬PutOfP P t n (rmDyn X) v w) ∧
+        (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOfP P t n (rmDyn X) v w) ∧
+        ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔ PutOfP P t n (dynL Dy) v w) := by
+  obtain ⟨tD, incl⟩ : TC (level t n) Dy ∧ ∀ q : TP (level t n), denD (.map X) q → denD Dy q := by
+    rcases gX with tX | ⟨X', Dy', e, hD', tD, -, incl⟩
+    · rcases tX with h | ⟨X', e, sX'⟩
+      · cases h
+      · simp only [Term.map.injEq] at e; subst e; rw [sX'.static] at hD; cases hD
+    · simp only [Term.map.injEq] at e; subst e
+      rw [hD] at hD'; cases hD'
+      exact ⟨tD, incl⟩
+  have up : ∀ w, PutOfP P t n (rmDyn X) v w → PutOfP P t n (dynL Dy) v w :=
+    fun w h => ⟨let ⟨u, hu⟩ := h.1; ⟨u, static_in_dyn tD incl u hu⟩, hmono _ _ (static_in_dyn tD incl) w h.2⟩
+  obtain ⟨res, run, rfl | ⟨er, rfl, emp⟩ | ⟨T, R, er, rfl, gR, oR, oS, s₁, s₂⟩⟩ := gupd_g gX hD hv sv hP hNa hm
+  · exact ⟨_, by simp [run, putRes], Or.inl rfl⟩
+  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨_, rfl, GC.tc (Or.inr ⟨[], rfl, descrC_nil⟩),
+      fun q h => by simp [upper, mapLookup, denD_map, dn_none] at h, Or.inr fun w h => emp w (up w h), fun w => ?_,
+      fun w => ?_⟩⟩
+    · simp only [denD_map, mapLookup, List.find?_nil, Option.map_none]
+      exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd (up w h) (emp w)⟩
+    · simp only [upper, mapLookup, List.find?_nil, Option.map_none, Option.getD_none, denD_map]
+      exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd h (emp w)⟩
+  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨R, rfl, gR, oR, Or.inl oS, s₁, fun w => ?_⟩⟩
+    rw [s₂]
+    exact ⟨fun h => h.elim (up w) id, Or.inr⟩
+
 theorem gres {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
     (hD : mapLookup X (.atom "dynamic") = some Dy) {v : Term} (hv : (level t n).E v)
     (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) {rs : List Term} {neg : Term} {ds : List Term}
@@ -390,29 +471,10 @@ theorem gres {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
         (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
         ((∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∨ ∀ w, ¬PutOf t n (rmDyn X) rs neg ds v w) ∧
         (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w) ∧
-        ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔ PutOf t n (dynL Dy) rs neg ds v w) := by
-  obtain ⟨tD, incl⟩ : TC (level t n) Dy ∧ ∀ q : TP (level t n), denD (.map X) q → denD Dy q := by
-    rcases gX with tX | ⟨X', Dy', e, hD', tD, -, incl⟩
-    · rcases tX with h | ⟨X', e, sX'⟩
-      · cases h
-      · simp only [Term.map.injEq] at e; subst e; rw [sX'.static] at hD; cases hD
-    · simp only [Term.map.injEq] at e; subst e
-      rw [hD] at hD'; cases hD'
-      exact ⟨tD, incl⟩
-  have up : ∀ w, PutOf t n (rmDyn X) rs neg ds v w → PutOf t n (dynL Dy) rs neg ds v w :=
-    fun w => putOf_mono (static_in_dyn tD incl) ok nr
-  obtain ⟨res, run, rfl | ⟨er, rfl, emp⟩ | ⟨T, R, er, rfl, gR, oR, oS, s₁, s₂⟩⟩ := gupd gX hD hv sv ok nr hNa hm
-  · exact ⟨_, by simp [run, putRes], Or.inl rfl⟩
-  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨_, rfl, GC.tc (Or.inr ⟨[], rfl, descrC_nil⟩),
-      fun q h => by simp [upper, mapLookup, denD_map, dn_none] at h, Or.inr fun w h => emp w (up w h), fun w => ?_,
-      fun w => ?_⟩⟩
-    · simp only [denD_map, mapLookup, List.find?_nil, Option.map_none]
-      exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd (up w h) (emp w)⟩
-    · simp only [upper, mapLookup, List.find?_nil, Option.map_none, Option.getD_none, denD_map]
-      exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd h (emp w)⟩
-  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨R, rfl, gR, oR, Or.inl oS, s₁, fun w => ?_⟩⟩
-    rw [s₂]
-    exact ⟨fun h => h.elim (up w) id, Or.inr⟩
+        ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔ PutOf t n (dynL Dy) rs neg ds v w) :=
+  gres_g (P := fun den M v w => PutSem den M rs neg ds v w) gX hD hv sv (dnfPuts_split ok nr)
+    (fun _ _ sub _ h => put_mono sub (fun _ h => h) ok ok nr (fun _ h => h) h) hNa hm
+
 
 end
 
