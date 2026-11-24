@@ -74,6 +74,104 @@ end
 
 
 section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `tuple_insert_leaf/4` gives a tuple field on any literal. -/
+theorem insert_leaf_ok (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" ∨ tag = "closed") {l : List Term}
+    (hl : ∀ e ∈ l, E e) {x : Term} (hx : E x) (i : Nat) :
+    ∃ r, Elixir.Module.Types.Descr.«tuple_insert_leaf/4» (.atom tag) (Term.list l) (.integer i) x = .ok r ∧
+      TField E r ∧ ∀ w, denTF E den r w = Bool.true ↔ Ins (InT den (tag == "closed") l) i (den x) w := by
+  rcases insert_leaf_run g l i x with ⟨-, -, run⟩ | ⟨-, k, run, -⟩
+  · exact ⟨_, run, insert_leaf ef g hl hx i run⟩
+  · exact ⟨_, run, insert_leaf ef g hl hx i run⟩
+
+/-- `tuple_insert_leaves/4` gives a type on the unions of literals `tuple_bdd_positive?/1` accepts. -/
+theorem insert_leaves_ok (ef : EF nd E V den tl K) {x : Term} (hx : E x) (i : Nat) :
+    ∀ (ok : Term → Prop) (r : Term), Bdd ok r → (∀ t, ok t → TupleLit E t) →
+      Elixir.Module.Types.Descr.«tuple_bdd_positive?/1» r = .ok (boolAtom Bool.true) → ∀ acc, TField E acc →
+      ∃ res, Elixir.Module.Types.Descr.«tuple_insert_leaves/4» r (.integer i) x acc = .ok res := by
+  refine Bdd.induction (P := fun ok r => (∀ t, ok t → TupleLit E t) →
+      Elixir.Module.Types.Descr.«tuple_bdd_positive?/1» r = .ok (boolAtom Bool.true) → ∀ acc, TField E acc →
+      ∃ res, Elixir.Module.Types.Descr.«tuple_insert_leaves/4» r (.integer i) x acc = .ok res) ?_ ?_ ?_ ?_
+  · intro ok _ pos acc _
+    simp [Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», boolAtom] at pos
+  · intro ok _ _ acc _
+    exact ⟨acc, by simp [Elixir.Module.Types.Descr.«tuple_insert_leaves/4», pure, Except.pure]⟩
+  · intro ok k a b okl okLit _ acc ha
+    obtain ⟨k', tag, l, e, g, hl⟩ := okLit _ okl
+    rw [e]
+    obtain ⟨r, rr, fr, -⟩ := insert_leaf_ok (den := den) ef g hl hx i
+    obtain ⟨u, ru, -⟩ := tuple_union_lh (den := den) fr ha
+    exact ⟨u, by simp [Elixir.Module.Types.Descr.«tuple_insert_leaves/4», rr, ru]⟩
+  · intro ok h lit c u d leaf okl hc hu hd ic iu idd okLit pos acc ha
+    have okLit' : ∀ t, Above ok lit t → TupleLit E t := fun t ht => okLit t ht.1
+    obtain ⟨k', tag, l, rfl, g, hl⟩ := okLit _ okl
+    by_cases shape : c = .atom "bdd_top" ∧ d = .atom "bdd_bot"
+    · obtain ⟨rfl, rfl⟩ := shape
+      rw [Elixir.Module.Types.Descr.«tuple_bdd_positive?/1».eq_def] at pos
+      simp only at pos
+      obtain ⟨r, rr, fr, -⟩ := insert_leaf_ok (den := den) ef g hl hx i
+      obtain ⟨a, ra, ta, -⟩ := tuple_union_lh (den := den) fr ha
+      obtain ⟨res, run⟩ := iu okLit' pos a ta
+      exact ⟨res, by simp [Elixir.Module.Types.Descr.«tuple_insert_leaves/4», rr, ra, run]⟩
+    · exfalso
+      rw [Elixir.Module.Types.Descr.«tuple_bdd_positive?/1».eq_def] at pos
+      split at pos
+      all_goals first
+        | (rename_i heq; simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at heq; simp_all [boolAtom]; done)
+        | (simp_all [boolAtom]; done)
+        | skip
+
+/-- The fold of `tuple_insert_static/3` over literals without negations gives a type. -/
+theorem insert_pieces_ok (ef : EF nd E V den tl K) {x : Term} (hx : E x) (i : Nat) (P : List Term)
+    (tP : ∀ p ∈ P, Piece E p) {m : Nat} :
+    ∃ res, Erlang.lists.«foldl/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2
+      #[.integer i, x]) (.atom "bdd_bot") (Term.list P) = .ok res := by
+  obtain ⟨r, -, run⟩ := foldl_rel_at (m := m + 1) "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-"
+    #[.integer i, x] (fun _ a => TField E a) P (fun pre p a mp ta => by
+      obtain ⟨tag, l, rfl, g, hl⟩ := tP p mp
+      obtain ⟨r, rr, fr, -⟩ := insert_leaf_ok (den := den) ef g hl hx i
+      obtain ⟨u, ru, tu, -⟩ := tuple_union_lh (den := den) fr ta
+      refine ⟨u, tu, ?_⟩
+      rw [Erlang.program.«Elixir.Module.Types.Descr:-tuple_insert_static/3-fun-0-/2».pure]
+      simp [Elixir.Module.Types.Descr.«-tuple_insert_static/3-fun-0-/4», rr, ru])
+    (.atom "bdd_bot") (Or.inr Bdd.bot)
+  exact ⟨r, run⟩
+
+/-- `tuple_insert_static/3` gives a type on any tuple field. -/
+theorem insert_static_ok (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {X : List (Term × Term)} {b : Term}
+    (hb : mapLookup X (.atom "tuple") = some b) (fb : TField E b) {x : Term} (hx : E x) (i : Nat) :
+    ∃ res, Elixir.Module.Types.Descr.«tuple_insert_static/3» (D (n + 3)) (.map X) (.integer i) x = .ok res := by
+  have upd : ∀ b', Erlang.maps.«update/3» (.atom "tuple") b' (.map X) = .ok (.map ((.atom "tuple", b') :: X)) := by
+    intro b'
+    have : (X.find? fun entry => decide (compareExact (fuel (.atom "tuple") entry.1) (.atom "tuple") entry.1 = .eq)).isSome := by
+      have := congrArg Option.isSome hb
+      simpa [mapLookup] using this
+    simp [Erlang.maps.«update/3», this]
+  have hb' : Lynx.Term.getMapKeys [.atom "tuple"] (.map X) = [b] := by simp [getMapKeys_single, hb]
+  rcases fb with ⟨k, rfl⟩ | wb
+  · have lit : TupleLit E (.tuple #[.integer k, .atom "open", .nil]) := ⟨k, "open", [], rfl, Or.inl rfl, by simp⟩
+    obtain ⟨r, run⟩ := insert_leaves_ok (den := den) ef hx i (TupleLit E) _ (Bdd.leaf_iff.mpr lit) (fun t h => h)
+      (by simp [Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», boolAtom]) (.atom "bdd_bot") (Or.inr Bdd.bot)
+    exact ⟨.map ((.atom "tuple", r) :: X), by simp [Elixir.Module.Types.Descr.«tuple_insert_static/3», getMapKeys_single, hb,
+      Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», Lynx.Term.isMember, Lynx.Except.guard, run,
+      Erlang.erlang.«is_map/1», upd]⟩
+  · obtain ⟨q, rq⟩ := positive_run _ b wb
+    cases q
+    · obtain ⟨P, rP, tP, -⟩ := no_negs (den := den) ef hn wb
+      obtain ⟨r, run⟩ := insert_pieces_ok (den := den) ef hx i P tP (m := n + 2)
+      exact ⟨.map ((.atom "tuple", r) :: X), by
+        unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
+        simp [hb', rq, rP, Lynx.Term.isMember, Lynx.Except.guard, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
+    · obtain ⟨r, run⟩ := insert_leaves_ok (den := den) ef hx i _ b wb (fun t h => h.1.1) rq (.atom "bdd_bot")
+        (Or.inr Bdd.bot)
+      exact ⟨.map ((.atom "tuple", r) :: X), by
+        unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
+        simp [hb', rq, Lynx.Term.isMember, Lynx.Except.guard, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
+
+end
+
+section
 variable {t : Term} {n : Nat}
 
 /-- Values at an index of the tuples of a tuple type. -/
@@ -339,6 +437,59 @@ theorem replace_term (d : Dispatcher) (i : Nat) (x : Term) :
   simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
     Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, Elixir.Module.Types.Descr.«tuple_delete_at/2».eq_def,
     Lynx.Except.orElse, Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», pure, Except.pure]
+
+/-- `tuple_insert_at_checked/3` gives a type on static types of the next level holding only tuples, all long enough. -/
+theorem insert_checked_ok {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (onlyX : TOnly t n X) {x : Term}
+    (hx : (level t n).E x) (i : Nat) (long : ∀ w, TT t n X w → i ≤ w.length) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
+    ∃ Y, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok (.map Y) := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
+  have sX := de_map hX
+  obtain ⟨w₀, b, hb, -⟩ := onlyX.2
+  have fb : TField (level t n).E b := fieldC_tuple (sX.fields "tuple" b hb)
+  obtain ⟨c, rc, sc⟩ := only_run hX hb (m := k + 3) (by omega)
+  have c_true : c = Bool.true := sc.mpr onlyX
+  subst c_true
+  have key : Elixir.Module.Types.Descr.«descr_key?/2» (.map X) (.atom "tuple") = .ok (.atom "true") := by
+    simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
+  have size : Lynx.Except.orElse (Erlang.erlang.«==/2» (.integer i) (.integer 0))
+      (Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D (k + 3)) (.map X) (.integer i)) =
+        .ok (boolAtom Bool.true) := by
+    by_cases z : i = 0
+    · subst z; simp [Lynx.Except.orElse, Erlang.erlang.«==/2», boolAtom]
+    · obtain ⟨sz, rs, ss⟩ := size_at_least (level t n).ef (m := k + 3) (by omega) fb i (by omega)
+      have sz_true : sz = Bool.true := ss.mpr fun w hw => long w (by simp [TT, hb, hw])
+      subst sz_true
+      have eq0 : Erlang.erlang.«==/2» (.integer (i : Int)) (.integer 0) = .ok (.atom "false") := by
+        simp [Erlang.erlang.«==/2»]; omega
+      rw [size_map _ hb, eq0]
+      simpa [Lynx.Except.orElse] using rs
+  obtain ⟨res, rres⟩ := insert_static_ok (den := (level t n).den) (level t n).ef (n := k) (by omega) hb fb hx i
+  obtain ⟨b', rfl, -⟩ := insert_static (den := (level t n).den) (level t n).ef (n := k) (by omega) hb fb hx i rres
+  refine ⟨(.atom "tuple", b') :: X, ?_⟩
+  unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+  simp only [Erlang.maps.«take/2», sX.static, Lynx.Except.ok_bind]
+  simp only [key, rc, size]
+  simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure, rres]
+
+/-- `tuple_replace_at/3` gives a type on static types of the next level holding only tuples, all longer than the
+index. -/
+theorem replace_ok {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (i : Nat) {x : Term} (hx : (level t n).E x)
+    (sx : x = .atom "term" ∨ ∃ Z, x = .map Z ∧ mapLookup Z (.atom "dynamic") = none) {m : Nat}
+    (hm : (level t n).K + 25 ≤ m) (onlyX : TOnly t n X) (shortX : ¬Short t n X i) :
+    ∃ Y, Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) x = .ok (.map Y) := by
+  rcases replace_cases hX i sx hm with ⟨-, h⟩ | ⟨-, -, h⟩ | ⟨-, -, r, tr, sr, e⟩
+  · exact absurd onlyX h
+  · exact absurd h shortX
+  rw [e]
+  have long : ∀ w, TT t n X w → i < w.length := fun w hw =>
+    Classical.byContradiction fun h => shortX ⟨w, hw, by omega⟩
+  have tz : ∀ w, TT t n [(.atom "tuple", r)] w ↔ ∃ x, TT t n X x ∧ i < x.length ∧ w = x.eraseIdx i := fun w => by
+    rw [tt_single, sr, split_erase]
+  have dZ : DE (level t n).E (.map [(.atom "tuple", r)]) := Or.inr ⟨_, rfl, descrC_put descrC_nil tr⟩
+  obtain ⟨x₀, hx₀⟩ := onlyX.2
+  refine insert_checked_ok dZ ⟨single_tuples r, _, (tz _).mpr ⟨x₀, hx₀, long x₀ hx₀, rfl⟩⟩ hx i (fun w hw => ?_) hm
+  obtain ⟨y, hy, ly, rfl⟩ := (tz w).mp hw
+  rw [List.length_eraseIdx]; split <;> omega
 
 end
 
