@@ -306,7 +306,8 @@ theorem split_map {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y))
       ∀ q, (mapLookup S q).isSome → ∃ s, q = .atom s)
     {m : Nat} (hm : (level t n).K + 23 ≤ m) :
     ∃ rs neg ds, Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D (m + 1)) (.map Y) =
-        .ok (splitT rs neg ds) ∧ SplitOk rs neg ds ∧
+        .ok (splitT rs neg ds) ∧ SplitOk rs neg ds ∧ (∀ N, neg = .map N → rs = []) ∧
+      (∀ N, neg = .map N → mapLookup Y (.atom "atom") = some (.tuple #[.atom "negation", .map N])) ∧
       (∀ s, SplitKey rs neg ds (.atom s) ↔ denD (.map Y) (aPt (t := t) (n := n) (.atom s))) ∧
       ∀ k i, SplitKey rs neg ds (.dom k i) ↔ ∃ v : PN t n, denD (.map Y) v ∧ ptKind v = domKind k := by
   obtain ⟨ds, rd, hds, hat, hk⟩ := dom_kinds hY hm
@@ -315,7 +316,8 @@ theorem split_map {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y))
   have st := (de_map hY).static
   cases ha : mapLookup Y (.atom "atom") with
   | none =>
-    refine ⟨[], .atom "nil", ds, ?_, ⟨by simp, Or.inl rfl, hds, ?_⟩, fun s => ?_, dom _ _⟩
+    refine ⟨[], .atom "nil", ds, ?_, ⟨by simp, Or.inl rfl, hds, ?_⟩, fun _ _ => rfl,
+      (fun N (e : Term.atom "nil" = .map N) => nomatch e), fun s => ?_, dom _ _⟩
     · rw [Elixir.Module.Types.Descr.«map_split_keys_and_domains/1».eq_def]
       simp [getMapKeys_single, st, ha, rd, splitT, Term.list]
     · rw [hat, ha]; simp
@@ -323,14 +325,16 @@ theorem split_map {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y))
   | some x =>
     obtain ⟨⟨pos, S, rfl, -⟩, -⟩ := fieldC_atom ((de_map hY).fields _ _ ha)
     cases pos
-    · refine ⟨[], .map S, ds, ?_, ⟨by simp, Or.inr ⟨S, rfl⟩, hds, ?_⟩, fun s => ?_, dom _ _⟩
+    · refine ⟨[], .map S, ds, ?_, ⟨by simp, Or.inr ⟨S, rfl⟩, hds, ?_⟩, fun _ _ => rfl,
+        fun N e => by cases e; simpa using ha, fun s => ?_, dom _ _⟩
       · rw [Elixir.Module.Types.Descr.«map_split_keys_and_domains/1».eq_def]
         simp [getMapKeys_single, st, ha, rd, splitT, Term.list]
       · rw [hat, ha]; simp
       · rw [denD_aPt, ha]; simp [SplitKey, amemV]
     · have hU' := hU S (by simpa using ha)
-      refine ⟨(mapEntries S).map Prod.fst, .atom "nil", ds, ?_, ⟨fun r mr => ?_, Or.inl rfl, hds, ?_⟩, fun s => ?_,
-        dom _ _⟩
+      refine ⟨(mapEntries S).map Prod.fst, .atom "nil", ds, ?_, ⟨fun r mr => ?_, Or.inl rfl, hds, ?_⟩,
+        (fun N (e : Term.atom "nil" = .map N) => nomatch e), (fun N (e : Term.atom "nil" = .map N) => nomatch e),
+        fun s => ?_, dom _ _⟩
       · rw [Elixir.Module.Types.Descr.«map_split_keys_and_domains/1».eq_def]
         simp [getMapKeys_single, st, ha, rd, splitT, Erlang.sets.«to_list/1», Erlang.maps.«keys/1»]
       · obtain ⟨e, me, rfl⟩ := List.mem_map.mp mr

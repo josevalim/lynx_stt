@@ -143,7 +143,7 @@ theorem key_split (atoms kinds : List Term) (ha : ∀ a ∈ atoms, ∃ s, a = .a
       have := (denD_aPt (t := t) (n := n) (Y := Y) (.atom c)).mp ((hY.atoms _).mpr (Or.inr h))
       rw [hS] at this
       simp [amemV, lookup_fresh' hc] at this
-  obtain ⟨rs, neg, ds, rs', ok, sa, sd⟩ := split_map hY.de hU (m := k) (by omega)
+  obtain ⟨rs, neg, ds, rs', ok, -, -, sa, sd⟩ := split_map hY.de hU (m := k) (by omega)
   refine ⟨Y, rs, neg, ds, rY, rs', ok, fun κ => ?_⟩
   cases κ with
   | atom s => rw [sa, hY.atoms]; rfl

@@ -139,7 +139,7 @@ theorem term_split {m : Nat} (hm : (level t n).K + 23 ≤ m) :
     obtain ⟨T', rT', -, hat, -, -⟩ := unfolded_term_fields
     rw [rT] at rT'; cases rT'
     rw [hat] at hS; simp at hS
-  obtain ⟨rs, neg, ds, run, ok, sa, sd⟩ := split_map dT hU hm
+  obtain ⟨rs, neg, ds, run, ok, -, -, sa, sd⟩ := split_map dT hU hm
   refine ⟨rs, neg, ds, ?_, ok, fun κ => ?_⟩
   · rw [Elixir.Module.Types.Descr.«map_split_keys_and_domains/1».eq_def]
     simp [rT, run]

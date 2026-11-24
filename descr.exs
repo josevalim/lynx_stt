@@ -51,7 +51,7 @@
 #     back, and other keys are unchanged. Putting is monotone in the maps and the type,
 #     keeps the maps whose key already holds such a value, and putting twice is putting
 #     once. Deleting the key after putting it is deleting it from the maps. Putting keys
-#     of any static key type should be monotone too, but fails, see map_put_domain_subtype.
+#     of any static key type is monotone too, in the maps, the keys, and the type.
 #     Forcing a static value at an atom key with map_update/5 puts the key, and returns the
 #     values its maps held there, as map_get/2 gets them. Keeping or rejecting missing keys
 #     instead gives a badkey error when some map lacks the key, and otherwise does the same.
@@ -912,6 +912,10 @@ defmodule STTDescrProofsTest do
     # Gradual function application unites the application of the static arrows to the lower bounds of the arguments
     # with the dynamic application of the dynamic arrows to their upper bounds.
     postlude "descr/function_apply_gradual.lean"
+
+    # Putting at any static key type: the union of the puts at finite atoms, the box of the type at the atoms
+    # outside a negated set, and widened domains, all determined by the maps of the type.
+    postlude "descr/map_put_domain.lean"
 
     law intersection_none_empty(descr),
       requires: descr?(descr),
@@ -2906,10 +2910,6 @@ defmodule STTDescrProofsTest do
         Nest.next_eq_true dY₁ dY₂ (m := δ + 100) (by omega) same, Lynx.Term.true]
       """
 
-    # Fails on Elixir 472f0983f: putting atom() into an equal rewrite of a map type loses precision, e.g.
-    # a = open_map(a: {none(), true}), cover = opt_union(a, closed_map([{[:atom], term()}])) and
-    # a2 = opt_intersection(cover, opt_negation(opt_difference(cover, a))) are equal, but
-    # map_put(a2, atom(), atom([:new])) is not a subtype of map_put(a, atom(), atom([:new])).
     law map_put_domain_subtype(left, right, small_key, large_key, small, large, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
@@ -2924,7 +2924,87 @@ defmodule STTDescrProofsTest do
           elem(Descr.map_put(right, large_key, large), 1)
         ),
       proof: ~LEAN"""
-      sorry
+      -- The maps nest at most `d + 1` levels, and the keys and values `d`.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_put_domain_subtype:requires/8», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_put_domain_subtype:requires/8», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hl, hr⟩, hsk⟩, hlk⟩, hs⟩, hg⟩, -⟩, hsub⟩, hsubk⟩, hsubv⟩, hputL⟩, hputR⟩ := requires
+      have hl : «arrows_static?/2» left (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hl
+      have hr : «arrows_static?/2» right (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hr
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hmk : (Nest.level node d).K + 23 ≤ δ + 99 := by rw [Nest.level_K] at hm ⊢; omega
+      have ds := Nest.arrows_static_ok hs
+      have dg := Nest.arrows_static_ok hg
+      have es : (Nest.level node (d + 1)).E small := Or.inl ds
+      have eg : (Nest.level node (d + 1)).E large := Or.inl dg
+      have static : ∀ {x : Lynx.Term}, Nest.DE (Nest.level node d).E x →
+          x = .atom "term" ∨ ∃ Z, x = .map Z ∧ Lynx.Term.mapLookup Z (.atom "dynamic") = none := fun h => by
+        rcases h with rfl | ⟨Z, rfl, sZ⟩
+        · exact Or.inl rfl
+        · exact Or.inr ⟨Z, rfl, sZ.static⟩
+      -- Values of the small type are values of the large one.
+      have subV := Nest.next_sub ds dg (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [subV, Except.ok.injEq] at hsubv
+      have subV := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsubv)
+      have vals : ∀ y, (Nest.level node (d + 1)).den small y → (Nest.level node (d + 1)).den large y := fun y hy =>
+        (Nest.denN_of dg.notT).mpr (subV y ((Nest.denN_of ds.notT).mp hy))
+      -- Keys of the small key type are keys of the large one.
+      have dsk := Nest.arrows_static_ok hsk
+      have dlk := Nest.arrows_static_ok hlk
+      have subK := Nest.next_sub dsk dlk (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [subK, Except.ok.injEq] at hsubk
+      have subK := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsubk)
+      have splitOf : ∀ {k : Lynx.Term}, «arrows_static?/2» k (.tuple #[.integer (d : Int), node]) = .ok (.atom "true") →
+          ∃ rs neg ds, Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) k =
+            .ok (Nest.splitT rs neg ds) ∧ Nest.SplitOk rs neg ds ∧ (∀ N, neg = .map N → rs = []) ∧
+            (∀ N, neg = .map N → ∀ e ∈ Lynx.Term.mapEntries N, ∃ s, e.1 = .atom s) ∧
+            ∀ κ, Nest.SplitKey rs neg ds κ ↔ Nest.KeyPt node d k κ := fun h =>
+        Nest.key_split_any (Nest.arrows_static_ok h) (fun Y e => by subst e; exact static_union_atoms h)
+          (fun Y e => by subst e; exact static_negation_atoms h) hmk
+      obtain ⟨rs₁, neg₁, ds₁, rk₁, ok₁, nr₁, na₁, sk₁⟩ := splitOf hsk
+      obtain ⟨rs₂, neg₂, ds₂, rk₂, ok₂, nr₂, na₂, sk₂⟩ := splitOf hlk
+      have keys : ∀ κ, Nest.SplitKey rs₁ neg₁ ds₁ κ → Nest.SplitKey rs₂ neg₂ ds₂ κ := fun κ h =>
+        (sk₂ κ).mpr (Nest.keyPt_mono subK ((sk₁ κ).mp h))
+      -- Maps of the left type are maps of the right one.
+      have dl := Nest.arrows_static_ok hl
+      have dr := Nest.arrows_static_ok hr
+      have subM := Nest.next_sub dl dr (m := δ + 100) (by omega)
+      rw [subM, Except.ok.injEq] at hsub
+      have subM := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsub)
+      rcases dl with rfl | ⟨XL, rfl, sXL⟩
+      · simp [Elixir.Module.Types.Descr.«map_put/3»] at hputL
+      rcases dr with rfl | ⟨XR, rfl, sXR⟩
+      · simp [Elixir.Module.Types.Descr.«map_put/3»] at hputR
+      have maps : ∀ w, Nest.MT node (d + 1) XL w → Nest.MT node (d + 1) XR w := fun w hw =>
+        (Nest.denD_mpt w).mp (subM _ ((Nest.denD_mpt w).mpr hw))
+      obtain ⟨resL, runL, ⟨rfl, -⟩ | ⟨YL, rfl, -, dYL, onlyL, semL⟩⟩ :=
+        Nest.dput (t := node) (n := d + 1) (Or.inr ⟨XL, rfl, sXL⟩) rk₁ ok₁ nr₁ na₁ es (static ds) hm
+      · rw [runL] at hputL; simp at hputL
+      obtain ⟨resR, runR, ⟨rfl, -⟩ | ⟨YR, rfl, -, dYR, -, semR⟩⟩ :=
+        Nest.dput (t := node) (n := d + 1) (Or.inr ⟨XR, rfl, sXR⟩) rk₂ ok₂ nr₂ na₂ eg (static dg) hm
+      · rw [runR] at hputR; simp at hputR
+      have sub := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
+      rw [Nest.bp_true.mpr (show Nest.SubN node (d + 1) (.map YL) (.map YR) from fun v hv => by
+        obtain ⟨w, hw⟩ := Nest.pt_map v (onlyL v hv)
+        rw [hw] at hv ⊢
+        exact (semR w).mpr (Nest.put_mono maps vals ok₁ ok₂ nr₂ keys ((semL w).mp hv)))] at sub
+      simp only [Lynx.apply_eq, «map_put_domain_subtype:ensures/8»]
+      simp [runL, runR, Erlang.erlang.«element/2», sub, Lynx.Term.true]
       """
 
     law map_update_force(map, key, value, depth, node),
