@@ -25,9 +25,9 @@ theorem foldl_congr (d : Dispatcher) {mo nm : String} {c₁ c₂ : Array Term}
   | cons x l =>
     simp only [h]
     cases d.pure (.function mo nm 2 c₂) #[x, acc] with
-    | error e => simp [Lynx.Except.guard]
+    | error e => simp
     | ok a => simpa [Lynx.Except.guard] using foldl1_congr d _ _ h l a
-  | _ => simp [Lynx.Except.guard]
+  | _ => simp
 
 /-- The step of `map_update_named_keys/8` does not read whether the type is static when forcing. -/
 theorem named_step_static (d : Dispatcher) (dnf op req build ov key acc : Term) :
@@ -76,7 +76,7 @@ theorem update_static_flag_ne (m : Nat) (descr split v rt : Term) (h : descr ≠
   | atom a =>
     by_cases ha : a = "term"
     · subst ha; exact absurd rfl h
-    · simp [ha, Lynx.Term.getMapKeys]
+    · simp [Lynx.Term.getMapKeys]
   | _ => rfl
 
 /-- `map_update_static/5` forcing gives the same result whether the type is static or not. -/
@@ -120,7 +120,7 @@ theorem upd_static {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
   | none =>
     refine ⟨_, ?_, Or.inl ⟨Or.inr rfl, fun w ⟨b, h, _⟩ => by rw [hb] at h; cases h⟩⟩
     rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def]
-    simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«none/0», pure, Except.pure]
+    simp [getMapKeys_single, hb, pure, Except.pure]
   | some b =>
     have fb : MField (level t n).E b := fieldC_map (sX.fields "map" b hb)
     have mt : ∀ w, MT t n X w ↔ denMF (level t n).E (level t n).den b w = Bool.true := fun w => by simp [MT, hb]
@@ -180,6 +180,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
         (∃ er, res = .tuple #[.atom "error", er] ∧ ∀ w, ¬PutOf t n (dynL Dy) rs neg ds v w) ∨
         ∃ T R er, res = .tuple #[T, R, er] ∧ GC (level t n) R ∧
           (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
+          (∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∧
           (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w) ∧
           ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔
             PutOf t n (rmDyn X) rs neg ds v w ∨ PutOf t n (dynL Dy) rs neg ds v w) := by
@@ -201,7 +202,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-1-/1».pure]
   have dSt : DE (level t n).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, dS⟩
-  obtain ⟨dR, -⟩ := rest_map dSt
+  obtain ⟨dR, sRm⟩ := rest_map dSt
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
     simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
@@ -233,13 +234,13 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
   rw [bp_true.mpr (Classical.not_not.mp hmo)] at mo
   rcases Classical.em ((mapLookup (dynL Dy) (.atom "map")).isSome = Bool.false) with hbm | hbm
   · refine ⟨_, ?_, Or.inl rfl⟩
-    simp [keyD, hbm, mo, Lynx.Except.andAlso, boolAtom, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»]
+    simp [keyD, hbm, Lynx.Except.andAlso, boolAtom, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»]
   have kt : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "map") = .ok (.atom "true") := by
     simp only [Bool.not_eq_false] at hbm
     simp [keyD, hbm, boolAtom]
   -- The static part: its maps put, or none.
   obtain ⟨rS, rrS, hS⟩ := upd_static dSt hv sv ok nr hNa (m := k + 8) (by omega) Bool.true
-  simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rrS
+  simp only [boolAtom, ↓reduceIte] at rrS
   -- The union of a static part with the dynamic part of the maps of a put.
   have fin : ∀ Sd Yd : List (Term × Term), DE (level t n).E (.map Sd) → DE (level t n).E (.map Yd) →
       (∀ q : PN t n, denD (.map Sd) q → q.1.1 = "map") → (∀ q : PN t n, denD (.map Yd) q → q.1.1 = "map") →
@@ -290,7 +291,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
   · subst hrd
     refine ⟨.tuple #[.atom "error", .nil], ?_, Or.inr (Or.inl ⟨_, rfl, fun w ⟨⟨u, hu⟩, _⟩ => noD u hu⟩)⟩
     rcases eS with ⟨rfl, rfl, rfl⟩ | rfl <;>
-      simp [Lynx.Term.isMember, Lynx.Except.guard, Erlang.erlang.«++/2», pure, Except.pure]
+      simp [Lynx.Term.isMember, Erlang.erlang.«++/2», pure, Except.pure]
   · by_cases fe : fd = .atom "false" ∨ fd = .atom "nil"
     · have emp : ∀ w, ¬PutOf t n (dynL Dy) rs neg ds v w := by
         rcases hfd with rfl | h
@@ -298,7 +299,7 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
         · exact fun w ⟨_, hw⟩ => h w hw
       refine ⟨.tuple #[.atom "error", .nil], ?_, Or.inr (Or.inl ⟨_, rfl, emp⟩)⟩
       rcases eS with ⟨rfl, rfl, rfl⟩ | rfl <;> rcases fe with rfl | rfl <;>
-        simp [Lynx.Term.isMember, Lynx.Except.guard, Erlang.erlang.«++/2», pure, Except.pure]
+        simp [Lynx.Term.isMember, Erlang.erlang.«++/2», pure, Except.pure]
     · have fe' := not_or.mp fe
       have fm : Lynx.Term.isMember fd [.atom "false", .atom "nil"] = .atom "false" := by
         simp [Lynx.Term.isMember, compareExact_eq_atom, fe'.1, fe'.2]
@@ -313,9 +314,10 @@ theorem gupd {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
           .ok (.map [(.atom "dynamic", .map [])]) := by
         simp [Elixir.Module.Types.Descr.«opt_union/2», opt_union_nil_l]
       refine ⟨.tuple #[.map [(.atom "dynamic", .map [])], c, .nil], ?_,
-        Or.inr (Or.inr ⟨_, c, _, rfl, gc, oc, fun w => (sc₁ _).trans (sSd w), fun w => ?_⟩)⟩
+        Or.inr (Or.inr ⟨_, c, _, rfl, gc, oc, fun q hq => Classical.byContradiction fun nq =>
+          Classical.not_not.mp hmo q ((sRm q).mpr ⟨hq, nq⟩), fun w => (sc₁ _).trans (sSd w), fun w => ?_⟩)⟩
       · rcases eS with ⟨rfl, rfl, rfl⟩ | rfl <;>
-          simp [fm, Lynx.Except.guard, getMapKeys_single, sYd, mapLookup, fY, rv, rc', Erlang.erlang.«++/2», pure,
+          simp [fm, getMapKeys_single, mapLookup, fY, rv, rc', Erlang.erlang.«++/2», pure,
             Except.pure]
       · rw [sc₂, sSd, denD_mpt, semYd]
         exact ⟨fun h => h.imp id fun h => ⟨exD, h⟩, fun h => h.imp id fun h => h.2⟩
@@ -370,7 +372,7 @@ theorem static_in_dyn {X : List (Term × Term)} {Dy : Term} (tD : TC (level t n)
 theorem putOf_mono {Y Y' : List (Term × Term)} (sub : ∀ u, MT t n Y u → MT t n Y' u) {rs : List Term} {neg : Term}
     {ds : List Term} (ok : SplitOk rs neg ds) (nr : ∀ N, neg = .map N → rs = []) {v : Term} {w : MW (level t n).V}
     (h : PutOf t n Y rs neg ds v w) : PutOf t n Y' rs neg ds v w :=
-  ⟨let ⟨u, hu⟩ := h.1; ⟨u, sub u hu⟩, put_mono sub (fun x h => h) ok ok nr (fun κ h => h) h.2⟩
+  ⟨let ⟨u, hu⟩ := h.1; ⟨u, sub u hu⟩, put_mono sub (fun _ h => h) ok ok nr (fun _ h => h) h.2⟩
 
 /-- `map_put/3` of a static value at static keys of a gradual map type: `:badmap`, or a gradual type holding the puts
 at the static maps, whose upper bound holds the puts at the dynamic maps. -/
@@ -386,6 +388,7 @@ theorem gres {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
         putRes r) = .ok res ∧
       (res = .atom "badmap" ∨ ∃ R, res = .tuple #[.atom "ok", R] ∧ GC (level t n) R ∧
         (∀ q : PN t n, denD (upper R) q → q.1.1 = "map") ∧
+        ((∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∨ ∀ w, ¬PutOf t n (rmDyn X) rs neg ds v w) ∧
         (∀ w, denD R (mpt (t := t) (n := n) w) ↔ PutOf t n (rmDyn X) rs neg ds v w) ∧
         ∀ w, denD (upper R) (mpt (t := t) (n := n) w) ↔ PutOf t n (dynL Dy) rs neg ds v w) := by
   obtain ⟨tD, incl⟩ : TC (level t n) Dy ∧ ∀ q : TP (level t n), denD (.map X) q → denD Dy q := by
@@ -398,15 +401,16 @@ theorem gres {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term
       exact ⟨tD, incl⟩
   have up : ∀ w, PutOf t n (rmDyn X) rs neg ds v w → PutOf t n (dynL Dy) rs neg ds v w :=
     fun w => putOf_mono (static_in_dyn tD incl) ok nr
-  obtain ⟨res, run, rfl | ⟨er, rfl, emp⟩ | ⟨T, R, er, rfl, gR, oR, s₁, s₂⟩⟩ := gupd gX hD hv sv ok nr hNa hm
+  obtain ⟨res, run, rfl | ⟨er, rfl, emp⟩ | ⟨T, R, er, rfl, gR, oR, oS, s₁, s₂⟩⟩ := gupd gX hD hv sv ok nr hNa hm
   · exact ⟨_, by simp [run, putRes], Or.inl rfl⟩
   · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨_, rfl, GC.tc (Or.inr ⟨[], rfl, descrC_nil⟩),
-      fun q h => by simp [upper, mapLookup, denD_map, dn_none] at h, fun w => ?_, fun w => ?_⟩⟩
+      fun q h => by simp [upper, mapLookup, denD_map, dn_none] at h, Or.inr fun w h => emp w (up w h), fun w => ?_,
+      fun w => ?_⟩⟩
     · simp only [denD_map, mapLookup, List.find?_nil, Option.map_none]
       exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd (up w h) (emp w)⟩
     · simp only [upper, mapLookup, List.find?_nil, Option.map_none, Option.getD_none, denD_map]
       exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd h (emp w)⟩
-  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨R, rfl, gR, oR, s₁, fun w => ?_⟩⟩
+  · refine ⟨_, by simp [run, putRes, pure, Except.pure], Or.inr ⟨R, rfl, gR, oR, Or.inl oS, s₁, fun w => ?_⟩⟩
     rw [s₂]
     exact ⟨fun h => h.elim (up w) id, Or.inr⟩
 

@@ -63,11 +63,12 @@ theorem erase_insert {x : List V} {i : Nat} (lx : i < x.length) (y : V) :
   intro o
   rw [insert_getElem le, List.getElem?_set]
   by_cases hoi : o < i
-  · rw [if_pos hoi, List.getElem?_eraseIdx_of_lt hoi, if_neg (by omega)]
-  · rw [if_neg hoi]
+  · simp only [hoi, ↓reduceIte, List.getElem?_eraseIdx_of_lt hoi, show i ≠ o by omega]
+  · simp only [hoi, ↓reduceIte]
     by_cases e : o = i
     · subst e; simp [lx]
-    · rw [if_neg e, if_neg (Ne.symm e), List.getElem?_eraseIdx_of_ge (by omega)]
+    · simp only [e, Ne.symm e, ↓reduceIte]
+      rw [List.getElem?_eraseIdx_of_ge (show i ≤ o - 1 by omega)]
       congr 1; omega
 
 end
@@ -154,7 +155,7 @@ theorem insert_static_ok (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {X :
     obtain ⟨r, run⟩ := insert_leaves_ok (den := den) ef hx i (TupleLit E) _ (Bdd.leaf_iff.mpr lit) (fun t h => h)
       (by simp [Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», boolAtom]) (.atom "bdd_bot") (Or.inr Bdd.bot)
     exact ⟨.map ((.atom "tuple", r) :: X), by simp [Elixir.Module.Types.Descr.«tuple_insert_static/3», getMapKeys_single, hb,
-      Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», Lynx.Term.isMember, Lynx.Except.guard, run,
+      Elixir.Module.Types.Descr.«tuple_bdd_positive?/1», Lynx.Term.isMember, run,
       Erlang.erlang.«is_map/1», upd]⟩
   · obtain ⟨q, rq⟩ := positive_run _ b wb
     cases q
@@ -162,12 +163,12 @@ theorem insert_static_ok (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {X :
       obtain ⟨r, run⟩ := insert_pieces_ok (den := den) ef hx i P tP (m := n + 2)
       exact ⟨.map ((.atom "tuple", r) :: X), by
         unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
-        simp [hb', rq, rP, Lynx.Term.isMember, Lynx.Except.guard, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
+        simp [hb', rq, rP, Lynx.Term.isMember, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
     · obtain ⟨r, run⟩ := insert_leaves_ok (den := den) ef hx i _ b wb (fun t h => h.1.1) rq (.atom "bdd_bot")
         (Or.inr Bdd.bot)
       exact ⟨.map ((.atom "tuple", r) :: X), by
         unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
-        simp [hb', rq, Lynx.Term.isMember, Lynx.Except.guard, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
+        simp [hb', rq, Lynx.Term.isMember, boolAtom, run, Erlang.erlang.«is_map/1», upd]⟩
 
 end
 
@@ -389,15 +390,15 @@ theorem replace_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
   obtain ⟨res, run, ⟨rfl, nonly⟩ | ⟨rfl, onlyX, short⟩ | ⟨onlyX, short, r, rfl, tr, sr⟩⟩ := delete_cases hX i hm
   · refine Or.inl ⟨?_, nonly⟩
     simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
-      Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
+      Erlang.erlang.«>=/2», Int.isGE_compare, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
       Erlang.erlang.«==/2», pure, Except.pure]
   · refine Or.inr (Or.inl ⟨?_, onlyX, short⟩)
     simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
-      Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
+      Erlang.erlang.«>=/2», Int.isGE_compare, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
       Erlang.erlang.«==/2», pure, Except.pure]
   · refine Or.inr (Or.inr ⟨onlyX, short, r, tr, sr, ?_⟩)
     simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
-      Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
+      Erlang.erlang.«>=/2», Int.isGE_compare, run, Lynx.Except.orElse, Erlang.erlang.«is_map/1»,
       insert_at_static _ _ _ sx]
 
 /-- `tuple_replace_at/3` on static types of the next level, when it gives a type: the input holds only tuples, all
@@ -430,12 +431,12 @@ theorem replace_neg (d : Dispatcher) (a x : Term) {z : Int} (h : z < 0) :
     Elixir.Module.Types.Descr.«tuple_replace_at/3» d a (.integer z) x = .ok (.atom "badindex") := by
   have : ¬0 ≤ z := by omega
   simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
-    Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, this, pure, Except.pure]
+    Erlang.erlang.«>=/2», Int.isGE_compare, this, pure, Except.pure]
 
 theorem replace_term (d : Dispatcher) (i : Nat) (x : Term) :
     Elixir.Module.Types.Descr.«tuple_replace_at/3» d (.atom "term") (.integer i) x = .ok (.atom "badtuple") := by
   simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
-    Erlang.erlang.«>=/2», Int.isGE_compare, Lynx.Except.guard, Elixir.Module.Types.Descr.«tuple_delete_at/2».eq_def,
+    Erlang.erlang.«>=/2», Int.isGE_compare, Elixir.Module.Types.Descr.«tuple_delete_at/2».eq_def,
     Lynx.Except.orElse, Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», pure, Except.pure]
 
 /-- `tuple_insert_at_checked/3` gives a type on static types of the next level holding only tuples, all long enough. -/

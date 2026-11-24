@@ -133,7 +133,7 @@ theorem values_pieces (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (P : Li
             obtain ⟨e, me, he⟩ := emp
             exact List.any_eq_true.mpr ⟨e, me, bp_true.mpr he⟩
           refine ⟨.map [], ef.none, ?_, fun y => ?_⟩
-          · simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, t, boolAtom, Lynx.Except.guard,
+          · simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, t, boolAtom,
               Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure]
           · simp only [ef.den_none y, false_iff]
             rintro ⟨tag', l', e, ne, -⟩
@@ -161,11 +161,11 @@ theorem values_pieces (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (P : Li
             · intro h; exact ⟨tag, l, rfl, ne, h⟩
           rcases g with rfl | rfl
           · refine ⟨.atom "term", ef.term, ?_, fun y => by rw [pv]; simp [ef.den_term y]⟩
-            simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, f, boolAtom, Lynx.Except.guard,
+            simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, f, boolAtom,
               Lynx.Except.andAlso, Erlang.erlang.«/=/2», Erlang.erlang.«==/2», pure, Except.pure]
           · obtain ⟨u, hu, ru, su⟩ := union_elements ef hn l hl
             refine ⟨u, hu, ?_, fun y => by rw [pv, su]; simp⟩
-            simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, f, boolAtom, Lynx.Except.guard,
+            simp [Elixir.Module.Types.Descr.«-process_tuples_values/1-fun-0-/2», hany, f, boolAtom,
               Lynx.Except.andAlso, Erlang.erlang.«/=/2», Erlang.erlang.«==/2», pure, Except.pure, ru]
       obtain ⟨c, hc, rc, sc⟩ := ef.opt_union [] hval ha (show K ≤ n + 1 by omega)
       refine ⟨c, ⟨hc, fun y => ?_⟩, ?_⟩
@@ -219,14 +219,14 @@ theorem values_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
     by_cases e : X = []
     · subst e; simp [Erlang.erlang.«==/2», pure, Except.pure]
     · have ne : Erlang.erlang.«==/2» (.map X) (.map []) = .ok (.atom "false") := by
-        simp [Erlang.erlang.«==/2»]; intro h; exact e (by cases X <;> simp_all [compareExact])
-      simp [Lynx.Except.guard, ne, Erlang.maps.«take/2», sX.static, hb,
+        simp [Erlang.erlang.«==/2»]; intro h; exact e (by cases X <;> simp_all)
+      simp [ne, Erlang.maps.«take/2», sX.static, hb,
         Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Lynx.Term.isMember, pure, Except.pure]
   | some b =>
     have fb : TField (level t n).E b := fieldC_tuple (sX.fields "tuple" b hb)
     have ne : Erlang.erlang.«==/2» (.map X) (.map []) = .ok (.atom "false") := by
       have : X ≠ [] := by intro h; subst h; simp [mapLookup] at hb
-      simp [Erlang.erlang.«==/2»]; intro h; exact this (by cases X <;> simp_all [compareExact])
+      simp [Erlang.erlang.«==/2»]; intro h; exact this (by cases X <;> simp_all)
     obtain ⟨c, rc, sc⟩ := only_run hX hb (m := k + 4) (by omega)
     have tt : ∀ w, TT t n X w ↔ denTF (level t n).E (level t n).den b w = Bool.true := fun w => by simp [TT, hb]
     have get : Elixir.Map.«get/3» (.map X) (.atom "tuple") (.atom "bdd_bot") = .ok b := by
@@ -250,7 +250,7 @@ theorem values_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
       obtain ⟨r, hr, rr, sr⟩ := values_pieces ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) P tP
       refine ⟨r, ?_, Or.inr ⟨ok, hr, P, tP, sP, sr⟩⟩
       rw [Elixir.Module.Types.Descr.«tuple_values/1».eq_def]
-      simp [Lynx.Except.guard, ne, Erlang.maps.«take/2», sX.static, rc, boolAtom, Lynx.Term.isMember, get,
+      simp [ne, Erlang.maps.«take/2», sX.static, rc, boolAtom, Lynx.Term.isMember, get,
         Elixir.Module.Types.Descr.«process_tuples_values/1», rP, rr, pure, Except.pure]
     · have c_false : c = Bool.false := by
         cases c
@@ -259,7 +259,7 @@ theorem values_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
       subst c_false
       refine ⟨.atom "badtuple", ?_, Or.inl ⟨rfl, ok⟩⟩
       rw [Elixir.Module.Types.Descr.«tuple_values/1».eq_def]
-      simp [Lynx.Except.guard, ne, Erlang.maps.«take/2», sX.static, rc, boolAtom, Lynx.Term.isMember, pure, Except.pure]
+      simp [ne, Erlang.maps.«take/2», sX.static, rc, boolAtom, Lynx.Term.isMember, pure, Except.pure]
 
 /-- `sizes?/1` holds of lists of natural numbers. -/
 theorem sizes_nat : ∀ {s : Term}, «sizes?/1» s = .ok (.atom "true") → ∃ ns : List Nat, s = Term.list (ns.map fun k : Nat => Term.integer (k : Int))

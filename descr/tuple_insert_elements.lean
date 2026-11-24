@@ -96,7 +96,7 @@ theorem insert_leaf_run {tag : String} (g : tag = "open" ∨ tag = "closed") (l 
     · left
       refine ⟨rfl, short, ?_⟩
       have lt : (l.length : Int) < i := by omega
-      simp [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», Lynx.Except.guard, Lynx.Except.tryWith, length_list,
+      simp [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», length_list,
         Erlang.erlang.«</2», Int.compare_eq_lt, lt, pure, Except.pure]
     · right
       have sp := split_list l i (by omega)
@@ -104,7 +104,7 @@ theorem insert_leaf_run {tag : String} (g : tag = "open" ∨ tag = "closed") (l 
       refine ⟨Or.inr (by omega), k, ?_, key⟩
       have nlt : ¬(l.length : Int) < i := by omega
       simp [Elixir.Module.Types.Descr.«tuple_insert_leaf/4», Lynx.Except.andAlso, sp, ← list_cons,
-        Erlang.erlang.«==/2», insL, e, Lynx.Except.guard, Lynx.Except.tryWith, length_list, Erlang.erlang.«</2»,
+        Erlang.erlang.«==/2», insL, e, length_list, Erlang.erlang.«</2»,
         Int.compare_eq_lt, nlt]
       rw [append_list, Lynx.Except.ok_bind, run]
 
