@@ -77,7 +77,7 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (059d75152), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (468a8c51a), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -996,6 +996,9 @@ defmodule STTDescrProofsTest do
     postlude "descr/map_update_dnf.lean"
     postlude "descr/map_update_kr.lean"
     postlude "descr/map_update_mono.lean"
+    postlude "descr/map_delete_named.lean"
+    postlude "descr/map_delete_dnf.lean"
+    postlude "descr/map_delete_mono.lean"
 
     law intersection_none_empty(descr),
       requires: descr?(descr),
@@ -4308,6 +4311,241 @@ defmodule STTDescrProofsTest do
       have subE := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
       rw [Nest.bp_true.mpr sub] at subE
       simp only [Lynx.apply_eq, «map_update_subtype:ensures/9»]
+      simp [run₁, run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
+      """
+
+    law map_delete_within(map, atom, key, mode, depth, node),
+      requires:
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and is_atom(atom) and Descr.subtype?(Descr.atom([atom]), key) and
+          match?({_, _, _}, Descr.map_update(map, Descr.atom([atom]), :delete, mode, true)) and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.map_update(map, Descr.atom([atom]), :delete, mode, true), 1),
+          elem(Descr.map_update(map, key, :delete, mode, true), 1)
+        ),
+      proof: ~LEAN"""
+      -- The map nests at most `d + 1` levels, and the key `d`.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_delete_within:requires/6», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_delete_within:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨hmp, hk⟩, -⟩, hmode⟩, ha⟩, hsub⟩, hupdL⟩, hupdR⟩ := requires
+      have hmp : «arrows_static?/2» map (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hmp
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hmk : (Nest.level node d).K + 23 ≤ δ + 99 := by rw [Nest.level_K] at hm ⊢; omega
+      obtain ⟨s, rfl⟩ : ∃ s, atom = .atom s := by
+        cases atom <;> simp [Erlang.erlang.«is_atom/1»] at ha
+        exact ⟨_, rfl⟩
+      -- The atom is a key of the key type.
+      have dk := Nest.arrows_static_ok hk
+      have subA := Nest.next_sub (Nest.atomT_de s) dk (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [Nest.atom_one, Lynx.Except.ok_bind, subA, Except.ok.injEq] at hsub
+      have subA := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsub)
+      have keyA : Nest.KeyPt node d key (.atom s) :=
+        subA _ ((Nest.atomT_den s _).mpr ⟨rfl, rfl⟩)
+      obtain ⟨rs, neg, ds, rk, ok, nr, na, sk⟩ :=
+        Nest.key_split_any dk (fun Y e => by subst e; exact static_union_atoms hk)
+          (fun Y e => by subst e; exact static_negation_atoms hk) hmk
+      obtain ⟨rs', rfl⟩ := Nest.atoms_of ok.hrs
+      obtain ⟨ds', rfl⟩ := Nest.atoms_of fun d md => let ⟨s, _, e⟩ := ok.hds d md; ⟨s, e⟩
+      have nr' : ∀ N, neg = .map N → rs' = [] := fun N e => by have := nr N e; cases rs' <;> simp_all
+      -- The single atom is a split whose keys are keys of the split of the key type.
+      obtain ⟨Y, ra, aY, dY, rS, okS, mS⟩ := Nest.atoms_split (t := node) (n := d) [s] (by simp) (m := δ + 100)
+        (by rw [Nest.level_K] at hm ⊢; omega)
+      simp only [List.map] at aY
+      rw [Nest.atom_one] at aY
+      cases aY
+      have keys : ∀ κ, Nest.SplitKey (ra.map Lynx.Term.atom) (.atom "nil") (([] : List String).map Lynx.Term.atom) κ →
+          Nest.SplitKey (rs'.map Lynx.Term.atom) neg (ds'.map Lynx.Term.atom) κ := by
+        intro κ h
+        cases κ with
+        | atom s' =>
+          rcases h with h | ⟨N, e, -⟩
+          · obtain ⟨s'', ms'', e⟩ := List.mem_map.mp h
+            have e' : s'' = s' := by injection e
+            subst e'
+            have := (mS s'').mp ms''
+            simp at this; subst this
+            exact (sk _).mpr keyA
+          · cases e
+        | dom k i => simp [Nest.SplitKey] at h
+      obtain ⟨md, rfl, hmd⟩ : ∃ md, mode = .atom md ∧ Nest.Mode md := by
+        by_cases h : mode = .atom "force"
+        · exact ⟨_, h, Or.inl rfl⟩
+        by_cases h' : mode = .atom "keep"
+        · exact ⟨_, h', Or.inr (Or.inl rfl)⟩
+        by_cases h'' : mode = .atom "reject"
+        · exact ⟨_, h'', Or.inr (Or.inr rfl)⟩
+        simp [Lynx.Term.isMember, h, h', h''] at hmode
+      rcases Nest.arrows_static_ok hmp with rfl | ⟨X, rfl, sX⟩
+      · rcases hmd with rfl | rfl | rfl <;>
+          simp [Elixir.Module.Types.Descr.«map_update/5», Lynx.Term.isMember, Erlang.erlang.«is_boolean/1»,
+            Erlang.erlang.«=:=/2», rk, Elixir.Module.Types.Descr.«map_update_unchecked/4»] at hupdR
+      -- Both updates succeed.
+      obtain ⟨T₁, Y₁, e₁, run₁⟩ : ∃ T Y e, Elixir.Module.Types.Descr.«map_update/5»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (Nest.atomT s) (.atom "delete") (.atom md) (.atom "true") =
+          .ok (.tuple #[T, Y, e]) := by
+        rw [Nest.atom_one, Lynx.Except.ok_bind] at hupdL
+        cases h : Elixir.Module.Types.Descr.«map_update/5» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+            (.map X) (Nest.atomT s) (.atom "delete") (.atom md) (.atom "true") with
+        | error e => rw [h] at hupdL; simp at hupdL
+        | ok r =>
+          rw [h] at hupdL
+          simp only [Lynx.Except.ok_bind] at hupdL
+          split at hupdL
+          · rename_i a b c; exact ⟨a, b, c, rfl⟩
+          · simp at hupdL
+      obtain ⟨T₂, Y₂, e₂, run₂⟩ : ∃ T Y e, Elixir.Module.Types.Descr.«map_update/5»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) key (.atom "delete") (.atom md) (.atom "true") =
+          .ok (.tuple #[T, Y, e]) := by
+        cases h : Elixir.Module.Types.Descr.«map_update/5» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+            (.map X) key (.atom "delete") (.atom md) (.atom "true") with
+        | error e => rw [h] at hupdR; simp at hupdR
+        | ok r =>
+          rw [h] at hupdR
+          simp only [Lynx.Except.ok_bind] at hupdR
+          split at hupdR
+          · rename_i a b c; exact ⟨a, b, c, rfl⟩
+          · simp at hupdR
+      obtain ⟨YL, YR, rfl, rfl, dYL, dYR, sub⟩ := Nest.del_sub (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩)
+        (Or.inr ⟨X, rfl, sX⟩) (fun w h => h) rS okS (fun N e => by cases e) (fun N e => by cases e) rk ok nr' na keys hmd
+        hm run₁ run₂
+      have subE := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
+      rw [Nest.bp_true.mpr sub] at subE
+      simp only [Lynx.apply_eq, «map_delete_within:ensures/6»]
+      rw [Nest.atom_one, Lynx.Except.ok_bind, run₁]
+      simp [run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
+      """
+
+    law map_delete_subtype(left, right, small_key, large_key, mode, depth, node),
+      requires:
+        arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
+          arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and Descr.subtype?(left, right) and Descr.subtype?(small_key, large_key) and
+          match?({_, _, _}, Descr.map_update(left, small_key, :delete, mode, true)) and
+          match?({_, _, _}, Descr.map_update(right, large_key, :delete, mode, true)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.map_update(left, small_key, :delete, mode, true), 1),
+          elem(Descr.map_update(right, large_key, :delete, mode, true), 1)
+        ),
+      proof: ~LEAN"""
+      -- The maps nest at most `d + 1` levels, and the keys `d`.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_delete_subtype:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_delete_subtype:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hl, hr⟩, hsk⟩, hlk⟩, -⟩, hmode⟩, hsub⟩, hsubk⟩, hupdL⟩, hupdR⟩ := requires
+      have hl : «arrows_static?/2» left (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hl
+      have hr : «arrows_static?/2» right (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by
+        simpa using hr
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hmk : (Nest.level node d).K + 23 ≤ δ + 99 := by rw [Nest.level_K] at hm ⊢; omega
+      -- Keys of the small key type are keys of the large one.
+      have dsk := Nest.arrows_static_ok hsk
+      have dlk := Nest.arrows_static_ok hlk
+      have subK := Nest.next_sub dsk dlk (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+      rw [subK, Except.ok.injEq] at hsubk
+      have subK := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsubk)
+      have splitOf : ∀ {k : Lynx.Term}, «arrows_static?/2» k (.tuple #[.integer (d : Int), node]) = .ok (.atom "true") →
+          ∃ rs neg ds, Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) k =
+            .ok (Nest.splitT rs neg ds) ∧ Nest.SplitOk rs neg ds ∧ (∀ N, neg = .map N → rs = []) ∧
+            (∀ N, neg = .map N → ∀ e ∈ Lynx.Term.mapEntries N, ∃ s, e.1 = .atom s) ∧
+            ∀ κ, Nest.SplitKey rs neg ds κ ↔ Nest.KeyPt node d k κ := fun h =>
+        Nest.key_split_any (Nest.arrows_static_ok h) (fun Y e => by subst e; exact static_union_atoms h)
+          (fun Y e => by subst e; exact static_negation_atoms h) hmk
+      obtain ⟨rs₁, neg₁, ds₁, rk₁, ok₁, nr₁, na₁, sk₁⟩ := splitOf hsk
+      obtain ⟨rs₂, neg₂, ds₂, rk₂, ok₂, nr₂, na₂, sk₂⟩ := splitOf hlk
+      have keys : ∀ κ, Nest.SplitKey rs₁ neg₁ ds₁ κ → Nest.SplitKey rs₂ neg₂ ds₂ κ := fun κ h =>
+        (sk₂ κ).mpr (Nest.keyPt_mono subK ((sk₁ κ).mp h))
+      obtain ⟨rs₁', rfl⟩ := Nest.atoms_of ok₁.hrs
+      obtain ⟨ds₁', rfl⟩ := Nest.atoms_of fun d md => let ⟨s, _, e⟩ := ok₁.hds d md; ⟨s, e⟩
+      obtain ⟨rs₂', rfl⟩ := Nest.atoms_of ok₂.hrs
+      obtain ⟨ds₂', rfl⟩ := Nest.atoms_of fun d md => let ⟨s, _, e⟩ := ok₂.hds d md; ⟨s, e⟩
+      have nr₁' : ∀ N, neg₁ = .map N → rs₁' = [] := fun N e => by have := nr₁ N e; cases rs₁' <;> simp_all
+      have nr₂' : ∀ N, neg₂ = .map N → rs₂' = [] := fun N e => by have := nr₂ N e; cases rs₂' <;> simp_all
+      -- Maps of the left type are maps of the right one.
+      have dl := Nest.arrows_static_ok hl
+      have dr := Nest.arrows_static_ok hr
+      have subM := Nest.next_sub dl dr (m := δ + 100) (by omega)
+      rw [subM, Except.ok.injEq] at hsub
+      have subM := Nest.bp_true.mp (Nest.boolAtom_inj (q := Bool.true) hsub)
+      obtain ⟨md, rfl, hmd⟩ : ∃ md, mode = .atom md ∧ Nest.Mode md := by
+        by_cases h : mode = .atom "force"
+        · exact ⟨_, h, Or.inl rfl⟩
+        by_cases h' : mode = .atom "keep"
+        · exact ⟨_, h', Or.inr (Or.inl rfl)⟩
+        by_cases h'' : mode = .atom "reject"
+        · exact ⟨_, h'', Or.inr (Or.inr rfl)⟩
+        simp [Lynx.Term.isMember, h, h', h''] at hmode
+      rcases dl with rfl | ⟨XL, rfl, sXL⟩
+      · rcases hmd with rfl | rfl | rfl <;>
+          simp [Elixir.Module.Types.Descr.«map_update/5», Lynx.Term.isMember, Erlang.erlang.«is_boolean/1»,
+            Erlang.erlang.«=:=/2», rk₁, Elixir.Module.Types.Descr.«map_update_unchecked/4»] at hupdL
+      rcases dr with rfl | ⟨XR, rfl, sXR⟩
+      · rcases hmd with rfl | rfl | rfl <;>
+          simp [Elixir.Module.Types.Descr.«map_update/5», Lynx.Term.isMember, Erlang.erlang.«is_boolean/1»,
+            Erlang.erlang.«=:=/2», rk₂, Elixir.Module.Types.Descr.«map_update_unchecked/4»] at hupdR
+      have maps : ∀ w, Nest.MT node (d + 1) XL w → Nest.MT node (d + 1) XR w := fun w hw =>
+        (Nest.denD_mpt w).mp (subM _ ((Nest.denD_mpt w).mpr hw))
+      -- Both updates succeed.
+      obtain ⟨T₁, Y₁, e₁, run₁⟩ : ∃ T Y e, Elixir.Module.Types.Descr.«map_update/5»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XL) small_key (.atom "delete") (.atom md) (.atom "true") =
+          .ok (.tuple #[T, Y, e]) := by
+        cases h : Elixir.Module.Types.Descr.«map_update/5» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+            (.map XL) small_key (.atom "delete") (.atom md) (.atom "true") with
+        | error e => rw [h] at hupdL; simp at hupdL
+        | ok r =>
+          rw [h] at hupdL
+          simp only [Lynx.Except.ok_bind] at hupdL
+          split at hupdL
+          · rename_i a b c; exact ⟨a, b, c, rfl⟩
+          · simp at hupdL
+      obtain ⟨T₂, Y₂, e₂, run₂⟩ : ∃ T Y e, Elixir.Module.Types.Descr.«map_update/5»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map XR) large_key (.atom "delete") (.atom md) (.atom "true") =
+          .ok (.tuple #[T, Y, e]) := by
+        cases h : Elixir.Module.Types.Descr.«map_update/5» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+            (.map XR) large_key (.atom "delete") (.atom md) (.atom "true") with
+        | error e => rw [h] at hupdR; simp at hupdR
+        | ok r =>
+          rw [h] at hupdR
+          simp only [Lynx.Except.ok_bind] at hupdR
+          split at hupdR
+          · rename_i a b c; exact ⟨a, b, c, rfl⟩
+          · simp at hupdR
+      obtain ⟨YL, YR, rfl, rfl, dYL, dYR, sub⟩ := Nest.del_sub (t := node) (n := d + 1) (Or.inr ⟨XL, rfl, sXL⟩)
+        (Or.inr ⟨XR, rfl, sXR⟩) maps rk₁ ok₁ nr₁' na₁ rk₂ ok₂ nr₂' na₂ keys hmd hm run₁ run₂
+      have subE := Nest.next_sub dYL dYR (m := δ + 100) (by omega)
+      rw [Nest.bp_true.mpr sub] at subE
+      simp only [Lynx.apply_eq, «map_delete_subtype:ensures/7»]
       simp [run₁, run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
       """
 
