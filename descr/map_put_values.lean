@@ -201,4 +201,49 @@ theorem nonempty_map {Y : List (Term × Term)} (dY : DE (level t n).E (.map Y))
 
 end
 
+section
+variable {t : Term} {n : Nat}
+
+/-- The kind types of the laws hold every point of their kind. -/
+theorem kind_full {d : String} (hd : d ∈ domainKinds) (na : d ≠ "atom") {m : Nat} (hm : (level t n).K + 23 ≤ m) :
+    ∃ T, Elixir.STTDescrProofsTest.«kind_type/1» (D m) (.atom d) = .ok (.map T) ∧
+      ∀ v : PN t n, ptKind v = d → denD (.map T) v := by
+  have bit : ∀ i (hi : i < 8), i ≠ 2 → ∀ v : PN t n, ptKind v = bitKind i →
+      denD (.map [(.atom "bitmap", .integer ((2 ^ i : Nat) : Int))]) v := fun i hi ni v hv =>
+    (domT_bit (t := t) (n := n) i hi ni).kinds (by
+      match i, hi, ni with
+      | 0, _, _ | 1, _, _ | 3, _, _ | 4, _, _ | 5, _, _ | 6, _, _ | 7, _, _ => simp [bitKind]) v hv
+  simp only [domainKinds, List.mem_cons, List.not_mem_nil, or_false] at hd
+  rcases hd with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · exact absurd rfl na
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 0 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 1 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 4 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · refine ⟨_, rfl, fun v hv => (denD_single _ _ v).mpr ⟨ptKind_field hv (by simp), dn_funTop _⟩⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 3 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · have b2 := kind_bit (t := t) (n := n) 2 (by omega)
+    simp only [show ((2 ^ 2 : Nat) : Int) = 4 from rfl] at b2
+    have dl : DE (level t n).E (.map [(.atom "list", .tuple #[.integer 46675407, .atom "term", .atom "term"])]) :=
+      single_de (by simp [names]) (Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, Bdd.leaf_iff.mpr
+        ⟨46675407, _, _, rfl, (level t n).ef.term, (level t n).ef.term⟩⟩))))
+    obtain ⟨U, rU, -, sU⟩ := union_map b2.de dl hm
+    refine ⟨U, ?_, fun v hv => (sU v).mpr ?_⟩
+    · simp [Elixir.STTDescrProofsTest.«kind_type/1», Elixir.Module.Types.Descr.«empty_list/0»,
+        Elixir.Module.Types.Descr.«term/0», non_empty_list_top, rU]
+    · by_cases hb : v.1.1 = "bitmap"
+      · have hp : v.1.2.1 < 8 := v.2.2.2.1 hb
+        have e : v.1.2.1 = 2 := bitKind_inj hp (by omega) (by simpa [ptKind, hb, bitKind] using hv)
+        refine Or.inl ((denD_single _ _ v).mpr ⟨hb, ?_⟩)
+        simp only [dn_bitmap, bitOf, e]
+        decide
+      · have hl : v.1.1 = "list" := by simpa [ptKind, hb] using hv
+        exact Or.inr ((denD_single _ _ v).mpr ⟨hl, by simp [dn_list, denL_top]⟩)
+  · exact ⟨_, rfl, fun v hv => (mapTop_den v).mpr (ptKind_field hv (by simp))⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 5 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 6 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · exact ⟨_, rfl, fun v hv => by simpa using bit 7 (by omega) (by omega) v (by simpa [bitKind] using hv)⟩
+  · exact ⟨_, rfl, fun v hv => (tupleTop_den v).mpr (ptKind_field hv (by simp))⟩
+
+end
+
 end Elixir.STTDescrProofsTest.Nest
