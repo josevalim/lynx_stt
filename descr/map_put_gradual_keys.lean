@@ -255,7 +255,7 @@ theorem negreq_static_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
   by_cases full : FullDs ds
   · have hL : Ks.length = 12 := lenKs.mpr full
     have hL' : ((Ks.length : Int) = 12) := by omega
-    obtain ⟨NK, R, rR, akNK, lnNK, orNK, mR⟩ := box_runAll ef (n := n + 2) (by omega) lines hl hne hv vne ks AK Ks
+    obtain ⟨NK, R, rR, akNK, lnNK, orNK, mR⟩ := box_runAll ef (n := n + 2) (by omega) lines bdd hl hne hv vne ks AK Ks
       subKs aK hL
     simp [hL', rR, Erlang.erlang.«element/2»]
     have bridge : ∀ w, (BoxSynD den lines ks NK Ks v w ∧ w ≠ wNone) ↔
@@ -286,7 +286,7 @@ theorem negreq_static_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
     have mWs : ∀ s, s ∈ Ws ↔ s ∈ Ks ∧ s ≠ "atom" := fun s => by simp [Ws]
     have part := partition_atom (n + 5) Ks
     rw [filter_eq_single ndKs aK] at part
-    obtain ⟨NK, res, rres, akNK, lnNK, orNK, hres⟩ := box_runD ef (n := n + 2) (by omega) lines hl hne hv sv vne ks AK
+    obtain ⟨NK, res, rres, akNK, lnNK, orNK, hres⟩ := box_runD ef (n := n + 2) (by omega) lines bdd hl hne hv sv vne ks AK
       ["atom"] (by simp [domainKinds]) (by simp) (by simp)
     obtain ⟨R₁, rfl, m₁⟩ := mapsD_box hres
     simp only [List.map, Term.list] at rres
@@ -471,7 +471,7 @@ theorem negreq_static_dnf_empty (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 
     · obtain ⟨a, -, ⟨x, -, hx⟩, -⟩ := (sbs w).mp ⟨b, mb, hb⟩
       exact nv ⟨x, hx⟩
     · rw [sb0 b mb w] at hb; cases hb
-  have box := fun Ds hD => box_run_empty ef (n := n + 2) (by omega) lines hl hv nv ks AK Ds hD
+  have box := fun Ds hD => box_run_empty ef (n := n + 2) (by omega) lines bdd hl hv nv ks AK Ds hD
   simp [dsCmp, lenK]
   by_cases full : FullDs ds
   · have hL' : ((Ks.length : Int) = 12) := by have := lenKs.mpr full; omega
