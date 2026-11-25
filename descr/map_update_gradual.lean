@@ -3967,15 +3967,37 @@ end
 theorem upd5_gval {m : Nat} (X : List (Term × Term)) {key mode s : Term} {Zv : List (Term × Term)} {Dv : Term}
     (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s)
     (hmode : mode = .atom "force" ∨ mode = .atom "keep" ∨ mode = .atom "reject")
-    (hZ : mapLookup Zv (.atom "dynamic") = some Dv) :
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv)
+    (hmo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true")) :
     Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key (.map Zv) mode (.atom "true") =
       Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map (dynG X)) s
         (.tuple #[.tuple #[.atom "constant", .tuple #[Dv, .atom "false"]], mode]) (.atom "true") := by
+  have hmo' : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (X.filter fun entry =>
+      !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq))) =
+      .ok (.atom "true") := hmo
   unfold Elixir.Module.Types.Descr.«map_update/5»
+  rw [Elixir.Module.Types.Descr.«map_gradual/1».eq_def]
   cases hX : mapLookup X (.atom "dynamic") <;>
     rcases hmode with rfl | rfl | rfl <;>
     simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk, getMapKeys_single, hZ, hX,
-      dynG] <;> rfl
+      dynG, Erlang.maps.«remove/2», hmo'] <;> rfl
+
+/-- `map_update/5` with a gradual value on a map type whose static part may hold something other than maps:
+`:badmap`. -/
+theorem upd5_gval_bad {m : Nat} (X : List (Term × Term)) {key mode s : Term} {Zv : List (Term × Term)} {Dv : Term}
+    (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s)
+    (hmode : mode = .atom "force" ∨ mode = .atom "keep" ∨ mode = .atom "reject")
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv)
+    (hmo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "false")) :
+    Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key (.map Zv) mode (.atom "true") = .ok (.atom "badmap") := by
+  have hmo' : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (X.filter fun entry =>
+      !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq))) =
+      .ok (.atom "false") := hmo
+  unfold Elixir.Module.Types.Descr.«map_update/5»
+  rw [Elixir.Module.Types.Descr.«map_gradual/1».eq_def]
+  rcases hmode with rfl | rfl | rfl <;>
+    simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk, getMapKeys_single, hZ,
+      Erlang.maps.«remove/2», hmo', Elixir.Module.Types.Descr.«map_update_unchecked/4»]
 
 
 /-- `empty?/1` of a gradual type is that of its dynamic part. -/

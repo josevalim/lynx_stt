@@ -87,7 +87,7 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (1de636e48), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (6d03220fe), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -765,6 +765,8 @@ defmodule STTDescrProofsTest do
     termination_suffix &Descr.map_update_static/5, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.map_update_unchecked/4, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &Descr.map_put/3, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_gradual/1, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix &Descr.map_get_static/2, ~LEAN"partial_fixpoint", recur: true
     # Nested types are finite, so their specification terminates.
     termination_suffix &__MODULE__.nested?/2, ~LEAN"partial_fixpoint", recur: true
     termination_suffix &__MODULE__.keyed?/2, ~LEAN"partial_fixpoint", recur: true
@@ -4803,9 +4805,14 @@ defmodule STTDescrProofsTest do
                 simp [Nest.dynG, Nest.rmDyn, Nest.denD_map, Lynx.Term.mapLookup, Elixir.STTDescrProofsTest.dn_none] at this⟩
           have hD : Lynx.Term.mapLookup (Nest.dynG X) (.atom "dynamic") =
               some ((Lynx.Term.mapLookup X (.atom "dynamic")).getD (.map X)) := by simp [Nest.dynG, Lynx.Term.mapLookup]
+          obtain hmo : Elixir.Module.Types.Descr.«map_only?/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+              (.map (Nest.rmDyn X)) = .ok (.atom "true") := by
+            rcases Nest.put_gradual_cases gM (m := δ + 100) (by omega) rk hZ with ⟨hmo, -⟩ | ⟨hb, -⟩
+            · exact hmo
+            · rw [hb] at hput; simp at hput
           obtain ⟨res, run, rfl | ⟨R, rfl, gR, oR, -, -, sR⟩⟩ := Nest.gres_g gG hD evu svu' hP (hmono _) na (m := δ + 100) hm
-          · rw [Nest.put_gradual_value_g rk hZ, run] at hput; simp at hput
-          refine ⟨R, by rw [Nest.put_gradual_value_g rk hZ, run], gR, oR, fun w => ?_⟩
+          · rw [Nest.put_gradual_value_g rk hZ hmo, run] at hput; simp at hput
+          refine ⟨R, by rw [Nest.put_gradual_value_g rk hZ hmo, run], gR, oR, fun w => ?_⟩
           rw [sR, ← uX, eU]
           rfl
       -- The atom is a key of the upper bound of the key type.
@@ -4969,9 +4976,14 @@ defmodule STTDescrProofsTest do
                 simp [Nest.dynG, Nest.rmDyn, Nest.denD_map, Lynx.Term.mapLookup, Elixir.STTDescrProofsTest.dn_none] at this⟩
           have hD : Lynx.Term.mapLookup (Nest.dynG X) (.atom "dynamic") =
               some ((Lynx.Term.mapLookup X (.atom "dynamic")).getD (.map X)) := by simp [Nest.dynG, Lynx.Term.mapLookup]
+          obtain hmo : Elixir.Module.Types.Descr.«map_only?/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+              (.map (Nest.rmDyn X)) = .ok (.atom "true") := by
+            rcases Nest.put_gradual_cases gM (m := δ + 100) (by omega) rk hZ with ⟨hmo, -⟩ | ⟨hb, -⟩
+            · exact hmo
+            · rw [hb] at hput; simp at hput
           obtain ⟨res, run, rfl | ⟨R, rfl, gR, oR, -, -, sR⟩⟩ := Nest.gres_g gG hD evu svu' hP (hmono _) na (m := δ + 100) hm
-          · rw [Nest.put_gradual_value_g rk hZ, run] at hput; simp at hput
-          refine ⟨R, by rw [Nest.put_gradual_value_g rk hZ, run], gR, oR, fun w => ?_⟩
+          · rw [Nest.put_gradual_value_g rk hZ hmo, run] at hput; simp at hput
+          refine ⟨R, by rw [Nest.put_gradual_value_g rk hZ hmo, run], gR, oR, fun w => ?_⟩
           rw [sR, ← uX, eU]
           rfl
       obtain ⟨resU, runU, ⟨rfl, -⟩ | ⟨Y, rfl, onlyU, dY, onlyY, semY⟩⟩ :=
@@ -5169,7 +5181,12 @@ defmodule STTDescrProofsTest do
                 simp [Nest.dynG, Nest.rmDyn, Nest.denD_map, Lynx.Term.mapLookup, Elixir.STTDescrProofsTest.dn_none] at this⟩
           have hDG : Lynx.Term.mapLookup (Nest.dynG X) (.atom "dynamic") = some (Nest.upper (.map X)) := by
             simp [Nest.dynG, Lynx.Term.mapLookup, Nest.upper]
-          refine ⟨Dv, Nest.dynG X, T, R, er, by rw [← Nest.upd5_gval X rk mt hZ]; exact hupd', hupd', gG,
+          obtain hmo : Elixir.Module.Types.Descr.«map_only?/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+              (.map (Nest.rmDyn X)) = .ok (.atom "true") := by
+            rcases Nest.map_only_bool gM (m := δ + 100) (by omega) with h | h
+            · exact h
+            · rw [Nest.upd5_gval_bad X rk mt hZ h] at hupd'; simp at hupd'
+          refine ⟨Dv, Nest.dynG X, T, R, er, by rw [← Nest.upd5_gval X rk mt hZ hmo]; exact hupd', hupd', gG,
             fun Dy h => ⟨U, by rw [hDG] at h; cases h; exact eU⟩, fun w h => ?_, fun DX h w hw => ?_,
             Or.inl dVu, sDv.imp id fun ⟨Z, e, _⟩ => ⟨Z, e⟩, uV.symm,
             neV dVu (by rw [← Nest.empty_gval hZ sDv]; exact hne')⟩
@@ -5733,9 +5750,14 @@ defmodule STTDescrProofsTest do
                 simp [Nest.dynG, Nest.rmDyn, Nest.denD_map, Lynx.Term.mapLookup, Elixir.STTDescrProofsTest.dn_none] at this⟩
           have hD : Lynx.Term.mapLookup (Nest.dynG X) (.atom "dynamic") =
               some ((Lynx.Term.mapLookup X (.atom "dynamic")).getD (.map X)) := by simp [Nest.dynG, Lynx.Term.mapLookup]
+          obtain hmo : Elixir.Module.Types.Descr.«map_only?/1» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+              (.map (Nest.rmDyn X)) = .ok (.atom "true") := by
+            rcases Nest.put_gradual_cases gM (m := δ + 100) (by omega) rk hZ with ⟨hmo, -⟩ | ⟨hb, -⟩
+            · exact hmo
+            · rw [hb] at hput; simp at hput
           obtain ⟨res, run, rfl | ⟨R, rfl, gR, oR, -, -, sR⟩⟩ := Nest.gres gG hD evu svu' ok nr na (m := δ + 100) hm
-          · rw [Nest.put_gradual_value rk hZ, run] at hput; simp at hput
-          refine ⟨R, by rw [Nest.put_gradual_value rk hZ, run], gR, oR, fun w => ?_⟩
+          · rw [Nest.put_gradual_value rk hZ hmo, run] at hput; simp at hput
+          refine ⟨R, by rw [Nest.put_gradual_value rk hZ hmo, run], gR, oR, fun w => ?_⟩
           rw [sR, ← uX, eU]
           rfl
       obtain ⟨resU, runU, ⟨rfl, -⟩ | ⟨Y, rfl, onlyU, dY, onlyY, semY⟩⟩ :=
@@ -10868,6 +10890,8 @@ defmodule STTDescrProofsTest do
         Lynx.Except.andAlso, Lynx.Term.true] at opt ⊢
       """
 
+    # A gradual key selects the keys to look up or change, so the keys of its upper bound: getting gives the same
+    # result, and changing gives a smaller one, as the static part of the key is surely among them.
     law map_delete_precise(map, key, mode, map2, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and

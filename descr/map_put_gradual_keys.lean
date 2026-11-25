@@ -1183,16 +1183,57 @@ theorem put_static_value_g {m : Nat} {X : List (Term × Term)} {key v s : Term}
 
 theorem put_gradual_value_g {m : Nat} {X : List (Term × Term)} {key s : Term} {Zv : List (Term × Term)} {Dv : Term}
     (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s)
-    (hZ : mapLookup Zv (.atom "dynamic") = some Dv) :
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv)
+    (hmo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true")) :
     Elixir.Module.Types.Descr.«map_put/3» (D m) (.map X) key (.map Zv) = (do
       let r ← Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map (dynG X)) s (forceOp Dv) (.atom "false")
       putRes r) := by
+  have hmo' : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (X.filter fun entry =>
+      !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq))) =
+      .ok (.atom "true") := hmo
   unfold Elixir.Module.Types.Descr.«map_put/3» Elixir.Module.Types.Descr.«map_put_shared/3»
+  rw [Elixir.Module.Types.Descr.«map_gradual/1».eq_def]
   cases hX : mapLookup X (.atom "dynamic") <;>
-    simp [hk, getMapKeys_single, hZ, hX, dynG, putRes] <;> rfl
+    simp [hk, getMapKeys_single, hZ, hX, dynG, putRes, Erlang.maps.«remove/2», hmo'] <;> rfl
 
 section
 variable {t : Term} {n : Nat}
+
+/-- A gradual value puts into a map type whose static part holds only maps, and otherwise gives `:badmap`. -/
+theorem put_gradual_cases {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {m : Nat}
+    (hm : (level t n).K + 23 ≤ m) {key s : Term} {Zv : List (Term × Term)} {Dv : Term}
+    (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s)
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv) :
+    (Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true") ∧
+      ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∨
+    (Elixir.Module.Types.Descr.«map_put/3» (D m) (.map X) key (.map Zv) = .ok (.atom "badmap") ∧
+      ¬∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") := by
+  obtain ⟨dR, sR⟩ := rest_map (t := t) (n := n) gX.low_tc
+  have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
+      .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    exact next_empty dR hm
+  have iff : (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) ↔ ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map" :=
+    ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sR q).mpr ⟨hq, nq⟩),
+      fun h q hq => ((sR q).mp hq).2 (h q ((sR q).mp hq).1)⟩
+  by_cases h : ∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q
+  · rw [bp_true.mpr h] at mo
+    exact Or.inl ⟨by simpa [boolAtom] using mo, iff.mp h⟩
+  · rw [bp_false.mpr h] at mo
+    exact Or.inr ⟨put_gradual_value_bad hk hZ (by simpa [boolAtom] using mo), fun h' => h (iff.mpr h')⟩
+
+/-- `map_only?/1` of the static part of a gradual map type is a boolean. -/
+theorem map_only_bool {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {m : Nat}
+    (hm : (level t n).K + 23 ≤ m) :
+    Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true") ∨
+      Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "false") := by
+  obtain ⟨dR, -⟩ := rest_map (t := t) (n := n) gX.low_tc
+  have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
+      .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    exact next_empty dR hm
+  rw [mo]
+  cases bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) <;> simp [boolAtom]
 
 /-- `map_put/3` of a static value, on a static map type, at a split updating with `P`. -/
 theorem dput_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {key s neg : Term}

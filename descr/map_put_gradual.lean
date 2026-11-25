@@ -391,14 +391,32 @@ theorem put_static_value {m : Nat} {X : List (Term × Term)} {key v : Term} {rs 
 theorem put_gradual_value {m : Nat} {X : List (Term × Term)} {key : Term} {Zv : List (Term × Term)} {Dv : Term}
     {rs : List Term} {neg : Term} {ds : List Term}
     (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok (splitT rs neg ds))
-    (hZ : mapLookup Zv (.atom "dynamic") = some Dv) :
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv)
+    (hmo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true")) :
     Elixir.Module.Types.Descr.«map_put/3» (D m) (.map X) key (.map Zv) = (do
       let r ← Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map (dynG X)) (splitT rs neg ds) (forceOp Dv)
         (.atom "false")
       putRes r) := by
+  have hmo' : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (X.filter fun entry =>
+      !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq))) =
+      .ok (.atom "true") := hmo
   unfold Elixir.Module.Types.Descr.«map_put/3» Elixir.Module.Types.Descr.«map_put_shared/3»
+  rw [Elixir.Module.Types.Descr.«map_gradual/1».eq_def]
   cases hX : mapLookup X (.atom "dynamic") <;>
-    simp [hk, getMapKeys_single, hZ, hX, dynG, putRes] <;> rfl
+    simp [hk, getMapKeys_single, hZ, hX, dynG, putRes, Erlang.maps.«remove/2», hmo'] <;> rfl
+
+/-- `map_put/3` of a gradual value on a map type whose static part may hold something other than maps: `:badmap`. -/
+theorem put_gradual_value_bad {m : Nat} {X : List (Term × Term)} {key : Term} {Zv : List (Term × Term)} {Dv : Term}
+    {s : Term} (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s)
+    (hZ : mapLookup Zv (.atom "dynamic") = some Dv)
+    (hmo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "false")) :
+    Elixir.Module.Types.Descr.«map_put/3» (D m) (.map X) key (.map Zv) = .ok (.atom "badmap") := by
+  have hmo' : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (X.filter fun entry =>
+      !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq))) =
+      .ok (.atom "false") := hmo
+  unfold Elixir.Module.Types.Descr.«map_put/3» Elixir.Module.Types.Descr.«map_put_shared/3»
+  rw [Elixir.Module.Types.Descr.«map_gradual/1».eq_def]
+  simp [hk, getMapKeys_single, hZ, Erlang.maps.«remove/2», hmo', Elixir.Module.Types.Descr.«map_update_unchecked/4»]
 
 /-- The maps of a gradual map type's static part are maps of its dynamic part. -/
 theorem static_in_dyn {X : List (Term × Term)} {Dy : Term} (tD : TC (level t n) Dy)
