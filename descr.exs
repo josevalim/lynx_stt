@@ -1044,6 +1044,9 @@ defmodule STTDescrProofsTest do
     postlude "descr/tuple_gradual.lean"
     postlude "descr/map_update_gradual.lean"
 
+    # The gradual guarantee: operations on less precise types give less precise results.
+    postlude "descr/gradual_precision.lean"
+
     law intersection_none_empty(descr),
       requires: descr?(descr),
       expects: Descr.empty?(Descr.bare_intersection(descr, Descr.none())),
@@ -10456,6 +10459,106 @@ defmodule STTDescrProofsTest do
               split at hok
               · exact F₂ _ rfl
               · simp at hok
+      """
+
+    law union_precise(left, right, left2, right2, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
+      expects: precise?(Descr.bare_union(left, right), Descr.bare_union(left2, right2)),
+      proof: ~LEAN"""
+      -- The bounds of the results are the bounds' unions, which keep the order of precision.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «union_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.2
+      refine ⟨max bound (100 + 24 * d), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «union_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at requires
+      obtain ⟨⟨⟨⟨⟨⟨ha, hb⟩, ha₂⟩, hb₂⟩, -⟩, pa⟩, pb⟩ := requires
+      have hK : (Nest.level node d).K + 23 ≤ depth := by rw [Nest.level_K]; omega
+      have ga := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha)
+      have gb := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb)
+      have ga₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha₂)
+      have gb₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb₂)
+      obtain ⟨c, c₂, r, r₂, p⟩ := Nest.union_prec hK ga gb ga₂ gb₂ (by simpa using pa) (by simpa using pb)
+      simp only [Lynx.apply_eq, «union_precise:ensures/6»]
+      simp [r, r₂, p, Lynx.Term.true]
+      """
+
+    law intersection_precise(left, right, left2, right2, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
+      expects: precise?(Descr.bare_intersection(left, right), Descr.bare_intersection(left2, right2)),
+      proof: ~LEAN"""
+      -- The bounds of the results are the bounds' intersections, which keep the order of precision.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «intersection_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.2
+      refine ⟨max bound (100 + 24 * d), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «intersection_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at requires
+      obtain ⟨⟨⟨⟨⟨⟨ha, hb⟩, ha₂⟩, hb₂⟩, -⟩, pa⟩, pb⟩ := requires
+      have hK : (Nest.level node d).K + 23 ≤ depth := by rw [Nest.level_K]; omega
+      have ga := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha)
+      have gb := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb)
+      have ga₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha₂)
+      have gb₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb₂)
+      obtain ⟨c, c₂, r, r₂, p⟩ := Nest.inter_prec hK ga gb ga₂ gb₂ (by simpa using pa) (by simpa using pb)
+      simp only [Lynx.apply_eq, «intersection_precise:ensures/6»]
+      simp [r, r₂, p, Lynx.Term.true]
+      """
+
+    law difference_precise(left, right, left2, right2, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
+      expects: precise?(Descr.bare_difference(left, right), Descr.bare_difference(left2, right2)),
+      proof: ~LEAN"""
+      -- The bounds of the results are the bounds' differences, which keep the order of precision.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «difference_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.2
+      refine ⟨max bound (100 + 24 * d), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «difference_precise:requires/6», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at requires
+      obtain ⟨⟨⟨⟨⟨⟨ha, hb⟩, ha₂⟩, hb₂⟩, -⟩, pa⟩, pb⟩ := requires
+      have hK : (Nest.level node d).K + 23 ≤ depth := by rw [Nest.level_K]; omega
+      have ga := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha)
+      have gb := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb)
+      have ga₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha₂)
+      have gb₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using hb₂)
+      obtain ⟨c, c₂, r, r₂, p⟩ := Nest.diff_prec hK ga gb ga₂ gb₂ (by simpa using pa) (by simpa using pb)
+      simp only [Lynx.apply_eq, «difference_precise:ensures/6»]
+      simp [r, r₂, p, Lynx.Term.true]
+      """
+
+    law negation_precise(descr, descr2, depth, node),
+      requires: arrows_gradual?(descr, {depth, node}) and arrows_gradual?(descr2, {depth, node}) and depth?(depth) and precise?(descr, descr2),
+      expects: precise?(Descr.bare_negation(descr), Descr.bare_negation(descr2)),
+      proof: ~LEAN"""
+      -- The bounds of the results are the bounds' negations, which keep the order of precision.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «negation_precise:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.2
+      refine ⟨max bound (100 + 24 * d), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      have requires := requires depth hb
+      simp only [Lynx.apply_eq, «negation_precise:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at requires
+      obtain ⟨⟨⟨ha, ha₂⟩, -⟩, pa⟩ := requires
+      have hK : (Nest.level node d).K + 23 ≤ depth := by rw [Nest.level_K]; omega
+      have ga := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha)
+      have ga₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := depth) (by rw [Nest.level_K]; omega) (by simpa using ha₂)
+      obtain ⟨c, c₂, r, r₂, p⟩ := Nest.neg_prec hK ga ga₂ (by simpa using pa)
+      simp only [Lynx.apply_eq, «negation_precise:ensures/4»]
+      simp [r, r₂, p, Lynx.Term.true]
       """
 
   end
