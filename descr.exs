@@ -10561,6 +10561,133 @@ defmodule STTDescrProofsTest do
       simp [r, r₂, p, Lynx.Term.true]
       """
 
+    law tuple_insert_precise(tuple, index, value, tuple2, value2, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
+          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+          not Descr.empty?(value) and precise?(tuple, tuple2) and precise?(value, value2) and
+          is_map(Descr.tuple_insert_at(tuple, index, value)),
+      expects:
+        (case Descr.tuple_insert_at(tuple2, index, value2) do
+           result when is_map(result) -> precise?(Descr.tuple_insert_at(tuple, index, value), result)
+           _ -> false
+         end),
+      proof: ~LEAN"""
+      -- Inserting less precise values into less precise tuples inserts into their bounds, which keep the order.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_insert_precise:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      simp only [hp, Lynx.Except.ok_bind, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_insert_precise:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hv⟩, hg₂⟩, hv₂⟩, -⟩, hi⟩, hi0⟩, -⟩, pr⟩, prv⟩, hmap⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have gT₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg₂)
+      have gV := Nest.arrows_gradual_ok (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        (by simpa using hv)
+      have gV₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        (by simpa using hv₂)
+      obtain ⟨lo, up⟩ := Nest.prec_bounds (t := node) (n := d + 1) (m := δ + 100) (by rw [Nest.level_K]; omega) gT gT₂
+        (by simpa using pr)
+      obtain ⟨lov, upv⟩ := Nest.prec_bounds (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        gV gV₂ (by simpa using prv)
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · rw [Nest.insert_at_term] at hmap
+        simp [Erlang.erlang.«is_map/1»] at hmap
+      obtain ⟨R, run⟩ : ∃ R, Elixir.Module.Types.Descr.«tuple_insert_at/3»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) value = .ok (.map R) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_insert_at/3»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) value with
+        | error _ => rw [h] at hmap; cases hmap
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hmap
+          cases r <;> simp [Erlang.erlang.«is_map/1»] at hmap
+          exact ⟨_, rfl⟩
+      obtain ⟨R₂, run₂, pr₂⟩ := Nest.insert_prec gT.1 gT₂.1 gV gV₂ i hm lo up lov upv run
+      simp only [Lynx.apply_eq, «tuple_insert_precise:ensures/7»]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl,
+        run₂, Lynx.Except.ok_bind]
+      simp [run, pr₂, Lynx.Term.true]
+      """
+
+    law tuple_replace_precise(tuple, index, value, tuple2, value2, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
+          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+          not Descr.empty?(value) and precise?(tuple, tuple2) and precise?(value, value2) and
+          is_map(Descr.tuple_replace_at(tuple, index, value)),
+      expects:
+        (case Descr.tuple_replace_at(tuple2, index, value2) do
+           result when is_map(result) -> precise?(Descr.tuple_replace_at(tuple, index, value), result)
+           _ -> false
+         end),
+      proof: ~LEAN"""
+      -- Replacing deletes and inserts, both of which keep the order of precision.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_replace_precise:requires/7», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      simp only [hp, Lynx.Except.ok_bind, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_replace_precise:requires/7», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hv⟩, hg₂⟩, hv₂⟩, -⟩, hi⟩, hi0⟩, -⟩, pr⟩, prv⟩, hmap⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have gT₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg₂)
+      have gV := Nest.arrows_gradual_ok (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        (by simpa using hv)
+      have gV₂ := Nest.arrows_gradual_ok (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        (by simpa using hv₂)
+      obtain ⟨lo, up⟩ := Nest.prec_bounds (t := node) (n := d + 1) (m := δ + 100) (by rw [Nest.level_K]; omega) gT gT₂
+        (by simpa using pr)
+      obtain ⟨lov, upv⟩ := Nest.prec_bounds (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega)
+        gV gV₂ (by simpa using prv)
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Elixir.Module.Types.Descr.«tuple_delete_at/2»,
+          Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse, Erlang.erlang.«is_integer/1»,
+          Lynx.Except.andAlso] at hmap
+      obtain ⟨R, run⟩ : ∃ R, Elixir.Module.Types.Descr.«tuple_replace_at/3»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) value = .ok (.map R) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_replace_at/3»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) value with
+        | error _ => rw [h] at hmap; cases hmap
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hmap
+          cases r <;> simp [Erlang.erlang.«is_map/1»] at hmap
+          exact ⟨_, rfl⟩
+      obtain ⟨R₂, run₂, pr₂⟩ := Nest.replace_prec gT.1 gT₂.1 gV gV₂ i hm lo up lov upv run
+      simp only [Lynx.apply_eq, «tuple_replace_precise:ensures/7»]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl,
+        run₂, Lynx.Except.ok_bind]
+      simp [run, pr₂, Lynx.Term.true]
+      """
+
     law tuple_delete_precise(tuple, index, tuple2, depth, node),
       requires:
         arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and is_integer(index) and

@@ -499,4 +499,431 @@ theorem delete_prec {X : List (Term × Term)} {a₂ : Term} (gX : GC (level t n)
 
 end
 
+section
+variable {t : Term} {n : Nat}
+
+theorem size_check_iff {S : List (Term × Term)} (hS : DE (level t n).E (.map S)) (i : Nat) {m : Nat}
+    (hm : (level t n).K + 1 ≤ m) :
+    ∃ sz : Bool, Lynx.Except.orElse (Erlang.erlang.«==/2» (.integer i) (.integer 0))
+        (Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D m) (.map S) (.integer i)) = .ok (boolAtom sz) ∧
+      (sz = Bool.true ↔ ∀ w, TT t n S w → i ≤ w.length) := by
+  by_cases z : i = 0
+  · subst z
+    exact ⟨Bool.true, by simp [Lynx.Except.orElse, Erlang.erlang.«==/2», boolAtom], by simp⟩
+  have eq0 : Erlang.erlang.«==/2» (.integer (i : Int)) (.integer 0) = .ok (.atom "false") := by
+    simp [Erlang.erlang.«==/2»]; omega
+  rw [eq0]
+  simp only [Lynx.Except.orElse]
+  have sS := de_map hS
+  cases hb : mapLookup S (.atom "tuple") with
+  | none =>
+    refine ⟨Bool.true, ?_, ⟨fun _ w hw => by simp [TT, hb] at hw, fun _ => rfl⟩⟩
+    unfold Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2»
+    simp [getMapKeys_single, hb, boolAtom]
+  | some b =>
+    have fb : TField (level t n).E b := fieldC_tuple (sS.fields "tuple" b hb)
+    obtain ⟨sz, rs, ss⟩ := size_at_least (level t n).ef (m := m) (by omega) fb i (by omega)
+    refine ⟨sz, by rw [size_map _ hb]; exact rs, ?_⟩
+    rw [ss]
+    exact ⟨fun h w hw => h w (by simpa [TT, hb] using hw), fun h w hw => h w (by simpa [TT, hb] using hw)⟩
+
+theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) {x : Term} (hx : (level t n).E x) (i : Nat) {m : Nat}
+    (hm : (level t n).K + 26 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
+      ((∃ R, r = .map R) ↔ (∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v) ∧
+        (∀ u, TT t n (rmDyn X) u → i ≤ u.length) ∧ ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length) := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
+  obtain ⟨dDy, sS⟩ : DE (level t n).E Dy ∧ DescrC (FunA (level t n).E) (TField (level t n).E) (LF (level t n).E)
+      (MField (level t n).E) (rmDyn X) := by
+    rcases gX with (h | ⟨X', e, sX⟩) | ⟨X', Dy', e, hD', tD, sS, -⟩
+    · cases h
+    · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
+    · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, sS⟩
+  have inc : ∀ v : PN t n, denD (.map X) v → denD Dy v := by
+    rcases gX with (h | ⟨X', e, sX⟩) | ⟨X', Dy', e, hD', -, -, inc⟩
+    · cases h
+    · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
+    · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact inc
+  have dS : DE (level t n).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, sS⟩
+  obtain ⟨dR, sR⟩ := rest_tuple dS
+  obtain ⟨kd, rkd, skd⟩ : ∃ kd : Bool, Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "tuple") = .ok (boolAtom kd) ∧
+      (kd = Bool.false → ∀ u, ¬denD Dy (tpt (t := t) (n := n) u)) := by
+    rcases dDy with rfl | ⟨DX, rfl, -⟩
+    · exact ⟨Bool.true, rfl, fun h => by cases h⟩
+    · refine ⟨(mapLookup DX (.atom "tuple")).isSome, ?_, fun h u hu => ?_⟩
+      · cases h : (mapLookup DX (.atom "tuple")).isSome <;>
+          simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, boolAtom, h]
+      · rw [denD_tpt] at hu
+        obtain ⟨b, hb, -⟩ := hu
+        rw [hb] at h; cases h
+  have rto := next_empty dR (m := k + 3) (by omega)
+  obtain ⟨sz, rsz, ssz⟩ := size_check_iff dS i (m := k + 3) (by omega)
+  unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+  simp only [Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2»]
+  simp only [filter_dyn, filter_t, rkd, rto, rsz, Lynx.Except.ok_bind]
+  by_cases to : ∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v
+  rotate_left
+  · rw [bp_false.mpr to]
+    cases kd <;> cases sz <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»] <;> intro h <;>
+      exact (to (fun ⟨⟨a, b, c, e⟩, hv⟩ => h a b c e hv)).elim
+  rw [bp_true.mpr to]
+  cases sz
+  · cases kd <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»] <;> intro _ long <;>
+      exact absurd (ssz.mpr long) (by simp)
+  cases kd
+  · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»]
+    intro _ _ u hu
+    exact absurd hu (skd rfl u)
+  have onlyS : ∀ v : PN t n, denD (.map (rmDyn X)) v → v.1.1 = "tuple" := fun v hv =>
+    Classical.byContradiction fun h => to v ((sR v).mpr ⟨hv, h⟩)
+  have long := ssz.mp rfl
+  obtain ⟨YS, rS, dYS, oYS, tYS⟩ := ins_any dS onlyS hx i (m := k + 3) (by omega)
+  obtain ⟨kz, rZ, dZ, oZ, tZ⟩ := sizeT_run (t := t) (n := n) i
+  obtain ⟨c, dc, rc, sc⟩ := (ef_next t n).opt_inter [] dDy dZ (m := k + 3) (by omega)
+  obtain ⟨C, rfl⟩ : ∃ C, c = .map C := by
+    rcases dc with rfl | ⟨C, rfl, -⟩
+    · exfalso
+      have := oZ _ ((sc (aPt (t := t) (n := n) (.atom "a"))).mp (denD_term _)).2
+      simp [aPt] at this
+    · exact ⟨C, rfl⟩
+  have oC : ∀ v : PN t n, denD (.map C) v → v.1.1 = "tuple" := fun v hv => oZ v ((sc v).mp hv).2
+  have tC : ∀ u, TT t n C u ↔ denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := fun u => by
+    rw [← denD_tpt, sc, denD_tpt, tZ]
+  obtain ⟨YA, rA, dYA, oYA, tYA⟩ := ins_any dc oC hx i (m := k + 3) (by omega)
+  have eC := next_empty dc (m := k + 3) (by omega)
+  have eS := next_empty dS (m := k + 3) (by omega)
+  have wrapA : getMapKeys [.atom "dynamic"] (.map YA) = [] := by
+    simp [getMapKeys_single, (de_map dYA).static]
+  obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
+  simp only [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard, rS, rZ,
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind]
+  have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+    intro v hv
+    obtain ⟨w, hw⟩ := pt_tuple_de v (onlyS v hv)
+    have hw' := (hw _ dS).mp hv
+    exact ⟨w, (hw _ dDy).mp (inc v ((denD_rmDyn X v).mp hv)), long w ((denD_tpt w).mp hw')⟩
+  have dyn : ∀ v : PN t n, denD (.map C) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+    intro v hv
+    obtain ⟨w, hw⟩ := pt_tuple_de v (oC v hv)
+    exact ⟨w, (tC w).mp ((denD_tpt w).mp ((hw _ dc).mp hv))⟩
+  by_cases both : (∀ v : PN t n, ¬denD (.map C) v) ∧ ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
+  · rw [bp_true.mpr both.1, bp_true.mpr both.2]
+    simp [Lynx.Term.isMember, Term.true]
+    intro _ _ u hu
+    exact Nat.lt_of_not_le fun lu => both.1 _ ((denD_tpt u).mpr ((tC u).mpr ⟨hu, lu⟩))
+  have ex : ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+    by_cases ec : ∀ v : PN t n, ¬denD (.map C) v
+    · have es : ¬∀ v : PN t n, ¬denD (.map (rmDyn X)) v := fun es => both ⟨ec, es⟩
+      obtain ⟨v, hv⟩ := Classical.not_forall.mp es
+      exact stat v (Classical.not_not.mp hv)
+    · obtain ⟨v, hv⟩ := Classical.not_forall.mp ec
+      exact dyn v (Classical.not_not.mp hv)
+  subst eU
+  refine ⟨.map U, ?_, ⟨fun _ => ⟨to, long, ex⟩, fun _ => ⟨U, rfl⟩⟩⟩
+  by_cases ec : ∀ v : PN t n, ¬denD (.map C) v <;> by_cases es : ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
+  · exact absurd ⟨ec, es⟩ both
+  all_goals
+    first
+    | rw [bp_true.mpr ec, bp_false.mpr es]
+    | rw [bp_false.mpr ec, bp_true.mpr es]
+    | rw [bp_false.mpr ec, bp_false.mpr es]
+    simp [Lynx.Term.isMember, Term.true, rR']
+
+
+/-- `tuple_insert_at_checked/3` on a static type gives a type exactly when it holds only tuples, all at least as long as
+the index. -/
+theorem ins_static_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {x : Term} (hx : (level t n).E x)
+    (i : Nat) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
+      ((∃ Y, r = .map Y) ↔ TOnly t n X ∧ ∀ w, TT t n X w → i ≤ w.length) := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
+  have sX := de_map hX
+  unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
+  simp only [Erlang.maps.«take/2», sX.static, Lynx.Except.ok_bind]
+  cases hb : mapLookup X (.atom "tuple") with
+  | none =>
+    have noT : ¬TOnly t n X := fun ⟨_, w, hw⟩ => by simp [TT, hb] at hw
+    have sz : Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D (k + 3)) (.map X) (.integer i) =
+        .ok (.atom "true") := by
+      unfold Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2»
+      simp [getMapKeys_single, hb]
+    simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Lynx.Except.andAlso,
+      Lynx.Except.guard]
+    by_cases z : i = 0 <;> simp [z, sz, Erlang.erlang.«/=/2»] <;> first | exact noT | exact fun h => absurd h noT
+  | some b =>
+    have fb : TField (level t n).E b := fieldC_tuple (sX.fields "tuple" b hb)
+    obtain ⟨dR, sR⟩ := rest_tuple hX
+    have rE := next_empty dR (m := k + 3) (by omega)
+    obtain ⟨eb, reb, seb⟩ := tuple_empty_exact (level t n).ef fb []
+    have seb := seb (lh b + 1) (by omega) (safeT_nil _)
+    have tt : ∀ w, TT t n X w ↔ denTF (level t n).E (level t n).den b w = Bool.true := fun w => by simp [TT, hb]
+    have only : TOnly t n X ↔ (∀ v : PN t n, ¬denD (.map (rmT X)) v) ∧ eb = Bool.false := by
+      constructor
+      · rintro ⟨h₁, w, hw⟩
+        refine ⟨fun v hv => ((sR v).mp hv).2 (h₁ v ((sR v).mp hv).1), ?_⟩
+        cases eb
+        · rfl
+        · have := seb.mp rfl w; rw [(tt w).mp hw] at this; cases this
+      · rintro ⟨h₁, h₂⟩
+        refine ⟨fun v hv => Classical.byContradiction fun ne => h₁ v ((sR v).mpr ⟨hv, ne⟩), ?_⟩
+        obtain ⟨w, hw⟩ := Classical.not_forall.mp (mt seb.mpr (by simp [h₂]))
+        exact ⟨w, (tt w).mpr (by simpa using hw)⟩
+    have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
+        .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
+      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+      rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
+      simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
+      cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
+        simp [Lynx.Except.andAlso, Erlang.erlang.«not/1», boolAtom]
+    have key : Elixir.Module.Types.Descr.«descr_key?/2» (.map X) (.atom "tuple") = .ok (.atom "true") := by
+      simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
+    obtain ⟨sz, rsz, ssz⟩ := size_check_iff hX i (m := k + 3) (by omega)
+    obtain ⟨c, rc, sc⟩ : ∃ c : Bool, Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
+        .ok (boolAtom c) ∧ (c = Bool.true ↔ TOnly t n X) := by
+      refine ⟨_, nonEmpty, ?_⟩
+      rw [only]
+      simp only [Bool.and_eq_true, bp_true, Bool.not_eq_true']
+    simp only [key, rc, rsz]
+    cases c <;> cases sz
+    · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure]
+      exact fun h => absurd (sc.mpr h) (by simp)
+    · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure]
+      exact fun h => absurd (sc.mpr h) (by simp)
+    · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure]
+      exact fun _ => Classical.byContradiction fun ne =>
+        absurd (ssz.mpr fun w hw => Nat.le_of_not_lt fun lt => ne ⟨w, hw, lt⟩) (by simp)
+    · obtain ⟨Y, rY, -⟩ := ins_any hX (sc.mp rfl).1 hx i (m := k + 3) (by omega)
+      simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», pure, Except.pure, rY]
+      exact ⟨sc.mp rfl, ssz.mp rfl⟩
+
+
+/-- `tuple_insert_at_checked/3` on a gradual type of tuples gives a type exactly when the lower bound holds only
+tuples, all at least as long as the index, and the upper bound holds one. -/
+theorem ins_sem {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {x : Term} (hx : (level t n).E x) (i : Nat)
+    {m : Nat} (hm : (level t n).K + 26 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
+      ((∃ R, r = .map R) ↔ (∀ v : PN t n, denD (lower (.map X)) v → v.1.1 = "tuple") ∧
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n) u) → i ≤ u.length) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n) u) ∧ i ≤ u.length) := by
+  cases hD : mapLookup X (.atom "dynamic") with
+  | none =>
+    have dX := GC.static gX hD
+    have lX : lower (.map X) = .map X := by simp [lower, rmDyn_static hD]
+    have uX : upper (.map X) = .map X := by simp [upper, hD]
+    rw [lX, uX]
+    obtain ⟨r, run, iff⟩ := ins_static_run dX hx i (m := m) (by omega)
+    refine ⟨r, run, iff.trans ⟨fun ⟨⟨h₁, w, hw⟩, long⟩ => ⟨h₁, fun u hu => long u ((denD_tpt u).mp hu),
+      w, (denD_tpt w).mpr hw, long w hw⟩, fun ⟨h₁, h₂, w, hw, _⟩ => ⟨⟨h₁, w, (denD_tpt w).mp hw⟩,
+      fun u hu => h₂ u ((denD_tpt u).mpr hu)⟩⟩⟩
+  | some Dy =>
+    obtain ⟨r, run, iff⟩ := ins_grad_run gX hD hx i hm
+    have uX : upper (.map X) = Dy := by simp [upper, hD]
+    rw [uX]
+    obtain ⟨-, rt⟩ := rest_tuple (t := t) (n := n) gX.low_tc
+    refine ⟨r, run, iff.trans ⟨fun ⟨h₁, h₂, h₃⟩ => ⟨fun v hv => ?_, fun u hu => h₂ u ((denD_tpt u).mp hu), h₃⟩,
+      fun ⟨h₁, h₂, h₃⟩ => ⟨fun v hv => ((rt v).mp hv).2 (h₁ v ((rt v).mp hv).1),
+        fun u hu => h₂ u ((denD_tpt u).mpr hu), h₃⟩⟩⟩
+    exact Classical.byContradiction fun ne => h₁ v ((rt v).mpr ⟨hv, ne⟩)
+
+
+theorem insAt_mono {P P' : List (level t n).V → Prop} {i : Nat} {Q Q' : (level t n).V → Prop}
+    (hP : ∀ u, P u → P' u) (hQ : ∀ y, Q y → Q' y) {p : PN t n} (h : InsAt P i Q p) : InsAt P' i Q' p := by
+  obtain ⟨w, hw, w₁, y, w₂, e, len, hy, hP'⟩ := h
+  exact ⟨w, hw, w₁, y, w₂, e, len, hQ y hy, hP _ hP'⟩
+
+end
+
+section
+variable {t : Term} {n : Nat}
+
+/-- `tuple_insert_at/3` of a gradual value into a gradual type of tuples gives a type exactly when
+`tuple_insert_at_checked/3` does, and then its lower bound holds the tuples of the lower bound with a value of the
+value's lower bound inserted. -/
+theorem ins_top {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {v : Term} (gv : GC (level t n) v)
+    (dlo : DE (level t n).E (lower v)) (dup : DE (level t n).E (upper v)) (i : Nat) {m : Nat}
+    (hm : (level t (n + 1)).K + 26 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) v = .ok r ∧
+      ((∃ R, r = .map R) ↔ (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length) ∧
+      ∀ R, r = .map R → ∀ p : PN t (n + 1), denD (.map R) p ↔
+        InsAt (TT t (n + 1) (rmDyn X)) i ((level t (n + 1)).den (lower v)) p := by
+  -- A static value inserts with tuple_insert_at_checked/3.
+  have static : ∀ {x : Term}, (x = .atom "term" ∨ ∃ Z, x = .map Z ∧ mapLookup Z (.atom "dynamic") = none) →
+      DE (level t n).E x → lower x = x →
+      ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) x = .ok r ∧
+        ((∃ R, r = .map R) ↔ (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
+          (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
+          ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length) ∧
+        ∀ R, r = .map R → ∀ p : PN t (n + 1), denD (.map R) p ↔
+          InsAt (TT t (n + 1) (rmDyn X)) i ((level t (n + 1)).den (lower x)) p := by
+    intro x sx dx lx
+    rw [insert_at_static _ _ _ sx, lx]
+    have hx : (level t (n + 1)).E x := Or.inl dx
+    obtain ⟨r, run, iff⟩ := ins_sem gX hx i hm
+    refine ⟨r, run, iff, fun R e p => ?_⟩
+    subst e
+    exact (ins_checked_pts gX hx i hm run).2.2.2.1 p
+  rcases gv.cases with rfl | ⟨V, rfl, hV⟩ | ⟨V, rfl, hV⟩ | ⟨V, Y, rfl, hV, hY⟩
+  · exact static (Or.inl rfl) (Or.inl rfl) rfl
+  · have lV : lower (.map V) = .map V := by simp [lower, rmDyn_static hV]
+    exact static (Or.inr ⟨V, rfl, hV⟩) (lV ▸ dlo) lV
+  all_goals
+    obtain ⟨Dv, hD⟩ : ∃ Dv, mapLookup V (.atom "dynamic") = some Dv := ⟨_, hV⟩
+    have uV : upper (.map V) = Dv := upper_dyn hD
+    rw [uV] at dup
+    have hx₁ : (level t (n + 1)).E Dv := Or.inl dup
+    have hx₂ : (level t (n + 1)).E (.map (rmDyn V)) := Or.inl dlo
+    obtain ⟨r₁, run₁, iff₁⟩ := ins_sem gX hx₁ i hm
+    by_cases C : (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length
+    rotate_left
+    · obtain h : r₁ = .atom "badindex" ∨ r₁ = .atom "badtuple" := by
+        rcases ins_shape gX hx₁ i hm run₁ with h | h | ⟨R₁, rfl⟩
+        · exact Or.inl h
+        · exact Or.inr h
+        · exact absurd (iff₁.mp ⟨R₁, rfl⟩) C
+      have e : Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) (.map V) = .ok r₁ := by
+        rw [Elixir.Module.Types.Descr.«tuple_insert_at/3».eq_def]
+        rcases h with rfl | rfl <;>
+          simp [Lynx.Except.andAlso, Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2», Int.isGE_compare,
+            Erlang.maps.«take/2», hD, run₁, Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse]
+      exact ⟨r₁, e, ⟨fun ⟨R, h'⟩ => absurd (iff₁.mp ⟨R, h'⟩) C, fun h' => absurd h' C⟩,
+        fun R h' => absurd (iff₁.mp ⟨R, h'⟩) C⟩
+    obtain ⟨R₁, rfl⟩ := iff₁.mpr C
+    obtain ⟨gR₁, -, -, -, -⟩ := ins_checked_pts gX hx₁ i hm run₁
+    obtain ⟨gW, nW, uW⟩ := wrap_gc gR₁
+    have eS := next_empty dlo (m := m) (by rw [level_K] at hm ⊢; omega)
+    simp only [lower] at eS
+    by_cases es : ∀ p : PN t n, ¬denD (.map (rmDyn V)) p
+    · have e : Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) (.map V) =
+          .ok (.map [(.atom "dynamic", upper (.map R₁))]) := by
+        rw [Elixir.Module.Types.Descr.«tuple_insert_at/3».eq_def]
+        simp [Lynx.Except.andAlso, Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2», Int.isGE_compare,
+          Erlang.maps.«take/2», hD, run₁]
+        cases hR : mapLookup R₁ (.atom "dynamic")
+        case' none =>
+          have e : upper (.map R₁) = .map R₁ := by simp [upper, hR]
+          simp [Erlang.erlang.«is_map/1», Lynx.Except.orElse, Lynx.Except.tryWith, getMapKeys_single, hR, filter_dyn]
+          rw [show Term.map [(.atom "dynamic", .map R₁)] = Term.map [(.atom "dynamic", upper (.map R₁))] by rw [e]]
+        case' some d =>
+          have e : upper (.map R₁) = d := upper_dyn hR
+          simp [Erlang.erlang.«is_map/1», Lynx.Except.orElse, Lynx.Except.tryWith, getMapKeys_single, hR, filter_dyn]
+          rw [← e]
+        all_goals
+          rw [eS, bp_true.mpr es]
+          simp [boolAtom]
+      refine ⟨_, e, ⟨fun _ => C, fun _ => ⟨_, rfl⟩⟩, fun R e' p => ?_⟩
+      cases e'
+      refine ⟨fun h => absurd h (nW p), fun ⟨w, _, w₁, y, w₂, _, _, hy, _⟩ => ?_⟩
+      exact absurd ((den_succ dlo y).mp hy) (es y)
+    · obtain ⟨r₂, run₂, iff₂⟩ := ins_sem gX hx₂ i hm
+      obtain ⟨R₂, rfl⟩ := iff₂.mpr C
+      obtain ⟨gR₂, -, -, sR₂, -⟩ := ins_checked_pts gX hx₂ i hm run₂
+      obtain ⟨c, gc, rc, lo, -⟩ := gc_opt_union gW gR₂ [] (m := m) (by rw [level_K] at hm ⊢; omega)
+      have e : Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) (.map V) = .ok c := by
+        rw [Elixir.Module.Types.Descr.«tuple_insert_at/3».eq_def]
+        simp [Lynx.Except.andAlso, Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2», Int.isGE_compare,
+          Erlang.maps.«take/2», hD, run₁]
+        cases hR : mapLookup R₁ (.atom "dynamic")
+        case' none =>
+          have e : upper (.map R₁) = .map R₁ := by simp [upper, hR]
+          simp [Erlang.erlang.«is_map/1», Lynx.Except.orElse, Lynx.Except.tryWith, getMapKeys_single, hR, filter_dyn]
+          rw [show Term.map [(.atom "dynamic", .map R₁)] = Term.map [(.atom "dynamic", upper (.map R₁))] by rw [e]]
+        case' some d =>
+          have e : upper (.map R₁) = d := upper_dyn hR
+          simp [Erlang.erlang.«is_map/1», Lynx.Except.orElse, Lynx.Except.tryWith, getMapKeys_single, hR, filter_dyn]
+          rw [← e]
+        all_goals
+          rw [eS, bp_false.mpr es]
+          simp [boolAtom, run₂, Elixir.Module.Types.Descr.«opt_union/2», rc]
+      have sem : ∀ p : PN t (n + 1), denD c p ↔
+          InsAt (TT t (n + 1) (rmDyn X)) i ((level t (n + 1)).den (lower (.map V))) p := fun p =>
+        (lo p).trans ⟨fun h => h.elim (fun h => absurd h (nW p)) (sR₂ p).mp, fun h => Or.inr ((sR₂ p).mpr h)⟩
+      obtain ⟨R, rfl⟩ : ∃ R, c = .map R := by
+        rcases gc.shape with rfl | ⟨R, rfl⟩
+        · obtain ⟨w, hw, -⟩ := (sem bitPt).mp (denD_term _)
+          have := (hw [(.atom "tuple", .tuple #[.integer 61102469, .atom "open", .nil])]).mpr (by
+            simp [TT, mapLookup, denTF_top])
+          simp [bitPt, denD_map, mapLookup, dn_none] at this
+        · exact ⟨R, rfl⟩
+      exact ⟨_, e, ⟨fun _ => C, fun _ => ⟨R, rfl⟩⟩, fun R' e' p => by cases e'; exact sem p⟩
+
+
+/-- Inserting less precise values into less precise tuples gives less precise tuples. -/
+theorem insert_prec {X : List (Term × Term)} {a₂ v v₂ : Term} (gX : GC (level t (n + 1)) (.map X))
+    (g₂ : GC (level t (n + 1)) a₂) (gv : GD t n v) (gv₂ : GD t n v₂) (i : Nat) {m : Nat}
+    (hm : (level t (n + 1)).K + 26 ≤ m)
+    (lo : ∀ q : PN t (n + 1), denD a₂ q → denD (.map X) q)
+    (up : ∀ q : PN t (n + 1), denD (upper (.map X)) q → denD (upper a₂) q)
+    (lov : ∀ y : PN t n, denD v₂ y → denD v y) (upv : ∀ y : PN t n, denD (upper v) y → denD (upper v₂) y)
+    {R : List (Term × Term)}
+    (run : Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) v = .ok (.map R)) :
+    ∃ R₂, Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) a₂ (.integer i) v₂ = .ok (.map R₂) ∧
+      «precise?/2» (D m) (.map R) (.map R₂) = .ok (.atom "true") := by
+  obtain ⟨r', run', iff, low⟩ := ins_top gX gv.1 gv.2.1 gv.2.2 i hm
+  rw [run] at run'; cases run'
+  obtain ⟨only, long, w, hw, lw⟩ := iff.mp ⟨R, rfl⟩
+  obtain ⟨X₂, rfl⟩ : ∃ X₂, a₂ = .map X₂ := by
+    rcases g₂.shape with rfl | ⟨X₂, rfl⟩
+    · have := only bitPt ((denD_lower _ _).mpr (lo bitPt (denD_term _)))
+      simp [bitPt] at this
+    · exact ⟨X₂, rfl⟩
+  obtain ⟨r₂, run₂, iff₂, low₂⟩ := ins_top g₂ gv₂.1 gv₂.2.1 gv₂.2.2 i hm
+  obtain ⟨R₂, rfl⟩ := iff₂.mpr ⟨fun q h => only q ((denD_lower _ _).mpr (lo q ((denD_lower _ _).mp h))),
+    fun u hu => long u ((denD_lower _ _).mpr (lo _ ((denD_lower _ _).mp hu))), w, up _ hw, lw⟩
+  obtain ⟨gR, uR, -⟩ := ins_at gX gv.1 gv.2.1 gv.2.2 i hm run
+  obtain ⟨gR₂, uR₂, -⟩ := ins_at g₂ gv₂.1 gv₂.2.1 gv₂.2.2 i hm run₂
+  refine ⟨R₂, run₂, precise_true (by omega) gR gR₂ (fun p h => ?_) (fun p h => ?_)⟩
+  · rw [denD_lower] at h ⊢
+    refine (low R rfl p).mpr (insAt_mono (fun u hu => ?_) (fun y hy => ?_) ((low₂ R₂ rfl p).mp h))
+    · exact (denD_tpt u).mp ((denD_rmDyn X _).mpr (lo _ ((denD_rmDyn X₂ _).mp ((denD_tpt u).mpr hu))))
+    · exact (den_succ gv.2.1 y).mpr ((denD_lower _ _).mpr (lov y ((denD_lower _ _).mp ((den_succ gv₂.2.1 y).mp hy))))
+  · refine (uR₂ p).mpr (insAt_mono (fun u hu => ?_) (fun y hy => ?_) ((uR p).mp h))
+    · rcases hu with ⟨hu, lu⟩ | hu
+      · exact Or.inl ⟨up _ hu, lu⟩
+      · exact Or.inl ⟨up _ (gX.inv _ ((denD_rmDyn X _).mp ((denD_tpt u).mpr hu))),
+          long u ((denD_tpt u).mpr hu)⟩
+    · exact (den_succ gv₂.2.2 y).mpr (upv y ((den_succ gv.2.2 y).mp hy))
+
+end
+
+section
+variable {t : Term} {n : Nat}
+
+/-- `tuple_replace_at/3` deletes the element and inserts the value, when deleting gives a map. -/
+theorem rep_join {X R₁ : List (Term × Term)} (i : Nat) (v r : Term) {m : Nat}
+    (hd : Elixir.Module.Types.Descr.«tuple_delete_at/2» (D m) (.map X) (.integer i) = .ok (.map R₁))
+    (hi : Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map R₁) (.integer i) v = .ok r) :
+    Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) v = .ok r := by
+  simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Lynx.Except.andAlso, Erlang.erlang.«is_integer/1»,
+    Erlang.erlang.«>=/2», Int.isGE_compare, hd, Lynx.Except.orElse, Erlang.erlang.«is_map/1», hi]
+
+/-- Replacing with less precise values in less precise tuples gives less precise tuples. -/
+theorem replace_prec {X : List (Term × Term)} {a₂ v v₂ : Term} (gX : GC (level t (n + 1)) (.map X))
+    (g₂ : GC (level t (n + 1)) a₂) (gv : GD t n v) (gv₂ : GD t n v₂) (i : Nat) {m : Nat}
+    (hm : (level t (n + 1)).K + 26 ≤ m)
+    (lo : ∀ q : PN t (n + 1), denD a₂ q → denD (.map X) q)
+    (up : ∀ q : PN t (n + 1), denD (upper (.map X)) q → denD (upper a₂) q)
+    (lov : ∀ y : PN t n, denD v₂ y → denD v y) (upv : ∀ y : PN t n, denD (upper v) y → denD (upper v₂) y)
+    {R : List (Term × Term)}
+    (run : Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) v = .ok (.map R)) :
+    ∃ R₂, Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) a₂ (.integer i) v₂ = .ok (.map R₂) ∧
+      «precise?/2» (D m) (.map R) (.map R₂) = .ok (.atom "true") := by
+  obtain ⟨R₁, hd, hi⟩ := rep_split gX i v hm run
+  obtain ⟨R₁₂, hd₂, pd⟩ := delete_prec gX g₂ i hm lo up hd
+  obtain ⟨gR₁, -, -, -, -⟩ := del_pts gX i hm hd
+  obtain ⟨X₂, rfl⟩ : ∃ X₂, a₂ = .map X₂ := by
+    rcases g₂.shape with rfl | ⟨X₂, rfl⟩
+    · simp [Elixir.Module.Types.Descr.«tuple_delete_at/2»] at hd₂
+    · exact ⟨X₂, rfl⟩
+  obtain ⟨gR₁₂, -, -, -, -⟩ := del_pts g₂ i hm hd₂
+  obtain ⟨lo₁, up₁⟩ := prec_bounds (by omega) ⟨gR₁, gR₁.low_tc, gR₁.up_tc⟩ ⟨gR₁₂, gR₁₂.low_tc, gR₁₂.up_tc⟩ pd
+  obtain ⟨R₂, hi₂, pr⟩ := insert_prec gR₁ gR₁₂ gv gv₂ i hm lo₁ up₁ lov upv hi
+  exact ⟨R₂, rep_join i v₂ _ hd₂ hi₂, pr⟩
+
+end
+
 end Elixir.STTDescrProofsTest.Nest
