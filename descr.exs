@@ -10561,5 +10561,56 @@ defmodule STTDescrProofsTest do
       simp [r, r₂, p, Lynx.Term.true]
       """
 
+    law tuple_values_precise(tuple, tuple2, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and precise?(tuple, tuple2) and
+          Descr.tuple_values(tuple) != :badtuple,
+      expects:
+        (case Descr.tuple_values(tuple2) do
+           :badtuple -> false
+           values -> precise?(Descr.tuple_values(tuple), values)
+         end),
+      proof: ~LEAN"""
+      -- The values of the bounds of less precise tuples are less precise.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_values_precise:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      simp only [hp, Lynx.Except.ok_bind, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_values_precise:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨hg, hg₂⟩, -⟩, pr⟩, hv⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have gT₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg₂)
+      obtain ⟨lo, up⟩ := Nest.prec_bounds (t := node) (n := d + 1) (m := δ + 100) (by rw [Nest.level_K]; omega) gT gT₂ (by simpa using pr)
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · simp [Elixir.Module.Types.Descr.«tuple_values/1», Erlang.erlang.«/=/2»] at hv
+      obtain ⟨r, run, nb⟩ : ∃ r, Elixir.Module.Types.Descr.«tuple_values/1»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) = .ok r ∧ r ≠ .atom "badtuple" := by
+        cases h : Elixir.Module.Types.Descr.«tuple_values/1»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) with
+        | error _ => rw [h] at hv; cases hv
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hv
+          refine ⟨r, rfl, fun e => ?_⟩
+          subst e; simp [Erlang.erlang.«/=/2»] at hv
+      obtain ⟨r₂, run₂, nb₂, pr₂⟩ := Nest.values_prec gT.1 gT₂.1 hm lo up run nb
+      simp only [Lynx.apply_eq, «tuple_values_precise:ensures/4»]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl, run₂,
+        Lynx.Except.ok_bind]
+      split
+      · exact absurd rfl nb₂
+      · simp [run, pr₂, Lynx.Term.true]
+      """
+
   end
 end
