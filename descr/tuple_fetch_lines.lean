@@ -68,6 +68,17 @@ theorem InT.open_append : ∀ {l : List Term} {v : List V} (w : List V), InT den
   | _ :: _, [], _, h => h.elim
   | _ :: _, _ :: _, w, h => ⟨h.1, InT.open_append w h.2⟩
 
+theorem InT.open_ext : ∀ {l : List Term} {v : List V} (extra : List V), InT den Bool.false l v →
+    InT den Bool.false l (v ++ extra)
+  | [], _, _, _ => InT.open_nil _
+  | _ :: _, [], _, h => h.elim
+  | _ :: _, _ :: _, extra, h => ⟨h.1, InT.open_ext extra h.2⟩
+
+theorem InT.open_length : ∀ {l : List Term} {v : List V}, InT den Bool.false l v → l.length ≤ v.length
+  | [], _, _ => Nat.zero_le _
+  | _ :: _, [], h => h.elim
+  | _ :: _, _ :: _, h => Nat.succ_le_succ (InT.open_length h.2)
+
 theorem InT.open_take : ∀ {l : List Term} {v : List V}, InT den Bool.false l v → InT den Bool.false l (v.take l.length)
   | [], [], _ => trivial
   | [], _ :: _, _ => trivial
@@ -110,7 +121,8 @@ theorem line_pos (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (i : Nat) {t
       (ob = Bool.true → ob' = Bool.true) ∧
       (ob' = Bool.true → ob = Bool.true ∨ ShortIn den (.tuple #[.atom tag, Term.list l, Term.list []]) i) ∧
       (ob' = Bool.false → ob = Bool.false ∧ ∀ y, den ea' y →
-        den ea y ∨ LongIn den (.tuple #[.atom tag, Term.list l, Term.list []]) i y) := by
+        den ea y ∨ LongIn den (.tuple #[.atom tag, Term.list l, Term.list []]) i y) ∧
+      (∀ y, den ea' y → den ea y ∨ LongIn den (.tuple #[.atom tag, Term.list l, Term.list []]) i y) := by
   obtain ⟨v₀, hv₀⟩ := ne
   have inl : ∀ v, InLine den (.tuple #[.atom tag, Term.list l, Term.list []]) v ↔ InT den (tag == "closed") l v :=
     fun v => by rw [inLine_iff]; simp
@@ -136,22 +148,33 @@ theorem line_pos (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (i : Nat) {t
       (by simpa [Elixir.Module.Types.Descr.«opt_union/2»] using ru), hu, fun y h => (su y).mpr (Or.inr h),
       fun y h => (su y).mpr (Or.inl ((long y).mp h)), fun h => by simp [h], fun h => Or.inl (by simpa using h),
       fun h => ⟨by simpa using h,
-        fun y hy => ((su y).mp hy).elim (fun h => Or.inr ((long y).mpr h)) Or.inl⟩⟩
+        fun y hy => ((su y).mp hy).elim (fun h => Or.inr ((long y).mpr h)) Or.inl⟩,
+      fun y hy => ((su y).mp hy).elim (fun h => Or.inr ((long y).mpr h)) Or.inl⟩
   · rcases g with rfl | rfl
     · obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] ef.term hea hm
       refine ⟨u, Bool.true || ob, fetch_step_pos (D m) "open" _ lines i ea ob nh (descr := .atom "term") (o := Bool.true) (by rw [hfe]; simp [short])
         (by simpa [Elixir.Module.Types.Descr.«opt_union/2»] using ru), hu, fun y h => (su y).mpr (Or.inr h),
         fun y _ => (su y).mpr (Or.inl (ef.den_term y)), fun _ => by simp, fun _ => Or.inr ⟨v₀.take l.length, (inl _).mpr ?_, ?_⟩,
-        fun h => by simp at h⟩
+        fun h => by simp at h, fun y hy => ((su y).mp hy).elim (fun _ => Or.inr ?_) Or.inl⟩
       · exact InT.open_take (by simpa using hv₀)
       · simp; omega
+      · -- An open literal shorter than the index holds tuples with any value there.
+        have h₀ : InT den Bool.false l v₀ := by simpa using hv₀
+        have lv := InT.open_length h₀
+        let p := v₀.take l.length
+        have hp : InT den Bool.false l p := InT.open_take h₀
+        have lp : p.length = l.length := by simp [p]; omega
+        let pad := List.replicate (i - l.length) (Classical.choice ef.inhabited)
+        refine ⟨p ++ pad, [], by simp [pad, lp]; omega, (inl _).mpr ?_⟩
+        simpa using InT.open_ext (pad ++ [y]) hp
     · obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] ef.none hea hm
       have nolong : ∀ y, ¬LongIn den (.tuple #[.atom "closed", Term.list l, Term.list []]) i y := by
         rintro y ⟨v₁, v₂, len, hv⟩
         exact InT.split_closed (l := l) (v₁ := v₁) (by omega) (by simpa using (inl _).mp hv)
       refine ⟨u, Bool.true || ob, fetch_step_pos (D m) "closed" _ lines i ea ob nh (descr := .map []) (o := Bool.true) (by rw [hfe]; simp [short])
         (by simpa [Elixir.Module.Types.Descr.«opt_union/2»] using ru), hu, fun y h => (su y).mpr (Or.inr h),
-        fun y h => absurd h (nolong y), fun _ => by simp, fun _ => Or.inr ⟨v₀, (inl _).mpr hv₀, ?_⟩, fun h => by simp at h⟩
+        fun y h => absurd h (nolong y), fun _ => by simp, fun _ => Or.inr ⟨v₀, (inl _).mpr hv₀, ?_⟩, fun h => by simp at h,
+        fun y hy => ((su y).mp hy).elim (fun h => absurd h (ef.den_none y)) Or.inl⟩
       have := (by simpa using hv₀ : InT den Bool.true l v₀).closed_length
       omega
 
@@ -226,26 +249,26 @@ theorem fetch_lines_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (
           (.tuple #[ea, boolAtom ob]) = .ok (.tuple #[e, boolAtom o]) ∧ E e ∧ (∀ y, den ea y → den e y) ∧
         (∀ L ∈ lines, ∀ y, LongIn den L i y → den e y) ∧ (ob = Bool.true → o = Bool.true) ∧
         (o = Bool.true → ob = Bool.true ∨ ∃ L ∈ lines, ShortIn den L i) ∧
-        (o = Bool.false → ∀ y, den e y → den ea y ∨ ∃ L ∈ lines, LongIn den L i y)
+        (∀ y, den e y → den ea y ∨ ∃ L ∈ lines, LongIn den L i y)
   | lines, hlines, ea, ob, hea => by
     by_cases halt : ea = .atom "term" ∧ ob = Bool.true
     · obtain ⟨rfl, rfl⟩ := halt
       exact ⟨_, Bool.true, fetch_halt _ _ _, ef.term, fun y _ => ef.den_term y, fun _ _ y _ => ef.den_term y,
-        fun _ => rfl, fun _ => Or.inl rfl, fun h => by cases h⟩
+        fun _ => rfl, fun _ => Or.inl rfl, fun y h => Or.inl h⟩
     cases lines with
     | nil =>
-      exact ⟨ea, ob, fetch_nil _ _ _, hea, fun y h => h, by simp, id, fun h => Or.inl h, fun _ y h => Or.inl h⟩
+      exact ⟨ea, ob, fetch_nil _ _ _, hea, fun y h => h, by simp, id, fun h => Or.inl h, fun y h => Or.inl h⟩
     | cons L rest =>
       obtain ⟨⟨tag, l, negs, rfl, g, hl, lits⟩, ne⟩ := hlines _ List.mem_cons_self
       have hrest := fun L' (m : L' ∈ rest) => hlines L' (List.mem_cons_of_mem _ m)
       by_cases nn : negs = []
       · subst nn
         obtain ⟨v, hv⟩ := ne
-        obtain ⟨ea', ob', run, hea', sub, long, mono, short, back⟩ := line_pos ef (m := n + 2) (by omega) i g hl
+        obtain ⟨ea', ob', run, hea', sub, long, mono, short, -, back⟩ := line_pos ef (m := n + 2) (by omega) i g hl
           ⟨v, (inLine_iff.mp hv).1⟩ rest hea ob halt
         obtain ⟨e, o, run', he, sub', long', mono', short', back'⟩ := fetch_lines_sem ef hn i rest hrest ea' ob' hea'
         refine ⟨e, o, run.trans run', he, fun y h => sub' y (sub y h), fun L' mL' y h => ?_, fun h => mono' (mono h),
-          fun h => ?_, fun h y hy => ?_⟩
+          fun h => ?_, fun y hy => ?_⟩
         · rcases List.mem_cons.mp mL' with rfl | mL'
           · exact sub' y (long y h)
           · exact long' L' mL' y h
@@ -254,25 +277,22 @@ theorem fetch_lines_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (
             · exact Or.inl h
             · exact Or.inr ⟨_, List.mem_cons_self, h⟩
           · exact Or.inr ⟨L', List.mem_cons_of_mem _ mL', h⟩
-        · rcases back' h y hy with h' | ⟨L', mL', h'⟩
-          · cases ob' with
-            | true => rw [mono' rfl] at h; cases h
-            | false =>
-              rcases (back rfl).2 y h' with h'' | h''
-              · exact Or.inl h''
-              · exact Or.inr ⟨_, List.mem_cons_self, h''⟩
+        · rcases back' y hy with h' | ⟨L', mL', h'⟩
+          · rcases back y h' with h'' | h''
+            · exact Or.inl h''
+            · exact Or.inr ⟨_, List.mem_cons_self, h''⟩
           · exact Or.inr ⟨L', List.mem_cons_of_mem _ mL', h'⟩
       · obtain ⟨ea', run, hea', sub, long, back⟩ := line_negs ef hn i g hl lits nn ne rest hea ob halt
         obtain ⟨e, o, run', he, sub', long', mono', short', back'⟩ := fetch_lines_sem ef hn i rest hrest ea' ob hea'
         refine ⟨e, o, run.trans run', he, fun y h => sub' y (sub y h), fun L' mL' y h => ?_, mono', fun h => ?_,
-          fun h y hy => ?_⟩
+          fun y hy => ?_⟩
         · rcases List.mem_cons.mp mL' with rfl | mL'
           · exact sub' y (long y h)
           · exact long' L' mL' y h
         · rcases short' h with h | ⟨L', mL', h⟩
           · exact Or.inl h
           · exact Or.inr ⟨L', List.mem_cons_of_mem _ mL', h⟩
-        · rcases back' h y hy with h' | ⟨L', mL', h'⟩
+        · rcases back' y hy with h' | ⟨L', mL', h'⟩
           · rcases back y h' with h'' | h''
             · exact Or.inl h''
             · exact Or.inr ⟨_, List.mem_cons_self, h''⟩
@@ -402,7 +422,7 @@ theorem bdd_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {r : Te
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
       (∀ v₁ y v₂, v₁.length = i → denTF E den r (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
       (o = Bool.true ↔ ∃ v, denTF E den r v = Bool.true ∧ v.length ≤ i) ∧
-      (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den r (v₁ ++ y :: v₂) = Bool.true) := by
+      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den r (v₁ ++ y :: v₂) = Bool.true) := by
   obtain ⟨lines, rl, tl', sl⟩ := dnf_neg (den := den) ef.opsU ef.dopsU ef.msemZ rfl (m := n + 2) (by omega) wr
   have inR : ∀ v, denTF E den r v = Bool.true ↔ ∃ L ∈ lines, InLine den L v := fun v => by rw [denTF_bdd wr]; exact sl v
   obtain ⟨e, o, rf, he, -, long, -, short, back⟩ := fetch_lines_sem ef hn i lines tl' (.map []) Bool.false ef.none
@@ -415,7 +435,7 @@ theorem bdd_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {r : Te
       obtain ⟨v, hv⟩ := Classical.not_forall.mp h
       obtain ⟨hv, len⟩ := Classical.not_imp.mp hv
       exact ⟨v, hv, by omega⟩
-  refine ⟨e, o || !sz, ?_, he, fun v₁ y v₂ len hv => ?_, ?_, fun h y hy => ?_⟩
+  refine ⟨e, o || !sz, ?_, he, fun v₁ y v₂ len hv => ?_, ?_, fun y hy => ?_⟩
   · unfold Elixir.Module.Types.Descr.«tuple_bdd_fetch_static/2»
     have rs' : Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D (n + 2)) (.map [(.atom "tuple", r)])
         (.integer ((i : Int) + 1)) = .ok (boolAtom sz) := by simpa using rs
@@ -428,8 +448,7 @@ theorem bdd_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {r : Te
     obtain h | ⟨L, mL, v, hv, len⟩ := short rfl
     · cases h
     · have := (shortIff.mp ⟨v, (inR v).mpr ⟨L, mL, hv⟩, len⟩); cases this
-  · simp only [Bool.or_eq_false_iff, Bool.not_eq_false'] at h
-    rcases back h.1 y hy with h' | ⟨L, mL, v₁, v₂, len, hL⟩
+  · rcases back y hy with h' | ⟨L, mL, v₁, v₂, len, hL⟩
     · exact absurd h' (ef.den_none y)
     · exact ⟨v₁, v₂, len, (inR _).mpr ⟨L, mL, hL⟩⟩
 
@@ -440,7 +459,7 @@ theorem leaf_fetch (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
       (∀ v₁ y v₂, v₁.length = i → InT den (tag == "closed") l (v₁ ++ y :: v₂) → den e y) ∧
       (o = Bool.true ↔ ∃ v, InT den (tag == "closed") l v ∧ v.length ≤ i) ∧
-      (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ InT den (tag == "closed") l (v₁ ++ y :: v₂)) := by
+      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ InT den (tag == "closed") l (v₁ ++ y :: v₂)) := by
   obtain ⟨v₀, hv₀⟩ := ne
   have hfe := fetch_element tag g l i
   by_cases short : i < l.length
@@ -449,7 +468,7 @@ theorem leaf_fetch (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
       simp
     have e : (l₁ ++ x :: l₂)[i]'(by simp; omega) = x := by subst len₁; simp
     refine ⟨x, Bool.false, by rw [hfe, dite_eq_left short, e]; rfl, hl x (by simp),
-      fun v₁ y v₂ len h => ((InT.split l₁ x l₂ v₁ y v₂ (by omega)).mp h).1, ⟨fun h => (by cases h), ?_⟩, fun _ y hy => ?_⟩
+      fun v₁ y v₂ len h => ((InT.split l₁ x l₂ v₁ y v₂ (by omega)).mp h).1, ⟨fun h => (by cases h), ?_⟩, fun y hy => ?_⟩
     · rintro ⟨v, hv, len⟩
       have := hv.length_le
       simp at this; omega
@@ -460,10 +479,18 @@ theorem leaf_fetch (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
   · rcases g with rfl | rfl
     · refine ⟨.atom "term", Bool.true, by rw [hfe]; simp [short], ef.term, fun _ y _ _ _ => ef.den_term y,
         ⟨fun _ => ⟨v₀.take l.length, InT.open_take (by simpa using hv₀), by simp; omega⟩, fun _ => rfl⟩,
-        fun h => by cases h⟩
+        fun y _ => ?_⟩
+      have h₀ : InT den Bool.false l v₀ := by simpa using hv₀
+      have lv := InT.open_length h₀
+      let p := v₀.take l.length
+      have hp : InT den Bool.false l p := InT.open_take h₀
+      have lp : p.length = l.length := by simp [p]; omega
+      let pad := List.replicate (i - l.length) (Classical.choice ef.inhabited)
+      refine ⟨p ++ pad, [], by simp [pad, lp]; omega, ?_⟩
+      simpa using InT.open_ext (pad ++ [y]) hp
     · refine ⟨.map [], Bool.true, by rw [hfe]; simp [short], ef.none,
         fun v₁ y v₂ len h => absurd h (InT.split_closed (l := l) (v₁ := v₁) (by omega)), ⟨fun _ => ⟨v₀, hv₀, ?_⟩, fun _ => rfl⟩,
-        fun h => by cases h⟩
+        fun y hy => absurd hy (ef.den_none y)⟩
       have := (by simpa using hv₀ : InT den Bool.true l v₀).closed_length
       omega
 
@@ -483,7 +510,7 @@ theorem static_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X :
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
       (∀ v₁ y v₂, v₁.length = i → denTF E den b (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
       (o = Bool.true ↔ ∃ v, denTF E den b v = Bool.true ∧ v.length ≤ i) ∧
-      (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
+      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
   by_cases three : ∃ k x y, b = .tuple #[k, x, y]
   · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
     obtain ⟨k, tag, l, rfl, g, hl⟩ := tfield_three fb e₀
@@ -500,11 +527,11 @@ theorem static_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X :
         obtain ⟨y, hy⟩ := inT_nonempty ((sem v₀).mp hv₀) x mx
         exact absurd hy (hx y)
     subst c_false
-    refine ⟨e, o, ?_, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((sem _).mp h), ?_, fun h y hy => ?_⟩
+    refine ⟨e, o, ?_, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((sem _).mp h), ?_, fun y hy => ?_⟩
     · unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
       simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«tuple_fetch_leaf/3», check (n + 2) (by omega), boolAtom, run]
     · rw [s₂]; simp only [sem]
-    · obtain ⟨v₁, v₂, len, h⟩ := s₃ h y hy
+    · obtain ⟨v₁, v₂, len, h⟩ := s₃ y hy
       exact ⟨v₁, v₂, len, (sem _).mpr h⟩
   · have wb : Bdd (TLit E) b := by
       rcases fb with ⟨k, rfl⟩ | wb

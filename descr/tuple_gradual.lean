@@ -1124,7 +1124,7 @@ theorem static_fetch_any (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) 
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
       (∀ v₁ y v₂, v₁.length = i → denTF E den b (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
       (o = Bool.true ↔ ∃ v, denTF E den b v = Bool.true ∧ v.length ≤ i) ∧
-      (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
+      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
   by_cases ne : ∃ v, denTF E den b v = Bool.true
   · exact static_fetch ef hn hb fb ne i
   by_cases three : ∃ k x y, b = .tuple #[k, x, y]
@@ -1146,7 +1146,7 @@ theorem static_fetch_any (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) 
       · rfl
     subst c_true
     refine ⟨.map [], Bool.false, ?_, ef.none, fun v₁ y v₂ _ h => absurd ⟨_, h⟩ ne,
-      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd ⟨v, hv⟩ ne⟩, fun _ y hy => absurd hy (ef.den_none y)⟩
+      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd ⟨v, hv⟩ ne⟩, fun y hy => absurd hy (ef.den_none y)⟩
     unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
     simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«tuple_fetch_leaf/3», check (n + 2) (by omega), boolAtom]
   · have wb : Bdd (TLit E) b := by
@@ -1170,7 +1170,7 @@ variable {V : Type}
 /-- `tuple_fetch_static/2` at an index of tuples `Q`: the values there, and whether some tuple is not longer. -/
 def FetchSem (E : Term → Prop) (den : Term → V → Prop) (Q : List V → Prop) (i : Nat) (e : Term) (o : Bool) : Prop :=
   E e ∧ (∀ v₁ y v₂, v₁.length = i → Q (v₁ ++ y :: v₂) → den e y) ∧ (o = Bool.true ↔ ∃ v, Q v ∧ v.length ≤ i) ∧
-    (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ Q (v₁ ++ y :: v₂))
+    (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ Q (v₁ ++ y :: v₂))
 
 end
 
@@ -1185,14 +1185,14 @@ theorem fetch_static_sem {Y : Term} (hY : DE (level t n).E Y) (i : Nat) {m : Nat
   have ef := (level t n).ef
   rcases hY with rfl | ⟨DX, rfl, sX⟩
   · refine ⟨.atom "term", Bool.true, ?_, ef.term, fun _ y _ _ _ => ef.den_term y,
-      ⟨fun _ => ⟨[], denD_term _, by simp⟩, fun _ => rfl⟩, fun h => by cases h⟩
+      ⟨fun _ => ⟨[], denD_term _, by simp⟩, fun _ => rfl⟩, fun y _ => ⟨List.replicate i y, [], by simp, denD_term _⟩⟩
     unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»; rfl
   cases hb : mapLookup DX (.atom "tuple") with
   | none =>
     have no : ∀ v, ¬denD (.map DX) (tpt (t := t) (n := n) v) := fun v h => by
       rw [denD_tpt] at h; obtain ⟨b, e, -⟩ := h; rw [hb] at e; cases e
     refine ⟨.map [], Bool.false, ?_, ef.none, fun v₁ y v₂ _ h => absurd h (no _),
-      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd hv (no v)⟩, fun _ y hy => absurd hy (ef.den_none y)⟩
+      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd hv (no v)⟩, fun y hy => absurd hy (ef.den_none y)⟩
     unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
     simp [getMapKeys_single, hb, boolAtom]
   | some b =>
@@ -1200,9 +1200,9 @@ theorem fetch_static_sem {Y : Term} (hY : DE (level t n).E Y) (i : Nat) {m : Nat
         denTF (level t n).E (level t n).den b v = Bool.true := fun v => by rw [denD_tpt]; simp [TT, hb]
     obtain ⟨e, o, run, he, s₁, s₂, s₃⟩ :=
       static_fetch_any ef (n := k) (by omega) hb (fieldC_tuple (sX.fields "tuple" b hb)) i
-    refine ⟨e, o, run, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((tt _).mp h), ?_, fun h y hy => ?_⟩
+    refine ⟨e, o, run, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((tt _).mp h), ?_, fun y hy => ?_⟩
     · rw [s₂]; simp only [tt]
-    · obtain ⟨v₁, v₂, len, h⟩ := s₃ h y hy
+    · obtain ⟨v₁, v₂, len, h⟩ := s₃ y hy
       exact ⟨v₁, v₂, len, (tt _).mpr h⟩
 
 end
@@ -1219,7 +1219,8 @@ theorem fetch_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)
       FetchSem (level t (d + 1)).E (level t (d + 1)).den (TT t (d + 1) (rmDyn X)) i st sO ∧
       (∃ y, (level t (d + 1)).den dt y) ∧ fl = boolAtom (sO || dO) ∧ GC (level t d) ty ∧
       (∀ y : PN t d, denD ty y ↔ (level t (d + 1)).den st y) ∧
-      ∀ y : PN t d, denD (upper ty) y ↔ (level t (d + 1)).den dt y ∨ (level t (d + 1)).den st y := by
+      (∀ y : PN t d, denD (upper ty) y ↔ (level t (d + 1)).den dt y ∨ (level t (d + 1)).den st y) ∧
+      ∀ v : PN t (d + 1), denD (.map (rmDyn X)) v → v.1.1 = "tuple" := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have hK := level_K t d
   have hK' := level_K t (d + 1)
@@ -1231,7 +1232,7 @@ theorem fetch_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)
     · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
     · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, sS⟩
   have dS : DE (level t (d + 1)).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, sS⟩
-  obtain ⟨dR, -⟩ := rest_tuple dS
+  obtain ⟨dR, rt⟩ := rest_tuple dS
   have rto := next_empty dR (m := k + 3) (by omega)
   -- The fetches from both parts.
   obtain ⟨dt, dO, rdt, sdt⟩ := fetch_static_sem dDy i (m := k + 3) (by omega)
@@ -1288,7 +1289,8 @@ theorem fetch_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)
       cases sO <;> cases dO <;>
         simpa [boolAtom, Lynx.Term.isMember, Lynx.Except.orElse, gt, ex, unfold_map, dY, rR] using run
   obtain ⟨rfl, rfl⟩ := ok
-  exact ⟨rfl, gR, s₁, fun y => (s₂ y).trans (or_congr_left (sc₁ y).symm)⟩
+  exact ⟨rfl, gR, s₁, fun y => (s₂ y).trans (or_congr_left (sc₁ y).symm),
+    fun v hv => Classical.byContradiction fun ne => to v ((rt v).mpr ⟨hv, ne⟩)⟩
 
 end
 

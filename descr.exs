@@ -8834,7 +8834,7 @@ defmodule STTDescrProofsTest do
           have : Nest.upper (.map X) = Dy := by simp [Nest.upper, hD]
           rw [this] at eU; exact eU
         subst eD
-        obtain ⟨dt, dO, st, sO, ⟨-, sd₁, sd₂, sd₃⟩, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, -, sR⟩ :=
+        obtain ⟨dt, dO, st, sO, ⟨-, sd₁, sd₂, sd₃⟩, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, -, sR, -⟩ :=
           Nest.fetch_grad gT hD i (by omega) run
         have dO_f : dO = Bool.false := by
           cases dO
@@ -8853,10 +8853,10 @@ defmodule STTDescrProofsTest do
           intro y
           refine (su y).trans ((sR y).trans ⟨?_, ?_⟩)
           · rintro (h | h)
-            · obtain ⟨v₁, v₂, len, h⟩ := sd₃ rfl y h
+            · obtain ⟨v₁, v₂, len, h⟩ := sd₃ y h
               rw [Nest.denD_tpt] at h
               exact sE v₁ y v₂ len h
-            · obtain ⟨v₁, v₂, len, h⟩ := ss₃ rfl y h
+            · obtain ⟨v₁, v₂, len, h⟩ := ss₃ y h
               exact sE v₁ y v₂ len (inU _ h)
           · intro h
             obtain ⟨v₁, v₂, len, h⟩ := bE y h
@@ -8944,7 +8944,7 @@ defmodule STTDescrProofsTest do
         simp [Nest.lower, eX, run, lb, eq, Erlang.erlang.«element/2», Erlang.erlang.«not/1», Lynx.Except.orElse,
           Lynx.Except.andAlso, Lynx.Term.true]
       | some Dy =>
-        obtain ⟨dt, dO, st, sO, -, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, sR, -⟩ := Nest.fetch_grad gT hD i (by omega) run
+        obtain ⟨dt, dO, st, sO, -, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, sR, -, -⟩ := Nest.fetch_grad gT hD i (by omega) run
         have sO_f : sO = Bool.false := by
           cases sO
           · rfl
@@ -8955,7 +8955,7 @@ defmodule STTDescrProofsTest do
         have same : ∀ y, (Nest.level node (d + 1)).den (Nest.lower ty) y ↔ (Nest.level node (d + 1)).den e y := by
           intro y
           refine (sl y).trans ((sR y).trans ⟨fun h => ?_, fun h => ?_⟩)
-          · obtain ⟨v₁, v₂, len, h⟩ := ss₃ rfl y h
+          · obtain ⟨v₁, v₂, len, h⟩ := ss₃ y h
             exact sE v₁ y v₂ len h
           · obtain ⟨v₁, v₂, len, h⟩ := bE y h
             exact ss₁ v₁ y v₂ len h
@@ -10792,6 +10792,80 @@ defmodule STTDescrProofsTest do
       split
       · exact absurd rfl nb₂
       · simp [run, pr₂, Lynx.Term.true]
+      """
+
+    law tuple_fetch_precise(tuple, index, tuple2, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and precise?(tuple, tuple2) and kept_dynamic?(tuple, tuple2) and
+          match?({_, _}, Descr.tuple_fetch(tuple, index)),
+      expects:
+        (case Descr.tuple_fetch(tuple2, index) do
+           {optional2, element2} ->
+             (not elem(Descr.tuple_fetch(tuple, index), 0) or optional2) and
+               precise?(elem(Descr.tuple_fetch(tuple, index), 1), element2)
+
+           _ ->
+             false
+         end),
+      proof: ~LEAN"""
+      -- The tuples nest at most `d + 1` levels.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_fetch_precise:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      simp only [hp, Lynx.Except.ok_bind, Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_fetch_precise:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨⟨hg, hg₂⟩, -⟩, hi⟩, hi0⟩, pr⟩, kd⟩, hf⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have gT₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg₂)
+      obtain ⟨lo, up⟩ := Nest.prec_bounds (t := node) (n := d + 1) (m := δ + 100) (by rw [Nest.level_K]; omega) gT gT₂
+        (by simpa using pr)
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · simp [Nest.fetch_term] at hf
+      -- The fetch from the precise type.
+      obtain ⟨fl, ty, run⟩ : ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_fetch/2»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) with
+        | error _ => rw [h] at hf; cases hf
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hf
+          split at hf
+          · rename_i a b; exact ⟨a, b, rfl⟩
+          · simp at hf
+      -- A less precise type keeps the dynamic part.
+      have kd' : Lynx.Term.mapLookup X (.atom "dynamic") ≠ none →
+          ∃ X₂, tuple2 = .map X₂ ∧ Lynx.Term.mapLookup X₂ (.atom "dynamic") ≠ none := by
+        intro hD
+        obtain ⟨Dy, hD⟩ := Option.ne_none_iff_exists'.mp hD
+        rcases gT₂.1.shape with rfl | ⟨X₂, rfl⟩
+        · simp [«kept_dynamic?/2», Lynx.Term.getMapKeys_single, hD, Erlang.erlang.«is_map/1», Lynx.Except.andAlso] at kd
+        · refine ⟨X₂, rfl, fun h => ?_⟩
+          simp [«kept_dynamic?/2», Lynx.Term.getMapKeys_single, hD, Erlang.erlang.«is_map/1», Erlang.erlang.«is_map_key/2»,
+            any_key, h, Lynx.Except.andAlso] at kd
+      obtain ⟨fl₂, ty₂, run₂, bA, bB, opt, pr₂⟩ := Nest.fetch_prec gT.1 gT₂.1 i hm lo up kd' run
+      simp only [Lynx.apply_eq, «tuple_fetch_precise:ensures/5»]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
+        at run
+      rcases bA with rfl | rfl <;> rcases bB with rfl | rfl
+      all_goals simp [run, run₂, pr₂, Erlang.erlang.«element/2»,
+        Lynx.Except.andAlso, Lynx.Term.true] at opt ⊢
       """
 
   end

@@ -203,7 +203,7 @@ theorem fetch_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (
             fun y hy => ?_⟩)⟩
           · simp [key, nonEmpty, run, re₂ (k + 2) (by omega), Lynx.Except.andAlso, Lynx.Term.isMember,
               Lynx.Except.orElse, boolAtom]
-          · obtain ⟨v₁, v₂, len, h⟩ := s₃ rfl y hy
+          · obtain ⟨v₁, v₂, len, h⟩ := s₃ y hy
             exact ⟨v₁, v₂, len, (tt _).mpr h⟩
         · exfalso
           have lw := long w₀ hw₀

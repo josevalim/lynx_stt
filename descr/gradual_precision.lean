@@ -926,4 +926,233 @@ theorem replace_prec {X : List (Term × Term)} {a₂ v v₂ : Term} (gX : GC (le
 
 end
 
+section
+variable {t : Term} {d : Nat}
+
+/-- `tuple_fetch/2` on a gradual type gives a type when its lower bound holds only tuples and its upper bound one with a
+value at the index. -/
+theorem fetch_grad_ok {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) (i : Nat) {m : Nat} (hm : (level t (d + 1)).K + 26 ≤ m)
+    (only : ∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple")
+    (ne : ∃ v₁ y v₂, v₁.length = i ∧ denD Dy (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) :
+    ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
+  have hK := level_K t d
+  have hK' := level_K t (d + 1)
+  have ef := (level t (d + 1)).ef
+  obtain ⟨dDy, sS⟩ : DE (level t (d + 1)).E Dy ∧ DescrC (FunA (level t (d + 1)).E) (TField (level t (d + 1)).E)
+      (LF (level t (d + 1)).E) (MField (level t (d + 1)).E) (rmDyn X) := by
+    rcases gX with (h | ⟨X', e, sX⟩) | ⟨X', Dy', e, hD', tD, sS, -⟩
+    · cases h
+    · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
+    · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, sS⟩
+  have dS : DE (level t (d + 1)).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, sS⟩
+  obtain ⟨dR, rt⟩ := rest_tuple dS
+  have rto := next_empty dR (m := k + 3) (by omega)
+  obtain ⟨dt, dO, rdt, sdt⟩ := fetch_static_sem dDy i (m := k + 3) (by omega)
+  obtain ⟨st, sO, rst, sst⟩ := fetch_static_sem dS i (m := k + 3) (by omega)
+  obtain ⟨eb, reb, seb⟩ := ef.empty_pub sdt.1
+  obtain ⟨c₁, hc₁, sc₁, cases₁⟩ := el_canon sdt.1
+  obtain ⟨R, rR, gR, s₁, s₂⟩ := dyn_el_union hc₁ sst.1 (m := k + 3) (by omega)
+  obtain ⟨v₁, y, v₂, len, hy⟩ := ne
+  have rkd : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "tuple") = .ok (boolAtom Bool.true) := by
+    rcases dDy with rfl | ⟨DX, rfl, -⟩
+    · rfl
+    · rw [denD_tpt] at hy
+      obtain ⟨b, e, -⟩ := hy
+      simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, boolAtom, e]
+  have to : ∀ v : PN t (d + 1), ¬denD (.map (rmT (rmDyn X))) v := fun v hv =>
+    ((rt v).mp hv).2 (only v (by simpa [lower] using ((rt v).mp hv).1))
+  have eb_f : eb = Bool.false := by
+    cases eb
+    · rfl
+    · exact absurd (sdt.2.1 v₁ y v₂ len hy) (seb.mp rfl y)
+  subst eb_f
+  rw [Elixir.Module.Types.Descr.«tuple_fetch/2».eq_def]
+  simp [Erlang.erlang.«</2», Int.compare_eq_lt, Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1»,
+    Erlang.maps.«remove/2»]
+  simp only [filter_tdyn, filter_dyn, rto, rkd, rdt, rst, bp_true.mpr to]
+  have reb' := reb (k + 3) (by omega)
+  simp only [boolAtom, Lynx.Except.andAlso]
+  simp only [reb', Lynx.Except.ok_bind]
+  rcases cases₁ with ⟨de, rfl⟩ | ⟨hn, rfl⟩
+  · rcases de with rfl | ⟨Z, rfl, sZ⟩
+    · cases sO <;> cases dO <;> simp [boolAtom, Lynx.Except.orElse, getMapKeys, rR]
+    · cases sO <;> cases dO <;>
+        simp [boolAtom, Lynx.Except.orElse, getMapKeys_single, sZ.static, rR]
+  · obtain ⟨q, SS, rfl⟩ := node_tuple hn
+    have ex := expand_isT hn (k + 2)
+    obtain ⟨Y, eY, sY⟩ := expN_map (.tuple #[.reference q, .map SS, gen]) (keyOf (level t d).nd)
+    rw [eY] at ex rR
+    have dY : Elixir.Module.Types.Descr.«dynamic/1» (D (k + 3)) (.map Y) =
+        .ok (.map [(.atom "dynamic", .map Y)]) := by
+      unfold Elixir.Module.Types.Descr.«dynamic/1»; simp [getMapKeys_single, sY]
+    have gt : getMapKeys [Term.atom "dynamic"] (.tuple #[.reference q, .map SS, gen]) = [] := by simp [getMapKeys]
+    cases sO <;> cases dO <;>
+      simp [boolAtom, Lynx.Except.orElse, gt, ex, unfold_map, dY, rR]
+
+/-- `tuple_fetch/2` on a gradual type, when it gives a type: the lower bound holds only tuples, the upper bound some with
+a value at the index, it is optional exactly when the upper bound holds a shorter tuple, and the bounds of its type are
+the values at the index of the tuples of the bounds. -/
+theorem fetch_bounds {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) (i : Nat) {m : Nat}
+    (hm : (level t (d + 1)).K + 26 ≤ m) {fl ty : Term}
+    (run : Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty])) :
+    (∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple") ∧
+      (∃ v₁ y v₂, v₁.length = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) ∧
+      (fl = .atom "true" ↔ ∃ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) ∧ w.length ≤ i) ∧
+      (fl = .atom "true" ∨ fl = .atom "false") ∧ (mapLookup X (.atom "dynamic") = none → fl = .atom "false") ∧
+      ∃ lr ur, Elixir.Module.Types.Descr.«lower_bound/1» (D m) ty = .ok lr ∧
+        Elixir.Module.Types.Descr.«upper_bound/1» (D m) ty = .ok ur ∧ DE (level t d).E lr ∧ DE (level t d).E ur ∧
+        (∀ y : (level t (d + 1)).V, denD lr y ↔ ∃ v₁ v₂ : List (level t (d + 1)).V, v₁.length = i ∧
+          denD (lower (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) ∧
+        ∀ y : (level t (d + 1)).V, denD ur y ↔ ∃ v₁ v₂ : List (level t (d + 1)).V, v₁.length = i ∧
+          denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂)) := by
+  cases hD : mapLookup X (.atom "dynamic") with
+  | none =>
+    have dX := GC.static gX hD
+    have lX : lower (.map X) = .map X := by simp [lower, rmDyn_static hD]
+    have uX : upper (.map X) = .map X := by simp [upper, hD]
+    rw [lX, uX]
+    obtain ⟨res, run', ⟨rfl, -⟩ | ⟨rfl, -⟩ | ⟨e, rfl, he, tonly, long, sE, bE⟩⟩ :=
+      fetch_tuple (t := t) (n := d + 1) dX i (m := m) (by omega)
+    · rw [run] at run'; cases run'
+    · rw [run] at run'; cases run'
+    rw [run] at run'
+    simp only [Except.ok.injEq, Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at run'
+    obtain ⟨rfl, rfl⟩ := run'
+    obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
+    obtain ⟨c, hc, sc, ub, lb, -, -⟩ := el_ops he k
+    have sem : ∀ y : (level t (d + 1)).V, denD c y ↔ ∃ v₁ v₂ : List (level t (d + 1)).V, v₁.length = i ∧
+        denD (.map X) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂)) := fun y => by
+      rw [← sc y]
+      constructor
+      · intro h
+        obtain ⟨v₁, v₂, len, h⟩ := bE y h
+        exact ⟨v₁, v₂, len, (denD_tpt _).mpr h⟩
+      · rintro ⟨v₁, v₂, len, h⟩
+        exact sE v₁ y v₂ len ((denD_tpt _).mp h)
+    obtain ⟨w, hw⟩ := tonly.2
+    have lw := long w hw
+    obtain ⟨v₁, y, v₂, rfl, len⟩ : ∃ v₁ y v₂, w = v₁ ++ y :: v₂ ∧ v₁.length = i := by
+      refine ⟨w.take i, w[i]'lw, w.drop (i + 1), ?_, by simp; omega⟩
+      simp
+    refine ⟨tonly.1, ⟨v₁, y, v₂, len, (denD_tpt _).mpr hw⟩, ⟨fun h => (by simp at h), ?_⟩,
+      Or.inr rfl, fun _ => rfl, c, c, lb, ub, hc, hc, sem, sem⟩
+    rintro ⟨w, hw, l⟩
+    have := long w ((denD_tpt w).mp hw); omega
+  | some Dy =>
+    obtain ⟨dt, dO, st, sO, sdt, sst, ⟨y₀, hy₀⟩, rfl, gR, sR, su, only⟩ := fetch_grad gX hD i hm run
+    have sub : ∀ v : PN t (d + 1), denD (.map X) v → denD Dy v := by
+      rcases gX with (h | ⟨X', e, sX⟩) | ⟨X', Dy', e, hD', -, -, sub⟩
+      · cases h
+      · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
+      · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact sub
+    have toDy : ∀ w, TT t (d + 1) (rmDyn X) w → denD Dy (tpt (t := t) (n := d + 1) w) := fun w h =>
+      sub _ ((denD_rmDyn X _).mp ((denD_tpt w).mpr h))
+    have lX : lower (.map X) = .map (rmDyn X) := by simp [lower]
+    rw [lX, upper_dyn hD]
+    obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
+    obtain ⟨w₁, w₂, wl, hw⟩ := sdt.2.2.2 y₀ hy₀
+    refine ⟨only, ⟨w₁, y₀, w₂, wl, hw⟩, ?_, by cases sO <;> cases dO <;> simp [boolAtom], fun h => (by simp at h),
+      lower ty, upper ty, lower_bound_run gR.shape, upper_bound_run gR.ub, gR.low_tc, gR.up_tc, fun y => ?_,
+      fun y => ?_⟩
+    · constructor
+      · intro h
+        cases sO
+        · cases dO
+          · simp [boolAtom] at h
+          · exact sdt.2.2.1.mp rfl
+        · obtain ⟨w, hw, l⟩ := sst.2.2.1.mp rfl
+          exact ⟨w, toDy w hw, l⟩
+      · intro h
+        have : dO = Bool.true := sdt.2.2.1.mpr h
+        subst this; cases sO <;> rfl
+    · refine (denD_lower ty y).trans ((sR y).trans ?_)
+      constructor
+      · intro h
+        obtain ⟨v₁, v₂, len, h⟩ := sst.2.2.2 y h
+        exact ⟨v₁, v₂, len, (denD_tpt _).mpr h⟩
+      · rintro ⟨v₁, v₂, len, h⟩
+        exact sst.2.1 v₁ y v₂ len ((denD_tpt _).mp h)
+    · refine (su y).trans ?_
+      constructor
+      · rintro (h | h)
+        · exact sdt.2.2.2 y h
+        · obtain ⟨v₁, v₂, len, h⟩ := sst.2.2.2 y h
+          exact ⟨v₁, v₂, len, toDy _ h⟩
+      · rintro ⟨v₁, v₂, len, h⟩
+        exact Or.inl (sdt.2.1 v₁ y v₂ len h)
+
+/-- `tuple_fetch/2` gives a type when the lower bound holds only tuples, the upper bound one with a value at the index,
+and a static type no shorter tuple. -/
+theorem fetch_ok {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) (i : Nat) {m : Nat}
+    (hm : (level t (d + 1)).K + 26 ≤ m) (only : ∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple")
+    (ne : ∃ v₁ y v₂, v₁.length = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂)))
+    (long : mapLookup X (.atom "dynamic") = none →
+      ∀ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) → i < w.length) :
+    ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
+  cases hD : mapLookup X (.atom "dynamic") with
+  | some Dy =>
+    rw [upper_dyn hD] at ne
+    exact fetch_grad_ok gX hD i hm only ne
+  | none =>
+    have dX := GC.static gX hD
+    have lX : lower (.map X) = .map X := by simp [lower, rmDyn_static hD]
+    have uX : upper (.map X) = .map X := by simp [upper, hD]
+    rw [lX] at only; rw [uX] at ne long
+    obtain ⟨v₁, y, v₂, -, hy⟩ := ne
+    obtain ⟨res, run, ⟨rfl, nT⟩ | ⟨rfl, -, w, hw, l⟩ | ⟨e, rfl, -⟩⟩ :=
+      fetch_tuple (t := t) (n := d + 1) dX i (m := m) (by omega)
+    · exact absurd ⟨only, _, (denD_tpt _).mp hy⟩ nT
+    · have := long hD w ((denD_tpt w).mpr hw); omega
+    · exact ⟨_, _, run⟩
+
+/-- The fetches of less precise tuples are less precise. -/
+theorem fetch_prec {X : List (Term × Term)} {a₂ : Term} (gX : GC (level t (d + 1)) (.map X))
+    (g₂ : GC (level t (d + 1)) a₂) (i : Nat) {m : Nat} (hm : (level t (d + 1)).K + 26 ≤ m)
+    (lo : ∀ v : PN t (d + 1), denD a₂ v → denD (.map X) v)
+    (up : ∀ v : PN t (d + 1), denD (upper (.map X)) v → denD (upper a₂) v)
+    (kd : mapLookup X (.atom "dynamic") ≠ none → ∃ X₂, a₂ = .map X₂ ∧ mapLookup X₂ (.atom "dynamic") ≠ none)
+    {fl ty : Term} (run : Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty])) :
+    ∃ fl₂ ty₂, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) a₂ (.integer i) = .ok (.tuple #[fl₂, ty₂]) ∧
+      (fl = .atom "true" ∨ fl = .atom "false") ∧ (fl₂ = .atom "true" ∨ fl₂ = .atom "false") ∧
+      (fl = .atom "true" → fl₂ = .atom "true") ∧ «precise?/2» (D m) ty ty₂ = .ok (.atom "true") := by
+  obtain ⟨onlyA, neA, flA, bA, stA, lrA, urA, lA, uA, dlA, duA, slA, suA⟩ := fetch_bounds gX i hm run
+  have lo' : ∀ v : PN t (d + 1), denD (lower a₂) v → denD (lower (.map X)) v := fun v h =>
+    (denD_lower _ _).mpr (lo v ((denD_lower _ _).mp h))
+  obtain ⟨X₂, rfl⟩ : ∃ X₂, a₂ = .map X₂ := by
+    rcases g₂.shape with rfl | ⟨X₂, rfl⟩
+    · have := onlyA bitPt (lo' bitPt (by simp [lower, denD_term]))
+      simp [bitPt] at this
+    · exact ⟨X₂, rfl⟩
+  have long : mapLookup X₂ (.atom "dynamic") = none →
+      ∀ w, denD (upper (.map X₂)) (tpt (t := t) (n := d + 1) w) → i < w.length := by
+    -- A static less precise type holds the tuples of a static precise type.
+    intro hD₂ w hw
+    have hA : mapLookup X (.atom "dynamic") = none := Classical.byContradiction fun h => by
+      obtain ⟨X₂', e, h'⟩ := kd h
+      simp only [Term.map.injEq] at e; subst e; exact h' hD₂
+    have uX₂ : upper (.map X₂) = .map X₂ := by simp [upper, hD₂]
+    have uX : upper (.map X) = .map X := by simp [upper, hA]
+    have lX₂ : lower (.map X₂) = .map X₂ := by simp [lower, rmDyn_static hD₂]
+    have lX : lower (.map X) = .map X := by simp [lower, rmDyn_static hA]
+    rw [uX₂] at hw
+    have hA' := lo' _ (by rw [lX₂]; exact hw)
+    rw [lX] at hA'
+    refine Classical.byContradiction fun l => ?_
+    have := flA.mpr ⟨w, by rw [uX]; exact hA', by omega⟩
+    rw [stA hA] at this; simp at this
+  obtain ⟨v₁, y, v₂, len, hn⟩ := neA
+  obtain ⟨fl₂, ty₂, run₂⟩ := fetch_ok g₂ i hm (fun v h => onlyA v (lo' v h)) ⟨v₁, y, v₂, len, up _ hn⟩ long
+  obtain ⟨-, -, flB, bB, -, lrB, urB, lB, uB, dlB, duB, slB, suB⟩ := fetch_bounds g₂ i hm run₂
+  refine ⟨fl₂, ty₂, run₂, bA, bB, fun h => flB.mpr (have ⟨w, hw, l⟩ := flA.mp h; ⟨w, up _ hw, l⟩),
+    precise_of_bounds (n := d) (by rw [level_K] at hm ⊢; omega) lA uA lB uB dlA duA dlB duB
+      (fun y h => ?_) (fun y h => ?_)⟩
+  · obtain ⟨v₁, v₂, len, h⟩ := (slB y).mp h
+    exact (slA y).mpr ⟨v₁, v₂, len, lo' _ h⟩
+  · obtain ⟨v₁, v₂, len, h⟩ := (suA y).mp h
+    exact (suB y).mpr ⟨v₁, v₂, len, up _ h⟩
+
+end
+
 end Elixir.STTDescrProofsTest.Nest
