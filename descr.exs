@@ -77,7 +77,8 @@
 #     Inserting, deleting, and replacing tuple elements of gradual types gives, as upper bound,
 #     the operation on the upper bounds, and, for a static value, as lower bound, the operation
 #     on the lower bound, whenever both succeed. The values of tuple elements of gradual types have
-#     the values of their bounds as bounds.
+#     the values of their bounds as bounds, and so do fetched elements, which are optional when
+#     optional in the upper bound, and when optional in the lower bound.
 #     Updating and deleting static keys of gradual maps with static values gives, as lower bound,
 #     the update of the lower bound, whenever both succeed.
 #   * The recursive type t = nil or {term(), t}, as a Descr node wherever types nest.
@@ -86,7 +87,7 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (468a8c51a), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (05fb2fe97), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -8318,6 +8319,230 @@ defmodule STTDescrProofsTest do
       rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)]
       simp [Nest.lower, run, run₂, Nest.lower_bound_run (Or.inr ⟨R, rfl⟩), Lynx.Term.true]
       exact eq
+      """
+
+    law tuple_fetch_upper(tuple, index, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and match?({_, _}, Descr.tuple_fetch(tuple, index)) and
+          match?({_, _}, Descr.tuple_fetch(Descr.upper_bound(tuple), index)),
+      expects:
+        elem(Descr.tuple_fetch(tuple, index), 0) == elem(Descr.tuple_fetch(Descr.upper_bound(tuple), index), 0) and
+          Descr.equal?(
+            Descr.upper_bound(elem(Descr.tuple_fetch(tuple, index), 1)),
+            elem(Descr.tuple_fetch(Descr.upper_bound(tuple), index), 1)
+          ),
+      proof: ~LEAN"""
+      -- The tuples nest at most `d + 1` levels.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_fetch_upper:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_fetch_upper:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨hg, -⟩, hi⟩, hi0⟩, hf⟩, hfU⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hg : «arrows_gradual?/2» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) tuple
+          (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by simpa using hg
+      obtain ⟨gT, -, dTu⟩ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) hg
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
+      rcases gT.shape with rfl | ⟨X, rfl⟩
+      · simp [Nest.fetch_term] at hf
+      -- The fetch from the gradual type.
+      obtain ⟨fl, ty, run⟩ : ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_fetch/2»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) with
+        | error _ => rw [h] at hf; cases hf
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hf
+          split at hf
+          · rename_i a b; exact ⟨a, b, rfl⟩
+          · simp at hf
+      -- The fetch from the upper bound.
+      rw [Nest.upper_bound_run gT.ub] at hfU
+      simp only [Lynx.Except.ok_bind] at hfU
+      obtain ⟨U, eU, dU⟩ : ∃ U, Nest.upper (.map X) = .map U ∧ Nest.DE (Nest.level node (d + 1)).E (.map U) := by
+        rcases dTu with h | ⟨U, h, sU⟩
+        · rw [h] at hfU; simp [Nest.fetch_term] at hfU
+        · exact ⟨U, h, Or.inr ⟨U, rfl, sU⟩⟩
+      rw [eU] at hfU
+      obtain ⟨res, runU, ⟨rfl, -⟩ | ⟨rfl, -⟩ | ⟨e, rfl, he, -, long, sE, bE⟩⟩ :=
+        Nest.fetch_tuple (t := node) (n := d + 1) dU i (m := δ + 100) (by omega)
+      · simp [runU] at hfU
+      · simp [runU] at hfU
+      have ef := (Nest.level node (d + 1)).ef
+      -- Tuples of the static part are tuples of the upper bound.
+      have inU : ∀ u, Nest.TT node (d + 1) (Nest.rmDyn X) u → Nest.TT node (d + 1) U u := fun u h => by
+        have := gT.inv _ ((Nest.denD_rmDyn X _).mp ((Nest.denD_tpt u).mpr h))
+        rw [eU, Nest.denD_tpt] at this
+        exact this
+      cases hD : Lynx.Term.mapLookup X (.atom "dynamic") with
+      | none =>
+        -- A static type is its own upper bound.
+        have eX : U = X := by
+          have : Nest.upper (.map X) = .map X := by simp [Nest.upper, hD]
+          rw [this] at eU; cases eU; rfl
+        subst eX
+        rw [run] at runU
+        simp only [Except.ok.injEq, Lynx.Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at runU
+        obtain ⟨rfl, rfl⟩ := runU
+        obtain ⟨c, hc, sc, ub, -, -, -⟩ := Nest.el_ops he (δ + 99)
+        have eq := Nest.elem_equal ef (Nest.e_succ hc) he (fun v => (Nest.den_succ hc v).trans (sc v).symm)
+          (m := δ + 100) (by omega)
+        simp only [Lynx.apply_eq, «tuple_fetch_upper:ensures/4»]
+        rw [Nest.upper_bound_run gT.ub, eU]
+        simp [run, ub, eq, Erlang.erlang.«element/2», Erlang.erlang.«==/2», Lynx.Except.andAlso, Lynx.Term.true]
+      | some Dy =>
+        have eD : Dy = .map U := by
+          have : Nest.upper (.map X) = Dy := by simp [Nest.upper, hD]
+          rw [this] at eU; exact eU
+        subst eD
+        obtain ⟨dt, dO, st, sO, ⟨-, sd₁, sd₂, sd₃⟩, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, -, sR⟩ :=
+          Nest.fetch_grad gT hD i (by omega) run
+        have dO_f : dO = Bool.false := by
+          cases dO
+          · rfl
+          · obtain ⟨v, hv, len⟩ := sd₂.mp rfl
+            rw [Nest.denD_tpt] at hv
+            have := long v hv; omega
+        have sO_f : sO = Bool.false := by
+          cases sO
+          · rfl
+          · obtain ⟨v, hv, len⟩ := ss₂.mp rfl
+            have := long v (inU v hv); omega
+        subst dO_f sO_f
+        obtain ⟨eu, -, su, -⟩ := Nest.gc_el gR
+        have same : ∀ y, (Nest.level node (d + 1)).den (Nest.upper ty) y ↔ (Nest.level node (d + 1)).den e y := by
+          intro y
+          refine (su y).trans ((sR y).trans ⟨?_, ?_⟩)
+          · rintro (h | h)
+            · obtain ⟨v₁, v₂, len, h⟩ := sd₃ rfl y h
+              rw [Nest.denD_tpt] at h
+              exact sE v₁ y v₂ len h
+            · obtain ⟨v₁, v₂, len, h⟩ := ss₃ rfl y h
+              exact sE v₁ y v₂ len (inU _ h)
+          · intro h
+            obtain ⟨v₁, v₂, len, h⟩ := bE y h
+            exact Or.inl (sd₁ v₁ y v₂ len ((Nest.denD_tpt _).mpr h))
+        have eq := Nest.elem_equal ef eu he same (m := δ + 100) (by omega)
+        simp only [Lynx.apply_eq, «tuple_fetch_upper:ensures/4»]
+        rw [Nest.upper_bound_run gT.ub, eU]
+        simp [run, runU, Nest.upper_bound_run gR.ub, eq, boolAtom, Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
+          Lynx.Except.andAlso, Lynx.Term.true]
+      """
+
+    law tuple_fetch_lower(tuple, index, depth, node),
+      requires:
+        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and match?({_, _}, Descr.tuple_fetch(tuple, index)) and
+          match?({_, _}, Descr.tuple_fetch(Descr.lower_bound(tuple), index)),
+      expects:
+        (elem(Descr.tuple_fetch(tuple, index), 0) or not elem(Descr.tuple_fetch(Descr.lower_bound(tuple), index), 0)) and
+          Descr.equal?(
+            Descr.lower_bound(elem(Descr.tuple_fetch(tuple, index), 1)),
+            elem(Descr.tuple_fetch(Descr.lower_bound(tuple), index), 1)
+          ),
+      proof: ~LEAN"""
+      -- The tuples nest at most `d + 1` levels.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «tuple_fetch_lower:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «tuple_fetch_lower:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨hg, -⟩, hi⟩, hi0⟩, hf⟩, hfU⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 26 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hg : «arrows_gradual?/2» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) tuple
+          (.tuple #[.integer ((d + 1 : Nat) : Int), node]) = .ok (.atom "true") := by simpa using hg
+      obtain ⟨gT, -, dTu⟩ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) hg
+      obtain ⟨z, rfl⟩ : ∃ z : Int, index = .integer z := by
+        cases index <;> simp [Erlang.erlang.«is_integer/1»] at hi
+        exact ⟨_, rfl⟩
+      obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
+      rcases gT.shape with rfl | ⟨X, rfl⟩
+      · simp [Nest.fetch_term] at hf
+      -- The fetch from the gradual type.
+      obtain ⟨fl, ty, run⟩ : ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
+        cases h : Elixir.Module.Types.Descr.«tuple_fetch/2»
+            (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) with
+        | error _ => rw [h] at hf; cases hf
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hf
+          split at hf
+          · rename_i a b; exact ⟨a, b, rfl⟩
+          · simp at hf
+      -- The fetch from the lower bound.
+      rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)] at hfU
+      simp only [Lynx.Except.ok_bind, Nest.lower] at hfU
+      have dS : Nest.DE (Nest.level node (d + 1)).E (.map (Nest.rmDyn X)) := Nest.GC.low_tc gT
+      obtain ⟨res, runL, ⟨rfl, -⟩ | ⟨rfl, -⟩ | ⟨e, rfl, he, -, long, sE, bE⟩⟩ :=
+        Nest.fetch_tuple (t := node) (n := d + 1) dS i (m := δ + 100) (by omega)
+      · simp [runL] at hfU
+      · simp [runL] at hfU
+      have ef := (Nest.level node (d + 1)).ef
+      cases hD : Lynx.Term.mapLookup X (.atom "dynamic") with
+      | none =>
+        -- A static type is its own lower bound.
+        have eX : Nest.rmDyn X = X := Nest.rmDyn_static hD
+        rw [eX] at runL
+        rw [run] at runL
+        simp only [Except.ok.injEq, Lynx.Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at runL
+        obtain ⟨rfl, rfl⟩ := runL
+        obtain ⟨c, hc, sc, -, lb, -, -⟩ := Nest.el_ops he (δ + 99)
+        have eq := Nest.elem_equal ef (Nest.e_succ hc) he (fun v => (Nest.den_succ hc v).trans (sc v).symm)
+          (m := δ + 100) (by omega)
+        simp only [Lynx.apply_eq, «tuple_fetch_lower:ensures/4»]
+        rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)]
+        simp [Nest.lower, eX, run, lb, eq, Erlang.erlang.«element/2», Erlang.erlang.«not/1», Lynx.Except.orElse,
+          Lynx.Except.andAlso, Lynx.Term.true]
+      | some Dy =>
+        obtain ⟨dt, dO, st, sO, -, ⟨-, ss₁, ss₂, ss₃⟩, -, rfl, gR, sR, -⟩ := Nest.fetch_grad gT hD i (by omega) run
+        have sO_f : sO = Bool.false := by
+          cases sO
+          · rfl
+          · obtain ⟨v, hv, len⟩ := ss₂.mp rfl
+            have := long v hv; omega
+        subst sO_f
+        obtain ⟨-, el, -, sl⟩ := Nest.gc_el gR
+        have same : ∀ y, (Nest.level node (d + 1)).den (Nest.lower ty) y ↔ (Nest.level node (d + 1)).den e y := by
+          intro y
+          refine (sl y).trans ((sR y).trans ⟨fun h => ?_, fun h => ?_⟩)
+          · obtain ⟨v₁, v₂, len, h⟩ := ss₃ rfl y h
+            exact sE v₁ y v₂ len h
+          · obtain ⟨v₁, v₂, len, h⟩ := bE y h
+            exact ss₁ v₁ y v₂ len h
+        have eq := Nest.elem_equal ef el he same (m := δ + 100) (by omega)
+        simp only [Lynx.apply_eq, «tuple_fetch_lower:ensures/4»]
+        rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)]
+        have lb := Nest.lower_bound_run (d := Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) gR.shape
+        simp only [Nest.lower, run, runL, Lynx.Except.ok_bind]
+        cases dO <;> simp [boolAtom, Erlang.erlang.«element/2», Erlang.erlang.«not/1», Lynx.Except.orElse,
+          Lynx.Except.andAlso, Lynx.Term.true, lb, eq]
       """
 
     law tuple_values_upper(tuple, depth, node),

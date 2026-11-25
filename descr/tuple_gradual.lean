@@ -1114,4 +1114,182 @@ theorem gc_el {a : Term} (ha : GC (level t d) a) :
 
 end
 
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `tuple_fetch_static/2` on a static type with a tuple field, empty or not. -/
+theorem static_fetch_any (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X : List (Term × Term)} {b : Term}
+    (hb : mapLookup X (.atom "tuple") = some b) (fb : TField E b) (i : Nat) :
+    ∃ e o, Elixir.Module.Types.Descr.«tuple_fetch_static/2» (D (n + 2)) (.map X) (.integer i) =
+        .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
+      (∀ v₁ y v₂, v₁.length = i → denTF E den b (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
+      (o = Bool.true ↔ ∃ v, denTF E den b v = Bool.true ∧ v.length ≤ i) ∧
+      (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
+  by_cases ne : ∃ v, denTF E den b v = Bool.true
+  · exact static_fetch ef hn hb fb ne i
+  by_cases three : ∃ k x y, b = .tuple #[k, x, y]
+  · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
+    obtain ⟨k, tag, l, rfl, g, hl⟩ := tfield_three fb e₀
+    have sem : ∀ v, denTF E den (.tuple #[.integer k, .atom tag, Term.list l]) v = Bool.true ↔
+        InT den (tag == "closed") l v := fun v => by rw [denTF_leaf ef g hl, vT_lit ef g hl]
+    -- The literal holds no tuples, so one of its elements is empty.
+    obtain ⟨c, check, full, -⟩ := elements_exact ef.opsU ef.msemZ rfl l hl
+    have c_true : c = Bool.true := by
+      cases c
+      · exfalso
+        have each : ∀ e ∈ l, ∃ y, den e y := fun e me => full_witness ef.msemZ rfl (full rfl e me)
+        rcases g with rfl | rfl
+        · obtain ⟨w, hw, -⟩ := inT_witness_open (Classical.choice ef.inhabited) each 0
+          exact ne ⟨w, (sem w).mpr (by simpa using hw)⟩
+        · obtain ⟨w, hw⟩ := inT_exists_closed each
+          exact ne ⟨w, (sem w).mpr (by simpa using hw)⟩
+      · rfl
+    subst c_true
+    refine ⟨.map [], Bool.false, ?_, ef.none, fun v₁ y v₂ _ h => absurd ⟨_, h⟩ ne,
+      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd ⟨v, hv⟩ ne⟩, fun _ y hy => absurd hy (ef.den_none y)⟩
+    unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
+    simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«tuple_fetch_leaf/3», check (n + 2) (by omega), boolAtom]
+  · have wb : Bdd (TLit E) b := by
+      rcases fb with ⟨k, rfl⟩ | wb
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · exact wb
+    obtain ⟨e, o, run, he, s₁, s₂, s₃⟩ := bdd_fetch (den := den) ef hn wb i
+    refine ⟨e, o, ?_, he, s₁, s₂, s₃⟩
+    unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
+    rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h, lit, c, u, d, rfl⟩
+    · simp [getMapKeys_single, hb, run]
+    · simp [getMapKeys_single, hb, run]
+    · exact absurd ⟨_, _, _, rfl⟩ three
+    · simp [getMapKeys_single, hb, run]
+
+end
+
+section
+variable {V : Type}
+
+/-- `tuple_fetch_static/2` at an index of tuples `Q`: the values there, and whether some tuple is not longer. -/
+def FetchSem (E : Term → Prop) (den : Term → V → Prop) (Q : List V → Prop) (i : Nat) (e : Term) (o : Bool) : Prop :=
+  E e ∧ (∀ v₁ y v₂, v₁.length = i → Q (v₁ ++ y :: v₂) → den e y) ∧ (o = Bool.true ↔ ∃ v, Q v ∧ v.length ≤ i) ∧
+    (o = Bool.false → ∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ Q (v₁ ++ y :: v₂))
+
+end
+
+section
+variable {t : Term} {n : Nat}
+
+/-- `tuple_fetch_static/2` on a static type of the next level. -/
+theorem fetch_static_sem {Y : Term} (hY : DE (level t n).E Y) (i : Nat) {m : Nat} (hm : (level t n).K + 3 ≤ m) :
+    ∃ e o, Elixir.Module.Types.Descr.«tuple_fetch_static/2» (D m) Y (.integer i) = .ok (.tuple #[e, boolAtom o]) ∧
+      FetchSem (level t n).E (level t n).den (fun v => denD Y (tpt (t := t) (n := n) v)) i e o := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 2 := ⟨m - 2, by omega⟩
+  have ef := (level t n).ef
+  rcases hY with rfl | ⟨DX, rfl, sX⟩
+  · refine ⟨.atom "term", Bool.true, ?_, ef.term, fun _ y _ _ _ => ef.den_term y,
+      ⟨fun _ => ⟨[], denD_term _, by simp⟩, fun _ => rfl⟩, fun h => by cases h⟩
+    unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»; rfl
+  cases hb : mapLookup DX (.atom "tuple") with
+  | none =>
+    have no : ∀ v, ¬denD (.map DX) (tpt (t := t) (n := n) v) := fun v h => by
+      rw [denD_tpt] at h; obtain ⟨b, e, -⟩ := h; rw [hb] at e; cases e
+    refine ⟨.map [], Bool.false, ?_, ef.none, fun v₁ y v₂ _ h => absurd h (no _),
+      ⟨fun h => (by cases h), fun ⟨v, hv, _⟩ => absurd hv (no v)⟩, fun _ y hy => absurd hy (ef.den_none y)⟩
+    unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
+    simp [getMapKeys_single, hb, boolAtom]
+  | some b =>
+    have tt : ∀ v, denD (.map DX) (tpt (t := t) (n := n) v) ↔
+        denTF (level t n).E (level t n).den b v = Bool.true := fun v => by rw [denD_tpt]; simp [TT, hb]
+    obtain ⟨e, o, run, he, s₁, s₂, s₃⟩ :=
+      static_fetch_any ef (n := k) (by omega) hb (fieldC_tuple (sX.fields "tuple" b hb)) i
+    refine ⟨e, o, run, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((tt _).mp h), ?_, fun h y hy => ?_⟩
+    · rw [s₂]; simp only [tt]
+    · obtain ⟨v₁, v₂, len, h⟩ := s₃ h y hy
+      exact ⟨v₁, v₂, len, (tt _).mpr h⟩
+
+end
+
+section
+variable {t : Term} {d : Nat}
+
+/-- `tuple_fetch/2` on a gradual type, when it gives a type: the fetch from the static part, with the fetch from the
+dynamic part in its upper bound, optional when either is. -/
+theorem fetch_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) (i : Nat) {m : Nat} (hm : (level t (d + 1)).K + 26 ≤ m)
+    {fl ty : Term} (run : Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty])) :
+    ∃ dt dO st sO, FetchSem (level t (d + 1)).E (level t (d + 1)).den (fun v => denD Dy (tpt (t := t) (n := d + 1) v)) i dt dO ∧
+      FetchSem (level t (d + 1)).E (level t (d + 1)).den (TT t (d + 1) (rmDyn X)) i st sO ∧
+      (∃ y, (level t (d + 1)).den dt y) ∧ fl = boolAtom (sO || dO) ∧ GC (level t d) ty ∧
+      (∀ y : PN t d, denD ty y ↔ (level t (d + 1)).den st y) ∧
+      ∀ y : PN t d, denD (upper ty) y ↔ (level t (d + 1)).den dt y ∨ (level t (d + 1)).den st y := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
+  have hK := level_K t d
+  have hK' := level_K t (d + 1)
+  have ef := (level t (d + 1)).ef
+  obtain ⟨dDy, sS⟩ : DE (level t (d + 1)).E Dy ∧ DescrC (FunA (level t (d + 1)).E) (TField (level t (d + 1)).E)
+      (LF (level t (d + 1)).E) (MField (level t (d + 1)).E) (rmDyn X) := by
+    rcases gX with (h | ⟨X', e, sX⟩) | ⟨X', Dy', e, hD', tD, sS, -⟩
+    · cases h
+    · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
+    · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, sS⟩
+  have dS : DE (level t (d + 1)).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, sS⟩
+  obtain ⟨dR, -⟩ := rest_tuple dS
+  have rto := next_empty dR (m := k + 3) (by omega)
+  -- The fetches from both parts.
+  obtain ⟨dt, dO, rdt, sdt⟩ := fetch_static_sem dDy i (m := k + 3) (by omega)
+  obtain ⟨st, sO, rst, sst⟩ := fetch_static_sem dS i (m := k + 3) (by omega)
+  have sst' : FetchSem (level t (d + 1)).E (level t (d + 1)).den (TT t (d + 1) (rmDyn X)) i st sO := by
+    have e : (fun v => denD (.map (rmDyn X)) (tpt (t := t) (n := d + 1) v)) = TT t (d + 1) (rmDyn X) :=
+      funext fun v => propext (denD_tpt v)
+    rw [e] at sst; exact sst
+  obtain ⟨eb, reb, seb⟩ := ef.empty_pub sdt.1
+  obtain ⟨c₁, hc₁, sc₁, cases₁⟩ := el_canon sdt.1
+  obtain ⟨R, rR, gR, s₁, s₂⟩ := dyn_el_union hc₁ sst.1 (m := k + 3) (by omega)
+  have kd : ∃ kd : Bool, Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "tuple") = .ok (boolAtom kd) := by
+    rcases dDy with rfl | ⟨DX, rfl, -⟩
+    · exact ⟨Bool.true, rfl⟩
+    · refine ⟨(mapLookup DX (.atom "tuple")).isSome, ?_⟩
+      cases h : (mapLookup DX (.atom "tuple")).isSome <;>
+        simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, boolAtom, h]
+  obtain ⟨kd, rkd⟩ := kd
+  rw [Elixir.Module.Types.Descr.«tuple_fetch/2».eq_def] at run
+  simp [Erlang.erlang.«</2», Int.compare_eq_lt, Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1»,
+    Erlang.maps.«remove/2»] at run
+  simp only [filter_tdyn, filter_dyn, rto, rkd, rdt, rst, reb (k + 3) (by omega)] at run
+  refine ⟨dt, dO, st, sO, sdt, sst', ?_⟩
+  by_cases to : ∀ v : PN t (d + 1), ¬denD (.map (rmT (rmDyn X))) v
+  rotate_left
+  · rw [bp_false.mpr to] at run
+    cases kd <;> simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  rw [bp_true.mpr to] at run
+  cases kd
+  · simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  have reb' := reb (k + 3) (by omega)
+  simp only [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  simp only [reb', Lynx.Except.ok_bind] at run
+  cases eb
+  rotate_left
+  · simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  have ne : ∃ y, (level t (d + 1)).den dt y :=
+    Classical.byContradiction fun h => absurd (seb.mpr fun y hy => h ⟨y, hy⟩) (by simp)
+  refine ⟨ne, ?_⟩
+  have ok : boolAtom (sO || dO) = fl ∧ R = ty := by
+    rcases cases₁ with ⟨de, rfl⟩ | ⟨hn, rfl⟩
+    · rcases de with rfl | ⟨Z, rfl, sZ⟩
+      · cases sO <;> cases dO <;> simpa [boolAtom, Lynx.Term.isMember, Lynx.Except.orElse, getMapKeys, rR] using run
+      · cases sO <;> cases dO <;>
+          simpa [boolAtom, Lynx.Term.isMember, Lynx.Except.orElse, getMapKeys_single, sZ.static, rR] using run
+    · obtain ⟨q, SS, rfl⟩ := node_tuple hn
+      have ex := expand_isT hn (k + 2)
+      obtain ⟨Y, eY, sY⟩ := expN_map (.tuple #[.reference q, .map SS, gen]) (keyOf (level t d).nd)
+      rw [eY] at ex rR
+      have dY : Elixir.Module.Types.Descr.«dynamic/1» (D (k + 3)) (.map Y) =
+          .ok (.map [(.atom "dynamic", .map Y)]) := by
+        unfold Elixir.Module.Types.Descr.«dynamic/1»; simp [getMapKeys_single, sY]
+      have gt : getMapKeys [Term.atom "dynamic"] (.tuple #[.reference q, .map SS, gen]) = [] := by simp [getMapKeys]
+      cases sO <;> cases dO <;>
+        simpa [boolAtom, Lynx.Term.isMember, Lynx.Except.orElse, gt, ex, unfold_map, dY, rR] using run
+  obtain ⟨rfl, rfl⟩ := ok
+  exact ⟨rfl, gR, s₁, fun y => (s₂ y).trans (or_congr_left (sc₁ y).symm)⟩
+
+end
+
 end Elixir.STTDescrProofsTest.Nest

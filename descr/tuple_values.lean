@@ -12,15 +12,6 @@ def PieceVal (den : Term → V → Prop) (p : Term) (y : V) : Prop :=
   ∃ (tag : String) (l : List Term), p = .tuple #[.atom tag, Term.list l] ∧ (∀ e ∈ l, ∃ y', den e y') ∧
     (tag = "open" ∨ ∃ e ∈ l, den e y)
 
-theorem inT_nonempty {c : Bool} : ∀ {l : List Term} {v : List V}, InT den c l v → ∀ e ∈ l, ∃ y, den e y
-  | [], _, _, e, me => by simp at me
-  | _ :: _, [], h, _, _ => by simp [InT] at h
-  | x :: l, y :: v, h, e, me => by
-    simp only [InT] at h
-    rcases List.mem_cons.mp me with rfl | me
-    · exact ⟨y, h.1⟩
-    · exact inT_nonempty h.2 e me
-
 theorem inT_get_closed : ∀ {l : List Term} {v : List V}, InT den Bool.true l v → ∀ (j : Nat) (y : V), v[j]? = some y → ∃ e ∈ l, den e y
   | [], [], _, j, y, hy => by simp at hy
   | [], _ :: _, h, _, _, _ => by simp [InT] at h

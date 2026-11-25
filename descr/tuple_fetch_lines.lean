@@ -467,6 +467,15 @@ theorem leaf_fetch (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
       have := (by simpa using hv₀ : InT den Bool.true l v₀).closed_length
       omega
 
+theorem inT_nonempty {c : Bool} : ∀ {l : List Term} {v : List V}, InT den c l v → ∀ e ∈ l, ∃ y, den e y
+  | [], _, _, e, me => by simp at me
+  | _ :: _, [], h, _, _ => by simp [InT] at h
+  | x :: l, y :: v, h, e, me => by
+    simp only [InT] at h
+    rcases List.mem_cons.mp me with rfl | me
+    · exact ⟨y, h.1⟩
+    · exact inT_nonempty h.2 e me
+
 /-- `tuple_fetch_static/2` on a static type with a non-empty tuple field. -/
 theorem static_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X : List (Term × Term)} {b : Term}
     (hb : mapLookup X (.atom "tuple") = some b) (fb : TField E b) (ne : ∃ v, denTF E den b v = Bool.true) (i : Nat) :
@@ -482,9 +491,18 @@ theorem static_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X :
         InT den (tag == "closed") l v := fun v => by rw [denTF_leaf ef g hl, vT_lit ef g hl]
     obtain ⟨v₀, hv₀⟩ := ne
     obtain ⟨e, o, run, he, s₁, s₂, s₃⟩ := leaf_fetch ef g hl ⟨v₀, (sem v₀).mp hv₀⟩ i
+    -- The literal holds tuples, so none of its elements is empty.
+    obtain ⟨c, check, -, empty⟩ := elements_exact ef.opsU ef.msemZ rfl l hl
+    have c_false : c = Bool.false := by
+      cases c
+      · rfl
+      · obtain ⟨x, mx, hx⟩ := empty rfl
+        obtain ⟨y, hy⟩ := inT_nonempty ((sem v₀).mp hv₀) x mx
+        exact absurd hy (hx y)
+    subst c_false
     refine ⟨e, o, ?_, he, fun v₁ y v₂ len h => s₁ v₁ y v₂ len ((sem _).mp h), ?_, fun h y hy => ?_⟩
     · unfold Elixir.Module.Types.Descr.«tuple_fetch_static/2»
-      simp [getMapKeys_single, hb, run]
+      simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«tuple_fetch_leaf/3», check (n + 2) (by omega), boolAtom, run]
     · rw [s₂]; simp only [sem]
     · obtain ⟨v₁, v₂, len, h⟩ := s₃ h y hy
       exact ⟨v₁, v₂, len, (sem _).mpr h⟩
