@@ -17,57 +17,57 @@ def UpdSemD (den : Term → V → Prop) (M : MW V → Prop) (rs : List String) (
 
 /-- The named keys of `map_update_static_dnf/6` deleting a key, asking for the old values: the required atoms are
 deleted, and no optional ones. -/
-theorem named_tail_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem named_tail_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
     (A : List String) (Bl : List Term) (fBl : ∀ b ∈ Bl, MField E b) (fl : Bool) {T₁ : Term} (hT₁ : E T₁)
     (errs : Term) (bd : Term) (hbd : bd = .atom "true" ∨ bd = .atom "false") :
     ∃ (T' Er' : Term) (f' : Bool) (B' : List Term),
       Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 6)) (.tuple #[T₁, Term.list Bl, errs, boolAtom fl])
-        (Term.list lines) (Term.list (A.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (.atom "true")
+        (Term.list lines) (Term.list (A.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (boolAtom st)
         (.atom "true") (.atom "true") = .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧
       Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 6)) (.tuple #[T', Term.list B', Er', boolAtom f'])
-        (Term.list lines) .nil (cOp (.map []) Bool.true md) (.atom "false") (.atom "true") (.atom "true") bd =
+        (Term.list lines) .nil (cOp (.map []) Bool.true md) (.atom "false") (boolAtom st) (.atom "true") bd =
         .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧ (∀ b ∈ B', MField E b) ∧
       ∀ w, (∃ b ∈ B', denMF E den b w = Bool.true) ↔ (∃ b ∈ Bl, denMF E den b w = Bool.true) ∨
         ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) md a w := by
-  obtain ⟨B', f', T', Er', e0, -, -, bT'⟩ := named_del ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
+  obtain ⟨B', f', T', Er', e0, -, -, bT'⟩ := named_del (st := st) ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
     A Bl fl T₁ errs hT₁
   obtain ⟨fB', sB'⟩ := bT' rfl fBl
   refine ⟨T', Er', f', B', by simpa using e0, ?_, fB', sB'⟩
-  rcases hbd with rfl | rfl <;> rcases hmd with rfl | rfl | rfl <;>
+  rcases hbd with rfl | rfl <;> rcases hmd with rfl | rfl | rfl <;> cases st <;>
     simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
       Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse]
 
 /-- The named keys of `map_update_static_dnf/6` deleting a key at the atoms outside a negated set, asking for the old
 values: nothing is built. -/
-theorem named_tail_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem named_tail_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
     (ks : List String) (Bl : List Term) (fBl : ∀ b ∈ Bl, MField E b) (fl : Bool) {T₁ : Term}
     (hT₁ : E T₁) (errs : Term) :
     ∃ (T₂ Er₂ T' Er' : Term) (f₂ f' : Bool) (B₂ : List Term),
       Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 6)) (.tuple #[T₁, Term.list Bl, errs, boolAtom fl])
-        (Term.list lines) (Term.list []) (cOp (.map []) Bool.true md) (.atom "true") (.atom "true") (.atom "true")
+        (Term.list lines) (Term.list []) (cOp (.map []) Bool.true md) (.atom "true") (boolAtom st) (.atom "true")
         (.atom "true") = .ok (.tuple #[T₂, Term.list B₂, Er₂, boolAtom f₂]) ∧
       Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 6)) (.tuple #[T₂, Term.list B₂, Er₂, boolAtom f₂])
-        (Term.list lines) (Term.list (ks.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "false") (.atom "true")
+        (Term.list lines) (Term.list (ks.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "false") (boolAtom st)
         (.atom "true") (.atom "false") = .ok (.tuple #[T', Term.list B₂, Er', boolAtom f']) ∧ (∀ b ∈ B₂, MField E b) ∧
       ∀ w, (∃ b ∈ B₂, denMF E den b w = Bool.true) ↔ ∃ b ∈ Bl, denMF E den b w = Bool.true := by
-  obtain ⟨B₂, f₂, T₂, Er₂, e0, hT₂, -, bT₂⟩ := named_del ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
+  obtain ⟨B₂, f₂, T₂, Er₂, e0, hT₂, -, bT₂⟩ := named_del (st := st) ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
     [] Bl fl T₁ errs hT₁
   obtain ⟨fB₂, sB₂⟩ := bT₂ rfl fBl
-  obtain ⟨B', f', T', Er', e1, -, bF', -⟩ := named_del ef (n := n + 2) (by omega) hmd lines hl Bool.false Bool.false
+  obtain ⟨B', f', T', Er', e1, -, bF', -⟩ := named_del (st := st) ef (n := n + 2) (by omega) hmd lines hl Bool.false Bool.false
     ks B₂ f₂ T₂ Er₂ hT₂
   obtain rfl := bF' rfl
   exact ⟨T₂, Er₂, T', Er', f₂, f', B', by simpa using e0, by simpa using e1, fB₂, fun w => by rw [sB₂]; simp⟩
 
 /-- `map_update_static_dnf/6` deleting a key at a finite set of atoms and some kinds, asking for the old values. -/
-theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     (bdd : Term) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (_hne : lines ≠ []) (A : List String)
     (Ds : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (hna : "atom" ∉ Ds) :
     ∃ T Y er f, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
         (splitT (A.map Term.atom) (.atom "nil") (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true")
-        (.atom "true") = .ok (.tuple #[T, Y, er, f]) ∧
+        (boolAtom st) = .ok (.tuple #[T, Y, er, f]) ∧
       ∃ Dm : List String, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (md ≠ "reject" ∨
           KindHeld (fun u => ∃ L ∈ lines, InMLine den L u) d)) ∧
         MapsY E den Y (UpdSemD den (fun u => ∃ L ∈ lines, InMLine den L u) A (.atom "nil") Dm md) := by
@@ -135,7 +135,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         | cons k _ => exact absurd ((mKs k).mp List.mem_cons_self) (by simp)
       subst Ks0
       simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Term.compare_self]
-      obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp) f₁
+      obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp) f₁
         hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
       have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
           ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "reject" a w) ↔
@@ -165,7 +165,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         simpa using memKs d
       rcases mapsD_cases mR with ⟨rfl, emp⟩ | ⟨c, neR, lc, fc, sc⟩
       · simp only [↓reduceIte]
-        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp)
+        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp)
           Bool.true hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
         have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
             ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "reject" a w) ↔
@@ -182,7 +182,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs', Or.inr ⟨r, rfl, fr, sr⟩⟩
           simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
       · simp only [neR, ↓reduceIte, getMapKeys_single, lc, Option.toList]
-        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [c]
+        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [c]
           (by simpa using fc) Bool.true hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
         have sem : ∀ w, ((∃ b ∈ [c], denMF E den b w = Bool.true) ∨
             ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "reject" a w) ↔
@@ -214,7 +214,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           | nil => rfl
           | cons k _ => exact absurd ((memKs k).mp List.mem_cons_self) (by simp)
         subst Ks0
-        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp) f₁
+        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp) f₁
           hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
         have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
             ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "force" a w) ↔
@@ -241,7 +241,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           | nil => exact absurd rfl d0
           | cons _ _ => simp [Term.list]
         rcases mapsD_cases mR with ⟨rfl, emp⟩ | ⟨c, neR, lc, fc, sc⟩
-        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp)
+        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp)
             Bool.true hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
           have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
               ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "force" a w) ↔
@@ -259,7 +259,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
             cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW] at rN1 rN2 ⊢ <;>
               simp [rN1, rN2, rr]
-        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [c]
+        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [c]
             (by simpa using fc) Bool.true hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
           have sem : ∀ w, ((∃ b ∈ [c], denMF E den b w = Bool.true) ∨
               ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "force" a w) ↔
@@ -287,7 +287,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           | nil => rfl
           | cons k _ => exact absurd ((memKs k).mp List.mem_cons_self) (by simp)
         subst Ks0
-        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp) f₁
+        obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp) f₁
           hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
         have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
             ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "keep" a w) ↔
@@ -314,7 +314,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           | nil => exact absurd rfl d0
           | cons _ _ => simp [Term.list]
         rcases mapsD_cases mR with ⟨rfl, emp⟩ | ⟨c, neR, lc, fc, sc⟩
-        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [] (by simp)
+        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [] (by simp)
             f₁ hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
           have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
               ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "keep" a w) ↔
@@ -332,7 +332,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
             cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW] at rN1 rN2 ⊢ <;>
               simp [rN1, rN2, rr]
-        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del ef hn hmd lines hl A [c]
+        · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail_del (st := st) ef hn hmd lines hl A [c]
             (by simpa using fc) f₁ hT₁ (Term.list errs) (.atom "true") (Or.inl rfl)
           have sem : ∀ w, ((∃ b ∈ [c], denMF E den b w = Bool.true) ∨
               ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) "keep" a w) ↔
@@ -353,7 +353,7 @@ theorem upd_dnf_nil_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
 
 /-- `map_update_static_dnf/6` deleting a key at the atoms outside a negated set and some kinds, asking for the old
 values. -/
-theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     (bdd : Term) (fbd : MField E bdd)
     (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (hne : lines ≠ [])
     (sbd : ∀ w, denMF E den bdd w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) (N : List (Term × Term))
@@ -364,7 +364,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
     (lnKS : ∀ L ∈ lines, ∀ s, LineNames L s → mapLookup N (.atom s) ≠ none ∨ s ∈ ks)
     (Ds : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (hat : "atom" ∈ Ds) :
     ∃ T Y er f, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
-        (splitT [] (.map N) (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (.atom "true") =
+        (splitT [] (.map N) (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (boolAtom st) =
         .ok (.tuple #[T, Y, er, f]) ∧
       ∃ Dm : List String, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (md ≠ "reject" ∨
           KindHeld (fun u => ∃ L ∈ lines, InMLine den L u) d)) ∧
@@ -510,7 +510,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         simpa using this
       simp [hL', rZ, Term.list]
       rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
           ks [] (by simp) Bool.true hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -521,7 +521,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memK0, Or.inr ⟨r, rfl, fr, sr⟩⟩
           simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
           ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -552,7 +552,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
             (fun w => ⟨False.elim, fun h => absurd wn h.1⟩) (Or.inr ⟨full, rfl, rfl⟩) w
           simpa using this
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
             ks [] (by simp) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -563,7 +563,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
           · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memK0, Or.inr ⟨r, rfl, fr, sr⟩⟩
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
             ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -593,7 +593,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           semAll (Ks.filter (· = "atom")) (Ks.filter (· ≠ "atom")) _ _ (fun w => Iff.rfl)
             (fun w => ⟨fun h => ⟨wn, h⟩, fun h => h.2⟩) (Or.inr ⟨full, rfl, rfl⟩) w
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
             ks [] (by simp) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -604,7 +604,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
           · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memK0, Or.inr ⟨r, rfl, fr, sr⟩⟩
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inl rfl) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inl rfl) lines hl
             ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force") fun w => by
@@ -693,7 +693,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           (fun w => ⟨False.elim, fun h => absurd wn h.1⟩) rfl rfl w
         simpa using this
       rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inl rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inl rfl)) lines hl
           ks [] (by simp) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "keep") fun w => by
@@ -704,7 +704,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memK0, Or.inr ⟨r, rfl, fr, sr⟩⟩
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [rN1, rN2, rr]
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inl rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inl rfl)) lines hl
           ks [c] (by simpa using fc) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "keep") fun w => by
@@ -734,7 +734,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         semAll (Ks.filter (· = "atom")) (Ks.filter (· ≠ "atom")) _ _ (fun w => Iff.rfl)
           (fun w => ⟨fun h => ⟨wn, h⟩, fun h => h.2⟩) rfl rfl w
       rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inl rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inl rfl)) lines hl
           ks [] (by simp) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "keep") fun w => by
@@ -745,7 +745,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memK0, Or.inr ⟨r, rfl, fr, sr⟩⟩
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [rN1, rN2, rr]
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inl rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inl rfl)) lines hl
           ks [c] (by simpa using fc) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "keep") fun w => by
@@ -802,7 +802,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         have nf : ¬FullK ([] : List String) := fun h => by simpa using h "atom" (by simp [domainKinds])
         simp [UpdSemD, nf]
       rcases mapsD_cases mX with ⟨rfl, emp⟩ | ⟨c, neX, lc, fc, sc⟩
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
           ks [] (by simp) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) [] "reject") fun w => by
@@ -814,7 +814,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, [], fun d => by simpa using memKs d,
             Or.inr ⟨r, rfl, fr, sr⟩⟩
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [rN1, rN2, rr]
-      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+      · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
           ks [c] (by simpa using fc) f₁ hT₁ (Term.list errs)
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
           (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) [] "reject") fun w => by
@@ -905,7 +905,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
           simpa using this
         simp [hL', rZ, Term.list]
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
             ks [] (by simp) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -916,7 +916,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
           · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
             simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+        · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
             ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
           obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
             (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -947,7 +947,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
               (fun w => ⟨False.elim, fun h => absurd wn h.1⟩) (Or.inr ⟨full, rfl, rfl⟩) w
             simpa using this
           rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
               ks [] (by simp) Bool.true hT₁ (Term.list errs)
             obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
               (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -958,7 +958,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
               simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
             · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
               simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
               ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
             obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
               (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -988,7 +988,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
             semAll (Ks.filter (· = "atom")) (Ks.filter (· ≠ "atom")) _ _ (fun w => Iff.rfl)
               (fun w => ⟨fun h => ⟨wn, h⟩, fun h => h.2⟩) (Or.inr ⟨full, rfl, rfl⟩) w
           rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
-          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
               ks [] (by simp) Bool.true hT₁ (Term.list errs)
             obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
               (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -999,7 +999,7 @@ theorem upd_dnf_neg_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {
               simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
             · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
               simp [boolAtom] at rN1 rN2 ⊢; simp [rN1, rN2, rr]
-          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del ef hn (Or.inr (Or.inr rfl)) lines hl
+          · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg_del (st := st) ef hn (Or.inr (Or.inr rfl)) lines hl
               ks [c] (by simpa using fc) Bool.true hT₁ (Term.list errs)
             obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (S := UpdSemD den
               (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject") fun w => by
@@ -1018,7 +1018,7 @@ section
 variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
 
 /-- `map_update_static_dnf/6` deleting a key at a split of keys. -/
-theorem upd_dnf_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem upd_dnf_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     (bdd : Term) (fbd : MField E bdd)
     (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (hne : lines ≠ [])
     (sbd : ∀ w, denMF E den bdd w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rk Ds : List String} {neg : Term}
@@ -1028,7 +1028,7 @@ theorem upd_dnf_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md :
         .ok (Term.list (ks.map Term.atom)) ∧ (∀ s ∈ ks, mapLookup N (.atom s) = none) ∧
       ∀ L ∈ lines, ∀ s, LineNames L s → mapLookup N (.atom s) ≠ none ∨ s ∈ ks) :
     ∃ T Y er f, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
-        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (.atom "true") =
+        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (boolAtom st) =
         .ok (.tuple #[T, Y, er, f]) ∧
       ∃ Dm : List String, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (md ≠ "reject" ∨
           KindHeld (fun u => ∃ L ∈ lines, InMLine den L u) d)) ∧
@@ -1038,22 +1038,22 @@ theorem upd_dnf_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md :
   rcases ok.hneg with rfl | ⟨N, rfl⟩
   · have hna : "atom" ∉ Ds := fun m => by
       obtain ⟨N, e⟩ := ok.hatom.mp (List.mem_map_of_mem m); cases e
-    exact upd_dnf_nil_del ef hn hmd bdd lines hl hne rk Ds hDs hna
+    exact upd_dnf_nil_del (st := st) ef hn hmd bdd lines hl hne rk Ds hDs hna
   · obtain rfl := nr N rfl
     obtain ⟨hNa, ks, hR, hks, lnKS⟩ := hneg N rfl
     have hat : "atom" ∈ Ds := by
       have := ok.hatom.mpr ⟨N, rfl⟩
       obtain ⟨s, ms, e⟩ := List.mem_map.mp this; cases e; exact ms
-    exact upd_dnf_neg_del ef hn hmd bdd fbd lines hl hne sbd N hNa ks hR hks lnKS Ds hDs hat
+    exact upd_dnf_neg_del (st := st) ef hn hmd bdd fbd lines hl hne sbd N hNa ks hR hks lnKS Ds hDs hat
 
 /-- `map_update_static/5` deleting a key at a split of keys, asking for the old values. -/
-theorem del_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+theorem del_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md) (st : Bool)
     {rk Ds : List String} {neg : Term}
     (ok : SplitOk (rk.map Term.atom) neg (Ds.map Term.atom)) (nr : ∀ N, neg = .map N → rk = [])
     (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
     {X : List (Term × Term)} {b : Term} (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) :
     ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X)
-        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (.atom "true") = .ok res ∧
+        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (cOp (.map []) Bool.true md) (.atom "true") (boolAtom st) = .ok res ∧
       ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨
         ∃ T Y er f, res = .tuple #[T, Y, er, f] ∧ (∃ w, denMF E den b w = Bool.true) ∧
           ∃ Dm : List String, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (md ≠ "reject" ∨
@@ -1128,14 +1128,14 @@ theorem del_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
         rcases h with h | ⟨N', mN', -⟩
         · exact names s h
         · rw [← list_inj e₃] at mN'; simp at mN'
-      obtain ⟨T, Y, er, f, rY, Dm, mDm, hY⟩ := upd_dnf_del ef hn hmd (.tuple #[.integer k, tag, fieldsTerm l])
+      obtain ⟨T, Y, er, f, rY, Dm, mDm, hY⟩ := upd_dnf_del (st := st) ef hn hmd (.tuple #[.integer k, tag, fieldsTerm l])
         fb _ hl (by simp) inB ok nr hneg
       rw [conv inB] at hY mDm
       refine ⟨_, ?_, Or.inr ⟨T, Y, er, f, rfl, ⟨w₀, (sem w₀).mpr h₀⟩, Dm, mDm, hY⟩⟩
       unfold Elixir.Module.Types.Descr.«map_update_static/5»
       simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
         Elixir.Module.Types.Descr.«init_map_line_empty?/3», run, Lynx.Term.isMember, boolAtom]
-      simpa [Term.list] using rY
+      simpa [Term.list, boolAtom] using rY
     · refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun w => ?_⟩⟩
       · unfold Elixir.Module.Types.Descr.«map_update_static/5»
         simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
@@ -1177,7 +1177,7 @@ theorem del_update_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
         · rfl
         · simpa using (inB w).mp h
     | cons L rest =>
-      obtain ⟨T, Y, er, f, rY, Dm, mDm, hY⟩ := upd_dnf_del ef hn hmd b fb (L :: rest) hl (by simp) inB ok nr
+      obtain ⟨T, Y, er, f, rY, Dm, mDm, hY⟩ := upd_dnf_del (st := st) ef hn hmd b fb (L :: rest) hl (by simp) inB ok nr
         hneg
       rw [conv inB] at hY mDm
       obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
@@ -1252,7 +1252,8 @@ theorem del_update {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {k
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo
       obtain ⟨res, run, ⟨rfl, -⟩ | ⟨T, Y, er, f, rfl, ⟨w₀, hw₀⟩, Dm, mDm, hY⟩⟩ :=
-        del_update_static (level t n).ef (n := k) (by omega) hmd ok nr hNa hb fb
+        del_update_static (st := Bool.true) (level t n).ef (n := k) (by omega) hmd ok nr hNa hb fb
+      all_goals simp only [boolAtom, ↓reduceIte] at run
       · refine ⟨.atom "badmap", ?_, Or.inl rfl⟩
         simp [key, mo, run, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1»]
       rw [conv] at hY mDm

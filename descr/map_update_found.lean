@@ -126,7 +126,7 @@ theorem append_any (a : List Term) (b : Term) :
 /-- `map_update_named_keys/8` for a constant, asking for the old values on a static type: the errors it adds are
 `badkey` errors, and it finds a key when forcing, or when some map holds a value there and no map lacks it. -/
 theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term) (fld : Term) {md : String}
-    (hmd : Mode md) (req : Bool) (bd : Term)
+    (hmd : Mode md) (req st : Bool) (bd : Term)
     (hk : ∀ a, ∃ (ba : List Term) (F : Term), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3))
       (Term.list lines) (.atom a) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) bd (.atom "true") =
         .ok (.tuple #[Term.list ba, F]) ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o) :
@@ -134,22 +134,22 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
       ∃ (T' B' : Term) (extra : List Term) (f' : Bool),
         Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 4)) (.tuple #[T, B, Term.list Er, boolAtom f])
           (Term.list lines) (Term.list (ks.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
-          (boolAtom req) (.atom "true") (.atom "true") bd =
+          (boolAtom req) (boolAtom st) (.atom "true") bd =
           .ok (.tuple #[T', B', Term.list (extra ++ Er), boolAtom f']) ∧ E T' ∧
         (∀ e ∈ extra, ∃ a, e = .tuple #[.atom "badkey", .atom a]) ∧
         (f' = Bool.true ↔ f = Bool.true ∨ (md = "force" ∧ ks ≠ []) ∨
-          ∃ a ∈ ks, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
+          ∃ a ∈ ks, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) := by
   have loop : ∀ (ks : List String) (T B : Term) (Er : List Term) (f : Bool), E T →
       ∃ (T' B' : Term) (extra : List Term) (f' : Bool),
         Erlang.lists.«foldl_1/3» (D (n + 4))
           (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
-            #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, .atom "true", bd,
+            #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, boolAtom st, bd,
               .atom "true", boolAtom (decide (md = "force"))])
           (.tuple #[T, B, Term.list Er, boolAtom f]) (Term.list (ks.map Term.atom)) =
           .ok (.tuple #[T', B', Term.list (extra ++ Er), boolAtom f']) ∧ E T' ∧
         (∀ e ∈ extra, ∃ a, e = .tuple #[.atom "badkey", .atom a]) ∧
         (f' = Bool.true ↔ f = Bool.true ∨ (md = "force" ∧ ks ≠ []) ∨
-          ∃ a ∈ ks, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
+          ∃ a ∈ ks, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) := by
     intro ks
     induction ks with
     | nil =>
@@ -178,12 +178,12 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
         rw [← sF, fieldSem_mk]; simp
       -- One step of the fold.
       let T₁ := if md ≠ "force" ∧ e = Bool.true then T else u
-      let e₁ : List Term := if md ≠ "force" ∧ req = Bool.true ∧ (e = Bool.true ∨ o = Bool.true) then
+      let e₁ : List Term := if md ≠ "force" ∧ req = Bool.true ∧ (e = Bool.true ∨ (st = Bool.true ∧ o = Bool.true)) then
         [.tuple #[.atom "badkey", .atom a]] else []
-      let f₁ : Bool := if md = "force" then Bool.true else if e then f else f || !o
+      let f₁ : Bool := if md = "force" then Bool.true else if e then f else f || !(st && o)
       have hT₁ : E T₁ := by simp only [T₁]; split; exact hT; exact hu
       have step : (D (n + 4)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
-            #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, .atom "true", bd,
+            #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, boolAtom st, bd,
               .atom "true", boolAtom (decide (md = "force"))]) #[.atom a, .tuple #[T, B, Term.list Er, boolAtom f]] =
           .ok (.tuple #[T₁, ba.foldr Term.cons B, Term.list (e₁ ++ Er), boolAtom f₁]) := by
         have rb' : Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3)) (Term.list lines) (.atom a)
@@ -192,7 +192,7 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
         simp only [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure,
           Elixir.Module.Types.Descr.«-map_update_named_keys/8-fun-0-/9»]
         rw [rb']
-        rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;>
+        rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;> cases st <;>
           simp [T₁, e₁, f₁, re, Lynx.Term.isMember, Elixir.Module.Types.Descr.«opt_union/2», ru, boolAtom,
             Lynx.Except.andAlso, Lynx.Except.orElse, Erlang.erlang.«not/1», append_any, Term.list]
       obtain ⟨T', B', extra, f', r₁, hT', hx, hf⟩ := ih T₁ (ba.foldr Term.cons B) (e₁ ++ Er) f₁ hT₁
@@ -208,10 +208,10 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
           · cases mx
       · rw [hf]
         have f₁E : f₁ = Bool.true ↔ f = Bool.true ∨ md = "force" ∨
-            ((∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
+            ((∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) := by
           rw [someE, noneE]
           simp only [f₁]
-          by_cases hf : md = "force" <;> cases e <;> cases o <;> cases f <;> simp
+          by_cases hf : md = "force" <;> cases e <;> cases o <;> cases f <;> cases st <;> simp
         rw [f₁E]
         constructor
         · rintro ((h | h | h) | ⟨h₁, -⟩ | ⟨a', ma, h⟩)
@@ -289,7 +289,7 @@ theorem any_named_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (li
 /-- `map_update_static_dnf/6` for a constant, asking for the old values: the errors are `badkey` errors and the
 missing domains, which are those no line holds, and except when forcing, it finds a domain some line holds, a named
 atom key some map holds a value at when updating atoms outside a set, or a named key every map holds a value at. -/
-theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) {md : String} (hmd : Mode md)
+theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) {md : String} (hmd : Mode md) (st : Bool)
     (bdd : Term) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (rk : List String)
     (neg : Term) (Ds : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (R : List String)
     (hR : Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 6)) neg bdd = .ok (Term.list (R.map Term.atom)))
@@ -300,13 +300,14 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
     (r : Term)
     (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
       (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
-      (.atom "true") (.atom "true") = .ok r) :
+      (.atom "true") (boolAtom st) = .ok r) :
     ∃ (T Y : Term) (extra mis : List Term) (f : Bool), r = .tuple #[T, Y, Term.list (extra ++ mis.map bdErr), boolAtom f] ∧
       (∀ e ∈ extra, ∃ a, e = .tuple #[.atom "badkey", .atom a]) ∧
       (∀ d, d ∈ mis ↔ ∃ s ∈ Ds, d = .atom s ∧ ¬∃ L ∈ lines, ∃ x, LineTag den L s x) ∧
       (md ≠ "force" → (f = Bool.true ↔ (∃ s ∈ Ds, ∃ L ∈ lines, ∃ x, LineTag den L s x) ∨
         ("atom" ∈ Ds ∧ ∃ a ∈ rk ++ R, ∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∨
-        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none)) := by
+        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none))) ∧
+      (md = "force" → (f = Bool.true ↔ Ds ≠ [] ∨ rk ≠ [] ∨ R ≠ [])) := by
   classical
   have m₀ : Erlang.erlang.«--/2» (Term.list (R.map Term.atom)) .nil = .ok (Term.list (R.map Term.atom)) := by
     simp [Erlang.erlang.«--/2», Term.properList?]
@@ -358,12 +359,12 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
   -- The found flag of the named keys, from the domains.
   have fSem : ∀ f₀ f₂ f₃ : Bool, (f₀ = Bool.true ↔ f₁ = Bool.true) →
       (f₂ = Bool.true ↔ f₀ = Bool.true ∨ (md = "force" ∧ rk ≠ []) ∨
-        ∃ a ∈ rk, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) →
+        ∃ a ∈ rk, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) →
       (f₃ = Bool.true ↔ f₂ = Bool.true ∨ (md = "force" ∧ R ≠ []) ∨
-        ∃ a ∈ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) →
+        ∃ a ∈ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) →
       md ≠ "force" → (f₃ = Bool.true ↔ (∃ s ∈ Ds, ∃ L ∈ lines, ∃ x, LineTag den L s x) ∨
         ("atom" ∈ Ds ∧ ∃ a ∈ rk ++ R, ∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∨
-        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
+        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) := by
     intro f₀ f₂ f₃ e₀ e₂ e₃ nf
     rw [e₃, e₂, e₀, fD₁, sc]
     simp only [nf, false_and, false_or, List.mem_append]
@@ -387,7 +388,7 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
       r₁'', r₂', rE', Lynx.Except.andAlso] at h
   all_goals
     obtain ⟨x, hx, h⟩ := bind_ok h
-    obtain ⟨v44, -, h⟩ := bind_ok h
+    obtain ⟨v44, h44, h⟩ := bind_ok h
     obtain ⟨v51, h51, h⟩ := bind_ok h
     -- The found flag the named keys start with.
     obtain ⟨f₀, rfl, ef₀⟩ : ∃ f₀ : Bool, v51 = boolAtom f₀ ∧ (md' ≠ "force" → (f₀ = Bool.true ↔ f₁ = Bool.true)) := by
@@ -399,6 +400,15 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
           | exact ⟨Bool.false, rfl, by simp⟩
           | (split at h51 <;> simp at h51 <;> subst h51 <;>
               first | exact ⟨Bool.true, rfl, by simp⟩ | exact ⟨Bool.false, rfl, by simp⟩))
+    have ff₀ : md' = "force" → (f₀ = Bool.true ↔ Ds ≠ [] ∨ f₁ = Bool.true) := by
+      intro hf
+      subst hmd'
+      first
+      | (simp at hf; done)
+      | (clear h hk hcb hc r₁'' r₂' rE'
+         cases f₁ <;> simp [Lynx.Except.orElse, boolAtom] at hx <;> subst hx <;>
+           rcases Ds with _ | ⟨d, Ds⟩ <;> simp [Term.list, Lynx.Except.orElse] at h44 <;> subst h44 <;>
+           cases f₀ <;> simp [boolAtom, Lynx.Except.orElse] at h51 ⊢)
     obtain ⟨X, hX, h⟩ := bind_ok h
     have hb : X.2 = .atom "false" ∨ X.2 = .atom "true" := by
       clear h
@@ -408,7 +418,7 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
       all_goals done
     obtain ⟨B96, -, h⟩ := bind_ok h
     obtain ⟨r97, h97, h⟩ := bind_ok h
-    obtain ⟨T', B', extra, f₂, e97, hT', hx₁, hf₂⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.true
+    obtain ⟨T', B', extra, f₂, e97, hT', hx₁, hf₂⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.true st
       (.atom "true") (fun a => hk Bool.true a) rk T₁ B96 (mis₁.map bdErr) f₀ hT₁
     have e₁ := h97.symm.trans e97
     cases e₁
@@ -418,22 +428,42 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
       · exact ⟨Bool.true, hb⟩
     rw [ebd] at h
     obtain ⟨r5, h5, h⟩ := bind_ok h
-    obtain ⟨T'', B'', extra', f₃, e5, -, hx₂, hf₃⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.false
+    obtain ⟨T'', B'', extra', f₃, e5, -, hx₂, hf₃⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.false st
       (boolAtom bd) (fun a => hk bd a) R T' B' (extra ++ mis₁.map bdErr) f₂ hT'
     have e₂ := h5.symm.trans e5
     cases e₂
     obtain ⟨u, -, h⟩ := bind_ok h
     have fin : md' ≠ "force" → (f₃ = Bool.true ↔ (∃ s ∈ Ds, ∃ L ∈ lines, ∃ x, LineTag den L s x) ∨
         ("atom" ∈ Ds ∧ ∃ a ∈ rk ++ R, ∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∨
-        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
+        ∃ a ∈ rk ++ R, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none)) := by
       subst hmd'
       exact fun nf => fSem f₀ f₂ f₃ (ef₀ nf) hf₂ hf₃ nf
     have bk : ∀ e ∈ extra' ++ extra, ∃ a, e = .tuple #[.atom "badkey", .atom a] := fun e me => by
       rcases List.mem_append.mp me with me | me
       · exact hx₂ e me
       · exact hx₁ e me
+    have fin2 : md' = "force" → (f₃ = Bool.true ↔ Ds ≠ [] ∨ rk ≠ [] ∨ R ≠ []) := by
+      intro hf
+      have f₁D : f₁ = Bool.true → Ds ≠ [] := fun h1 => by
+        rcases fD₁.mp h1 with ⟨s, ms, -⟩ | ⟨ms, -⟩ <;> exact List.ne_nil_of_mem ms
+      rw [hf₃, hf₂, ff₀ hf]
+      subst hmd'
+      first
+      | (simp at hf; done)
+      | (constructor
+         · rintro (((h0 | h1) | ⟨-, h2⟩ | ⟨a, ma, -⟩) | ⟨-, h3⟩ | ⟨a, ma, -⟩)
+           · exact Or.inl h0
+           · exact Or.inl (f₁D h1)
+           · exact Or.inr (Or.inl h2)
+           · exact Or.inr (Or.inl (List.ne_nil_of_mem ma))
+           · exact Or.inr (Or.inr h3)
+           · exact Or.inr (Or.inr (List.ne_nil_of_mem ma))
+         · rintro (h0 | h2 | h3)
+           · exact Or.inl (Or.inl (Or.inl h0))
+           · exact Or.inl (Or.inr (Or.inl ⟨rfl, h2⟩))
+           · exact Or.inr (Or.inl ⟨rfl, h3⟩))
     subst hmd'
-    split at h <;> (simp only [Except.ok.injEq] at h; subst h; exact ⟨T'', _, extra' ++ extra, mis₁, f₃, by rw [List.append_assoc], bk, mD₁, fin⟩)
+    split at h <;> (simp only [Except.ok.injEq] at h; subst h; exact ⟨T'', _, extra' ++ extra, mis₁, f₃, by rw [List.append_assoc], bk, mD₁, fin, fin2⟩)
 
 /-- `dnf_flag` on the lines of a map field: the missing domains other than atoms are the kinds no map holds, and with
 no named atoms, except when forcing, it finds a key exactly when some map holds a value at a key of the split. -/
@@ -463,7 +493,7 @@ theorem dnf_flag_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld
     | cons r rs =>
       obtain ⟨s, -, N, eN, -⟩ := hR _ List.mem_cons_self
       exact Or.inr (nr N eN)
-  obtain ⟨T, Y, extra, mis, f, rfl, hx, hmis, hf⟩ := dnf_flag ef hn fld hmd b lines hl rk neg Ds hDs R' rR hRk
+  obtain ⟨T, Y, extra, mis, f, rfl, hx, hmis, hf, -⟩ := dnf_flag ef hn fld hmd Bool.true b lines hl rk neg Ds hDs R' rR hRk
     (hkL lines hl) r h
   have heldE : ∀ s ∈ Ds, s ≠ "atom" → ((∃ L ∈ lines, ∃ x, LineTag den L s x) ↔
       ∃ w, denMF E den b w = Bool.true ∧ HasKind w s) := fun s ms sa => by
@@ -497,6 +527,116 @@ theorem dnf_flag_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld
       · obtain ⟨s', ms', e⟩ := List.mem_map.mp ms
         injection e with e; subst e
         exact Or.inl ⟨s', ms', L, mL, x, hx'⟩
+
+/-- Whether an update finds a key, from the maps of a type: when forcing, whether the key type names an atom or holds a
+kind; otherwise, without named atoms, whether some map holds a value at a key of the split, and with named atoms (and
+no negated set), whether some map holds a key of a kind of the split, or holds a value at a named atom that, on static
+types, every map holds. -/
+def FoundS (M : MW V → Prop) (rk : List String) (neg : Term) (Ds : List String) (md : String) (st : Bool) : Prop :=
+  (md = "force" ∧ (Ds ≠ [] ∨ rk ≠ [])) ∨
+  (md ≠ "force" ∧ rk = [] ∧ ∃ x w, M w ∧ ∃ κ, SplitKey (rk.map Term.atom) neg (Ds.map Term.atom) κ ∧ w κ = some x) ∨
+  (md ≠ "force" ∧ rk ≠ [] ∧ ((∃ s ∈ Ds, ∃ w, M w ∧ HasKind w s) ∨
+    ∃ a ∈ rk, (∃ w x, M w ∧ w (.atom a) = some x) ∧ (st = Bool.true → ∀ w, M w → w (.atom a) ≠ none)))
+
+/-- `dnf_flag` on the lines of a map field, for any mode, static or not: the found flag is `FoundS` of its maps. -/
+theorem dnf_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) {md : String} (hmd : Mode md)
+    (st : Bool)
+    (hkL : ∀ lines : List Term, (∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) → ∀ (bd : Bool) a,
+      ∃ (ba : List Term) (F : Term), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 5))
+        (Term.list lines) (.atom a) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, F]) ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o)
+    {b : Term} (fb : MField E b) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rk Ds : List String}
+    {neg : Term} (ok : SplitOk (rk.map Term.atom) neg (Ds.map Term.atom)) (nr : ∀ N, neg = .map N → rk = []) (r : Term)
+    (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list lines)
+      (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
+      (.atom "true") (boolAtom st) = .ok r) :
+    ∃ (T Y : Term) (el : List Term) (f : Bool), r = .tuple #[T, Y, Term.list el, boolAtom f] ∧
+      (f = Bool.true ↔ FoundS (fun u => denMF E den b u = Bool.true) rk neg Ds md st) := by
+  have hDs : ∀ s ∈ Ds, s ∈ domainKinds := fun s ms => by
+    obtain ⟨s', ms', e⟩ := ok.hds _ (List.mem_map_of_mem ms); cases e; exact ms'
+  obtain ⟨R, rR, hR, swR⟩ := neg_keys_split (den := den) ef fb (n + 5) ok
+  obtain ⟨R', rfl⟩ := atoms_of fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩
+  have hRk : R' = [] ∨ rk = [] := by
+    cases R' with
+    | nil => exact Or.inl rfl
+    | cons r rs =>
+      obtain ⟨s, -, N, eN, -⟩ := hR _ List.mem_cons_self
+      exact Or.inr (nr N eN)
+  obtain ⟨T, Y, extra, mis, f, rfl, -, -, hf, hff⟩ := dnf_flag ef hn fld hmd st b lines hl rk neg Ds hDs R' rR hRk
+    (hkL lines hl) r h
+  refine ⟨T, Y, extra ++ mis.map bdErr, f, rfl, ?_⟩
+  have atomR : ∀ a ∈ R', "atom" ∈ Ds := fun a ma => by
+    obtain ⟨s, -, N, eN, -⟩ := hR _ (List.mem_map_of_mem ma)
+    obtain ⟨s', ms', e⟩ := List.mem_map.mp (ok.hatom.mpr ⟨N, eN⟩)
+    cases e; exact ms'
+  by_cases fo : md = "force"
+  · rw [hff fo]
+    simp only [FoundS, fo, ne_eq, not_true_eq_false, false_and, or_false, true_and]
+    constructor
+    · rintro (h | h | h)
+      · exact Or.inl h
+      · exact Or.inr h
+      · obtain ⟨a, as⟩ := List.exists_mem_of_ne_nil R' h
+        exact Or.inl (List.ne_nil_of_mem (atomR a as))
+    · rintro (h | h)
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h)
+  rw [hf fo]
+  by_cases rk0 : rk = []
+  · subst rk0
+    have pe := fun x => pieces_sem ef lines hl sl ok hR swR x
+    simp only [FoundS, fo, false_and, false_or, ne_eq, not_false_eq_true, true_and, not_true_eq_false, and_false,
+      or_false, List.map_nil, List.nil_append, List.not_mem_nil, exists_false] at pe ⊢
+    constructor
+    · rintro (⟨s, ms, L, mL, x, hx'⟩ | ⟨-, a, ma, L, mL, x, hx'⟩ | ⟨a, ma, ⟨L, mL, x, hx'⟩, -⟩)
+      · exact ⟨x, (pe x).mp (Or.inr ⟨s, List.mem_map_of_mem ms, L, mL, hx'⟩)⟩
+      · exact ⟨x, (pe x).mp (Or.inl ⟨a, List.mem_map_of_mem ma, L, mL, hx'⟩)⟩
+      · exact ⟨x, (pe x).mp (Or.inl ⟨a, List.mem_map_of_mem ma, L, mL, hx'⟩)⟩
+    · rintro ⟨x, hw⟩
+      rcases (pe x).mpr hw with ⟨a, ma, L, mL, hx'⟩ | ⟨s, ms, L, mL, hx'⟩
+      · obtain ⟨a', ma', e⟩ := List.mem_map.mp ma
+        injection e with e; subst e
+        exact Or.inr (Or.inl ⟨atomR a' ma', a', ma', L, mL, x, hx'⟩)
+      · obtain ⟨s', ms', e⟩ := List.mem_map.mp ms
+        injection e with e; subst e
+        exact Or.inl ⟨s', ms', L, mL, x, hx'⟩
+  · -- Named atoms: no negated set, so no atoms outside it and no atom kind.
+    have nn : neg = .atom "nil" := by
+      rcases ok.hneg with h | ⟨N, h⟩
+      · exact h
+      · exact absurd (nr N h) rk0
+    have R0 : R' = [] := by
+      cases R' with
+      | nil => rfl
+      | cons r rs =>
+        obtain ⟨s, -, N, eN, -⟩ := hR _ List.mem_cons_self
+        rw [nn] at eN; cases eN
+    have na : "atom" ∉ Ds := fun ma => by
+      obtain ⟨N, eN⟩ := ok.hatom.mp (List.mem_map_of_mem ma)
+      rw [nn] at eN; cases eN
+    subst R0
+    have heldE : ∀ s ∈ Ds, ((∃ L ∈ lines, ∃ x, LineTag den L s x) ↔
+        ∃ w, denMF E den b w = Bool.true ∧ HasKind w s) := fun s ms => by
+      have sa : s ≠ "atom" := fun e => na (e ▸ ms)
+      rw [← kind_held_ne ef hl (hDs s ms) sa]
+      exact ⟨fun h => let ⟨u, hu, hk⟩ := h.2 sa; ⟨u, (sl u).mpr hu, hk⟩,
+        fun ⟨u, hu, hk⟩ => ⟨fun e => absurd e sa, fun _ => ⟨u, (sl u).mp hu, hk⟩⟩⟩
+    have lm := fun a o => longM_iff (E := E) (den := den) sl a o
+    simp only [FoundS, fo, rk0, false_and, false_or, ne_eq, not_false_eq_true, true_and, List.append_nil, na,
+      false_and, false_or] at lm ⊢
+    constructor
+    · rintro (⟨s, ms, h⟩ | ⟨a, ma, ⟨L, mL, x, hx'⟩, hn'⟩)
+      · exact Or.inl ⟨s, ms, (heldE s ms).mp h⟩
+      · obtain ⟨w, hw, wa⟩ := (lm a (some x)).mp ⟨L, mL, hx'⟩
+        refine Or.inr ⟨a, ma, ⟨w, x, hw, wa⟩, fun hs w' hw' e => hn' hs ((lm a none).mpr ⟨w', hw', e⟩)⟩
+    · rintro (⟨s, ms, w, hw, hk⟩ | ⟨a, ma, ⟨w, x, hw, wa⟩, hn'⟩)
+      · obtain ⟨L, mL, x, hx'⟩ := (heldE s ms).mpr ⟨w, hw, hk⟩
+        exact Or.inl ⟨s, ms, L, mL, x, hx'⟩
+      · obtain ⟨L, mL, hL⟩ := (lm a (some x)).mpr ⟨w, hw, wa⟩
+        refine Or.inr ⟨a, ma, ⟨L, mL, x, hL⟩, fun hs ⟨L', mL', h'⟩ => ?_⟩
+        obtain ⟨w', hw', e⟩ := (lm a none).mp ⟨L', mL', h'⟩
+        exact hn' hs w' hw' e
 
 /-- `map_update_static/5` for a constant at a split of static keys, asking for the old values: `:badmap`, or the
 errors and found flag `dnf_flag_sem` gives. -/
@@ -587,6 +727,95 @@ theorem flag_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld 
       obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
       obtain ⟨T, Y, extra, mis, f, e, hx, hm, hmk, hf⟩ := dnf_flag_sem ef hn fld hmd hkL fb _ hl inB ok nr res run
       exact Or.inr ⟨T, Y, extra, mis, f, e, ⟨w₀, (inB w₀).mpr ⟨L, List.mem_cons_self, h₀⟩⟩, hx, hm, hmk, hf⟩
+
+
+
+
+/-- `map_update_static/5` for a constant at a split of static keys, asking for the old values: `:badmap`, or the
+found flag `dnf_found` gives, static or not. -/
+theorem static_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) {md : String} (hmd : Mode md) (st : Bool)
+    (hkL : ∀ lines : List Term, (∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) → ∀ (bd : Bool) a,
+      ∃ (ba : List Term) (F : Term), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 5))
+        (Term.list lines) (.atom a) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, F]) ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o)
+    {rk Ds : List String} {neg : Term}
+    (ok : SplitOk (rk.map Term.atom) neg (Ds.map Term.atom)) (nr : ∀ N, neg = .map N → rk = [])
+    {X : List (Term × Term)} {b : Term} (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) (res : Term)
+    (run : Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X)
+      (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (.atom "true") (boolAtom st) = .ok res) :
+    res = .atom "badmap" ∨ ∃ (T Y : Term) (er : List Term) (f : Bool), res = .tuple #[T, Y, Term.list er, boolAtom f] ∧
+      (∃ w, denMF E den b w = Bool.true) ∧ (f = Bool.true ↔ FoundS (fun u => denMF E den b u = Bool.true) rk neg Ds md st) := by
+  by_cases three : ∃ k x y, b = .tuple #[k, x, y]
+  · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
+    obtain ⟨k, tag, l, rfl, g, sl⟩ := mfield_three fb e₀
+    have sem : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔ MSem den tag l w :=
+      fun w => denMF_leaf ef sl g w
+    obtain ⟨e, ri⟩ := init_total ef.mopsE ef.mdopsE ef.jopsU [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
+    have ri : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D (n + 6)) tag (fieldsTerm l) .nil (.map []) =
+        .ok (boolAtom e) := ri (n + 6) (by omega)
+    cases e
+    · have ne : ∃ w, MSem den tag l w := Classical.byContradiction fun none => by
+        have := ri.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ (m := n + 6) (by omega) rfl g sl
+          (negs := []) (by simp) fun w hw => absurd ⟨w, hw⟩ none)
+        simp [boolAtom] at this
+      obtain ⟨w₀, h₀⟩ := ne
+      have hl : ∀ L ∈ [Term.tuple #[tag, fieldsTerm l, Term.list []]], MLine E L ∧ ∃ w, InMLine den L w := by
+        intro L mL
+        rw [List.mem_singleton] at mL; subst mL
+        exact ⟨⟨tag, l, [], rfl, g, sl, by simp⟩, w₀, inMLine_iff.mpr ⟨h₀, fun N mN => by simp at mN⟩⟩
+      have inB : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔
+          ∃ L ∈ [Term.tuple #[tag, fieldsTerm l, Term.list []]], InMLine den L w := fun w => by
+        rw [sem]
+        simp only [List.mem_singleton, exists_eq_left]
+        exact ⟨fun h => inMLine_iff.mpr ⟨h, fun N mN => by simp at mN⟩, fun h => (inMLine_iff.mp h).1⟩
+      have unf : Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X)
+          (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (.atom "true") (boolAtom st) =
+          Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) (.tuple #[.integer k, tag, fieldsTerm l])
+            (Term.list [Term.tuple #[tag, fieldsTerm l, Term.list []]]) (splitT (rk.map Term.atom) neg (Ds.map Term.atom))
+            (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (.atom "true") (boolAtom st) := by
+        unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+          Elixir.Module.Types.Descr.«init_map_line_empty?/3», ri, Lynx.Term.isMember, boolAtom, Term.list]
+      rw [unf] at run
+      obtain ⟨T, Y, er, f, e, hf⟩ := dnf_found ef hn fld hmd st hkL fb _ hl inB ok nr res run
+      exact Or.inr ⟨T, Y, er, f, e, ⟨w₀, (sem w₀).mpr h₀⟩, hf⟩
+    · left
+      unfold Elixir.Module.Types.Descr.«map_update_static/5» at run
+      simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+        Elixir.Module.Types.Descr.«init_map_line_empty?/3», ri, Lynx.Term.isMember, boolAtom] at run
+      exact run.symm
+  · have wb : Bdd (MLit E) b := by
+      rcases fb with ⟨k, rfl⟩ | wb
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · exact wb
+    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl
+      (m := n + 6) (by omega) wb
+    have inB : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := fun w => by
+      rw [denMF_bdd wb]; exact sl w
+    cases lines with
+    | nil =>
+      left
+      unfold Elixir.Module.Types.Descr.«map_update_static/5» at run
+      rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+      · simp [getMapKeys_single, hb, rl, Term.list] at run; exact run.symm
+      · simp [getMapKeys_single, hb, rl, Term.list] at run; exact run.symm
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · simp [getMapKeys_single, hb, rl, Term.list] at run; exact run.symm
+    | cons L rest =>
+      have unf : Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X)
+          (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (.atom "true") (boolAtom st) =
+          Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list (L :: rest))
+            (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (.atom "true") (boolAtom st) := by
+        unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · exact absurd ⟨_, _, _, rfl⟩ three
+        · simp [getMapKeys_single, hb, rl, Term.list]
+      rw [unf] at run
+      obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
+      obtain ⟨T, Y, er, f, e, hf⟩ := dnf_found ef hn fld hmd st hkL fb _ hl inB ok nr res run
+      exact Or.inr ⟨T, Y, er, f, e, ⟨w₀, (inB w₀).mpr ⟨L, List.mem_cons_self, h₀⟩⟩, hf⟩
 
 
 

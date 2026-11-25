@@ -339,7 +339,7 @@ theorem field_wf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {rk Ds :
         rcases hY with ⟨rfl, -⟩ | ⟨r', rfl, fr, -⟩
         · exact Or.inl rfl
         · exact Or.inr ⟨r', rfl, fr⟩
-    · obtain ⟨res, run, ⟨rfl, -⟩ | ⟨T, Y, er, f, rfl, -, Dm, -, hY⟩⟩ := del_update_static ef hn hmd ok nr hNa hb fb
+    · obtain ⟨res, run, ⟨rfl, -⟩ | ⟨T, Y, er, f, rfl, -, Dm, -, hY⟩⟩ := del_update_static (st := Bool.true) ef hn hmd ok nr hNa hb fb
       · exact ⟨_, run, Or.inl rfl⟩
       · refine ⟨_, run, Or.inr ⟨T, Y, er, f, rfl, ?_⟩⟩
         rcases hY with ⟨rfl, -⟩ | ⟨r', rfl, fr, -⟩
@@ -1996,10 +1996,10 @@ theorem named_tail_negA_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ 
         (.atom "true") (.atom "false") = .ok (.tuple #[T', Term.list B₂, Er', boolAtom f']) ∧ (∀ b ∈ B₂, MField E b) ∧
       ∀ w, (∃ b ∈ B₂, denMF E den b w = Bool.true) ↔ (∃ b ∈ Bl, denMF E den b w = Bool.true) ∨
         ∃ a ∈ A, DelAt (fun u => ∃ L ∈ lines, InMLine den L u) md a w := by
-  obtain ⟨B₂, f₂, T₂, Er₂, e0, hT₂, -, bT₂⟩ := named_del ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
+  obtain ⟨B₂, f₂, T₂, Er₂, e0, hT₂, -, bT₂⟩ := named_del (st := Bool.true) ef (n := n + 2) (by omega) hmd lines hl Bool.true Bool.true
     A Bl fl T₁ errs hT₁
   obtain ⟨fB₂, sB₂⟩ := bT₂ rfl fBl
-  obtain ⟨B', f', T', Er', e1, -, bF', -⟩ := named_del ef (n := n + 2) (by omega) hmd lines hl Bool.false Bool.false
+  obtain ⟨B', f', T', Er', e1, -, bF', -⟩ := named_del (st := Bool.true) ef (n := n + 2) (by omega) hmd lines hl Bool.false Bool.false
     ks B₂ f₂ T₂ Er₂ hT₂
   obtain rfl := bF' rfl
   exact ⟨T₂, Er₂, T', Er', f₂, f', B', by simpa using e0, by simpa using e1, fB₂, fun w => by rw [sB₂]⟩
@@ -3760,7 +3760,7 @@ theorem del_gsem {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {s :
   · obtain ⟨rs', rfl⟩ := strs_of ok.hrs
     obtain ⟨Ds', rfl, hDs⟩ := ds_of ok.hds
     obtain ⟨res, rr, ⟨rfl, -⟩ | ⟨T', Y', er', f', rfl, -, Dm, mDm, hY⟩⟩ :=
-      del_update_static ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hmd ok (fun N e => nomatch e)
+      del_update_static (st := Bool.true) ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hmd ok (fun N e => nomatch e)
         (fun N e => nomatch e) hb fb
     · rcases rel (by rw [show k + 2 + 6 = k + 8 by omega] at rr; exact rr) with e | ⟨_, _, _, _, _, _, _, -, e⟩ <;> cases e
     · rw [conv hb] at hY mDm
@@ -3768,7 +3768,7 @@ theorem del_gsem {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {s :
         fun κ h' => (sk κ).mp h', mDm, h⟩)
   · obtain ⟨Ds', rfl, hDs⟩ := ds_of ok.hds
     obtain ⟨res, rr, ⟨rfl, -⟩ | ⟨T', Y', er', f', rfl, -, Dm, mDm, hY⟩⟩ :=
-      del_update_static ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hmd (rk := []) ok (fun _ _ => rfl)
+      del_update_static (st := Bool.true) ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hmd (rk := []) ok (fun _ _ => rfl)
         (fun N' e => by cases e; exact na) hb fb
     · rcases rel (by rw [show k + 2 + 6 = k + 8 by omega] at rr; exact rr) with e | ⟨_, _, _, _, _, _, _, -, e⟩ <;> cases e
     · rw [conv hb] at hY mDm

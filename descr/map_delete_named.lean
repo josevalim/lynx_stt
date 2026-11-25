@@ -552,11 +552,11 @@ theorem del_key_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (line
 /-- `map_update_named_keys/8` deleting the keys, asking for the old values, on a static type: the maps `DelAt` gives at
 the keys, when building. -/
 theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
-    (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (req bd : Bool) :
+    (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (req bd : Bool) (st : Bool) :
     ∀ (ks : List String) (B : List Term) (f : Bool) (T Er : Term), E T →
       ∃ (B' : List Term) (f' : Bool) (T' Er' : Term),
         Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 4)) (.tuple #[T, Term.list B, Er, boolAtom f])
-          (Term.list lines) (Term.list (ks.map Term.atom)) (cOp (.map []) Bool.true md) (boolAtom req) (.atom "true")
+          (Term.list lines) (Term.list (ks.map Term.atom)) (cOp (.map []) Bool.true md) (boolAtom req) (boolAtom st)
           (.atom "true") (boolAtom bd) = .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧ E T' ∧
         (bd = Bool.false → B' = B) ∧
         (bd = Bool.true → (∀ b ∈ B, MField E b) → (∀ b ∈ B', MField E b) ∧
@@ -566,7 +566,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
       ∃ (B' : List Term) (f' : Bool) (T' Er' : Term),
         Erlang.lists.«foldl_1/3» (D (n + 4))
           (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
-            #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, .atom "true", boolAtom bd, .atom "true",
+            #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, boolAtom st, boolAtom bd, .atom "true",
               boolAtom (decide (md = "force"))])
           (.tuple #[T, Term.list B, Er, boolAtom f]) (Term.list (ks.map Term.atom)) =
           .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧ E T' ∧
@@ -589,7 +589,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
       -- One step of the fold: the maps of the key are added, and the old values stay a type.
       obtain ⟨f₁, T₁, Er₁, step, hT₁⟩ : ∃ (f₁ : Bool) (T₁ Er₁ : Term),
           (D (n + 4)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
-            #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, .atom "true", boolAtom bd, .atom "true",
+            #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, boolAtom st, boolAtom bd, .atom "true",
               boolAtom (decide (md = "force"))]) #[.atom a, .tuple #[T, Term.list B, Er, boolAtom f]] =
             .ok (.tuple #[T₁, Term.list (ba ++ B), Er₁, boolAtom f₁]) ∧ E T₁ := by
         have rb' : Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3)) (Term.list lines) (.atom a)
@@ -597,7 +597,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
         simp only [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure,
           Elixir.Module.Types.Descr.«-map_update_named_keys/8-fun-0-/9»]
         rw [rb']
-        rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;>
+        rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;> cases st <;>
           simp [re, Lynx.Term.isMember, Elixir.Module.Types.Descr.«opt_union/2», ru, boolAtom, Lynx.Except.andAlso,
             Lynx.Except.orElse, Erlang.erlang.«not/1», append_list] <;>
           first
