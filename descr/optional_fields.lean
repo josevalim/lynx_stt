@@ -17,10 +17,10 @@ theorem any1_sem {m : Nat} (f : Term) (P : Term → Prop) : ∀ (l : List Term),
     · exact ⟨Bool.true, by simp [rb, boolAtom], by simp only [true_iff]; exact ⟨x, List.mem_cons_self, sb.mp rfl⟩⟩
 
 theorem any_sem {m : Nat} (mo nm : String) (caps : Array Term) (P : Term → Prop) (l : List Term)
-    (each : ∀ x ∈ l, ∃ b : Bool, (D m).pure (.function mo nm 1 caps) #[x] = .ok (boolAtom b) ∧ (b = Bool.true ↔ P x)) :
-    ∃ b : Bool, Erlang.lists.«any/2» (D m) (.function mo nm 1 caps) (Term.list l) = .ok (boolAtom b) ∧
+    (each : ∀ x ∈ l, ∃ b : Bool, (D m).pure (.function false mo nm 1 caps) #[x] = .ok (boolAtom b) ∧ (b = Bool.true ↔ P x)) :
+    ∃ b : Bool, Erlang.lists.«any/2» (D m) (.function false mo nm 1 caps) (Term.list l) = .ok (boolAtom b) ∧
       (b = Bool.true ↔ ∃ x ∈ l, P x) := by
-  obtain ⟨b, rb, sb⟩ := any1_sem (m := m) (.function mo nm 1 caps) P l each
+  obtain ⟨b, rb, sb⟩ := any1_sem (m := m) (.function false mo nm 1 caps) P l each
   refine ⟨b, ?_, sb⟩
   cases l with
   | nil => simpa [Erlang.lists.«any/2», Erlang.erlang.«is_function/2», Term.list, Erlang.lists.«any_1/2»] using rb
@@ -36,7 +36,7 @@ def OptFields (l : List (Term × Term)) : Prop := ∀ e ∈ l, ∃ ty, e.2 = .tu
 
 theorem opt_fields_all (name : String) (hname : name = "-has_empty_map?/1-fun-0-" ∨ name = "-has_empty_map?/1-fun-1-")
     {l : List (Term × Term)} (hl : ∀ e ∈ l, FieldValue E e.2) {m : Nat} :
-    ∃ b : Bool, Erlang.lists.«all/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" name 1 #[]) (fieldsTerm l) =
+    ∃ b : Bool, Erlang.lists.«all/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" name 1 #[]) (fieldsTerm l) =
       .ok (boolAtom b) ∧ (b = Bool.true ↔ OptFields l) := by
   obtain ⟨b, rb, sb⟩ := all_sem (K' := 0) "Elixir.Module.Types.Descr" name #[] (l.map fun e => .tuple #[e.1, e.2])
     (m := m + 1) (by omega) (fun x => ∃ k ty, x = .tuple #[k, .tuple #[ty, .atom "true"]])

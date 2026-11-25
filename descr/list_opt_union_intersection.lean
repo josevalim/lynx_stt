@@ -61,11 +61,11 @@ theorem nl_leaf_inter (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {k�
       else .ok (.tuple #[.integer k, a, b]) := by
     unfold Elixir.Module.Types.Descr.«opt_list_leaf_intersection/3»
     have fa : Lynx.Dispatcher.pure (D (n + 1))
-        (.function "Elixir.Module.Types.Descr" "-opt_list_leaf_intersection/3-fun-0-" 2 #[.map S]) #[a₁, a₂] = .ok a := by
+        (.function false "Elixir.Module.Types.Descr" "-opt_list_leaf_intersection/3-fun-0-" 2 #[.map S]) #[a₁, a₂] = .ok a := by
       rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_list_leaf_intersection/3-fun-0-/2».pure]
       simpa [Elixir.Module.Types.Descr.«-opt_list_leaf_intersection/3-fun-0-/3»] using ra
     have fb : Lynx.Dispatcher.pure (D (n + 1))
-        (.function "Elixir.Module.Types.Descr" "-opt_list_leaf_intersection/3-fun-0-" 2 #[.map S]) #[b₁, b₂] = .ok b := by
+        (.function false "Elixir.Module.Types.Descr" "-opt_list_leaf_intersection/3-fun-0-" 2 #[.map S]) #[b₁, b₂] = .ok b := by
       rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_list_leaf_intersection/3-fun-0-/2».pure]
       simpa [Elixir.Module.Types.Descr.«-opt_list_leaf_intersection/3-fun-0-/3»] using rb
     cases xa <;> cases xb <;>

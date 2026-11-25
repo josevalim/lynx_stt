@@ -18,7 +18,7 @@ theorem flat_empty {t : Term} (ht : ElemTerm t) (S : List (Term × Term)) (d : D
       rcases valid.keys (.atom name) (by rw [h]; rfl) with e | e
       · cases e; exact absurd rfl nb
       · cases e; exact absurd rfl na
-  have anyKey : ∀ name, (X.any fun e => compareExact (fuel (.atom name) e.1) (.atom name) e.1 == .eq) =
+  have anyKey : ∀ name, (X.any fun e => decide (compareExact (fuel (.atom name) e.1) (.atom name) e.1 = .eq)) =
       (mapLookup X (.atom name)).isSome := by
     intro name
     rw [Bool.eq_iff_iff, mapLookup_isSome]
@@ -49,7 +49,7 @@ def Throws (K : Nat) (e : Nat → Except Exception Term) (P : Term → Prop) : P
 def FieldValue (E : Term → Prop) (v : Term) : Prop :=
   ∃ (t : Term) (o : Bool), v = .tuple #[t, boolAtom o] ∧ E t
 
-def bareIntersection : Term := .function "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]
+def bareIntersection : Term := .function false "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]
 
 theorem merge_fun (ops : ElemOk E K) (S : List (Term × Term)) (key v₁ v₂ : Term) (h₁ : FieldValue E v₁)
     (h₂ : FieldValue E v₂) :
@@ -83,7 +83,7 @@ def Fields (E : Term → Prop) (v : Term) : Prop :=
   ∃ l : List (Term × Term), v = fieldsTerm l ∧ ∀ e ∈ l, FieldValue E e.2
 
 def mergeFun (S : List (Term × Term)) : Term :=
-  .function "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-0-" 3 #[bareIntersection, .map S]
+  .function false "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-0-" 3 #[bareIntersection, .map S]
 
 theorem fields_cons {x : Term × Term} {l : List (Term × Term)} (hx : FieldValue E x.2)
     (hl : ∀ e ∈ l, FieldValue E e.2) : ∀ e ∈ x :: l, FieldValue E e.2 := fun e me => by
@@ -184,8 +184,8 @@ theorem any1_list (d : Dispatcher) (f : Term) (res : Term → Bool) :
     cases h : res x <;> simp [hx, h, boolAtom, tail]
 
 theorem any_list (d : Dispatcher) (m nm : String) (caps : Array Term) (res : Term → Bool) (l : List Term)
-    (hf : ∀ x ∈ l, d.pure (.function m nm 1 caps) #[x] = .ok (boolAtom (res x))) :
-    Erlang.lists.«any/2» d (.function m nm 1 caps) (Term.list l) = .ok (boolAtom (l.any res)) := by
+    (hf : ∀ x ∈ l, d.pure (.function false m nm 1 caps) #[x] = .ok (boolAtom (res x))) :
+    Erlang.lists.«any/2» d (.function false m nm 1 caps) (Term.list l) = .ok (boolAtom (l.any res)) := by
   cases l with
   | nil => simp [Erlang.lists.«any/2», Erlang.erlang.«is_function/2», boolAtom]
   | cons x xs =>
@@ -208,8 +208,8 @@ theorem all1_list (d : Dispatcher) (f : Term) (res : Term → Bool) :
     cases h : res x <;> simp [hx, h, boolAtom, tail]
 
 theorem all_list (d : Dispatcher) (m nm : String) (caps : Array Term) (res : Term → Bool) (l : List Term)
-    (hf : ∀ x ∈ l, d.pure (.function m nm 1 caps) #[x] = .ok (boolAtom (res x))) :
-    Erlang.lists.«all/2» d (.function m nm 1 caps) (Term.list l) = .ok (boolAtom (l.all res)) := by
+    (hf : ∀ x ∈ l, d.pure (.function false m nm 1 caps) #[x] = .ok (boolAtom (res x))) :
+    Erlang.lists.«all/2» d (.function false m nm 1 caps) (Term.list l) = .ok (boolAtom (l.all res)) := by
   cases l with
   | nil => simp [Erlang.lists.«all/2», Erlang.erlang.«is_function/2», boolAtom]
   | cons x xs =>
@@ -257,9 +257,9 @@ theorem closed_fields (ops : ElemOk E K) (S : List (Term × Term)) : ∀ N (l₁
   have tails : ∀ (l₁ l₂ : List (Term × Term)), (∀ e ∈ l₁, FieldValue E e.2) → (∀ e ∈ l₂, FieldValue E e.2) →
       ∃ b, ∀ m, Lynx.Except.orElse
         (Erlang.lists.«any/2» (D m)
-          (.function "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-0-" 1 #[]) (fieldsTerm l₁))
+          (.function false "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-0-" 1 #[]) (fieldsTerm l₁))
         (Erlang.lists.«any/2» (D m)
-          (.function "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-1-" 1 #[]) (fieldsTerm l₂))
+          (.function false "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-1-" 1 #[]) (fieldsTerm l₂))
         Bool.true = .ok (boolAtom b) := by
     intro l₁ l₂ h₁ h₂
     refine ⟨(l₁.map fun e => Term.tuple #[e.1, e.2]).any (fun x => !optFlag x) ||
@@ -668,7 +668,7 @@ theorem domain_inter_ok (ops : ElemOk E K) (S : List (Term × Term)) {t₁ t₂ 
           rw [step m hm]; simp [fieldsTerm, Term.list]⟩
 
 def mergeFun₁ (S : List (Term × Term)) : Term :=
-  .function "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-1-" 3 #[bareIntersection, .map S]
+  .function false "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-1-" 3 #[bareIntersection, .map S]
 
 theorem merge_fun₁_eq (d : Dispatcher) (f s k a b : Term) :
     Elixir.Module.Types.Descr.«-map_literal_intersection/6-fun-1-/5» d f s k a b =
@@ -846,7 +846,7 @@ theorem map_empty_unsat (ops : ElemOk E K) {ok : Term → Prop} {r : Term} (wr :
   have run := fun S' => map_bdd_empty_unsat ops hm wr lits unsat (.tuple #[.atom "open", .nil]) .nil S'
     ⟨.atom "open", [], rfl, MapTag.atom_open, by simp⟩
   unfold Elixir.Module.Types.Descr.«map_empty?/2»
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") r) e.1) (.cons (.atom "map") r) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") r) e.1) (.cons (.atom "map") r) e.1 = .eq)) = Bool.true
   · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true]
   · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen,
       Term.false, Erlang.maps.«put/3», run]

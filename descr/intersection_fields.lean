@@ -4,7 +4,7 @@
 theorem union_or_empty (E : List (Term × Term)) :
     (∃ s : Nat, s ≠ 0 ∧ Erlang.sets.«size/1» (.map E) = .ok (.integer s)) ∨
       (Erlang.sets.«size/1» (.map E) = .ok (.integer 0) ∧ ∀ q, mapLookup E q = none) := by
-  cases h : ((E.map Prod.fst).eraseDupsBy (fun a b => compareExact (fuel a b) a b == .eq)).length with
+  cases h : ((E.map Prod.fst).eraseDupsBy (fun a b => decide (compareExact (fuel a b) a b = .eq))).length with
   | zero =>
     have empty : Erlang.sets.«size/1» (.map E) = .ok (.integer 0) := by simp [Erlang.sets.«size/1», h]
     exact Or.inr ⟨empty, fun q => Erlang.sets.size_empty E q empty⟩

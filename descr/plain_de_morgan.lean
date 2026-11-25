@@ -593,7 +593,7 @@ theorem line_both (ops : ElemOk E K) (dops : ElemDiff E K) {m : Nat} (hm : K ≤
 theorem zip_len (ops : ElemOk E K) {m : Nat} (hm : K + 1 ≤ m) (l₁ : List Term) (h₁ : ∀ e ∈ l₁, E e) :
     ∀ (l₂ : List Term), (∀ e ∈ l₂, E e) → ∀ acc : List Term, (∀ e ∈ acc, E e) →
     ∃ r : List Term, Elixir.Module.Types.Descr.«zip_intersection/4» (D m) (Term.list l₁) (Term.list l₂)
-        (Term.list acc) (.function "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) = .ok (Term.list r) ∧
+        (Term.list acc) (.function false "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) = .ok (Term.list r) ∧
       r.length = acc.length + max l₁.length l₂.length ∧ ∀ e ∈ r, E e := by
   obtain ⟨n, rfl, hn⟩ := succ_of_le hm
   induction l₁ with
@@ -1317,12 +1317,12 @@ theorem tuple_total (ops : ElemOk E K) (dops : ElemDiff E K) (S : List (Term × 
     rcases field with ⟨k, rfl⟩ | wx
     · exact Bdd.leaf_iff.mpr ⟨k, "open", [], rfl, Or.inl rfl, by simp⟩
     · exact wx.mono fun _ h => h.1
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") w) e.1) (.cons (.atom "tuple") w) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") w) e.1) (.cons (.atom "tuple") w) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun m _ => ?_⟩
     dsimp only
     unfold Elixir.Module.Types.Descr.«tuple_empty?/2»
     simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true, boolAtom]
-  · have fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") w) e.1) (.cons (.atom "tuple") w) e.1 == .eq) = Bool.false := by
+  · have fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") w) e.1) (.cons (.atom "tuple") w) e.1 = .eq)) = Bool.false := by
       simpa using seen
     obtain ⟨S', put⟩ : ∃ S', Erlang.maps.«put/3» (.cons (.atom "tuple") w) (.atom "true") (.map S) =
         .ok (.map S') := by
@@ -1846,9 +1846,9 @@ theorem fields_total (ops : ElemOk E K) (dops : ElemDiff E K) (S : List (Term ×
 level deeper. -/
 theorem all_bool {K : Nat} (mo nm : String) (caps : Array Term) (l : List Term)
     (body : Nat → Term → Except Exception Term)
-    (call : ∀ m x, Lynx.Dispatcher.pure (D (m + 1)) (.function mo nm 1 caps) #[x] = body m x)
+    (call : ∀ m x, Lynx.Dispatcher.pure (D (m + 1)) (.function false mo nm 1 caps) #[x] = body m x)
     (each : ∀ x ∈ l, ∃ b : Bool, ∀ m, K ≤ m → body m x = .ok (boolAtom b)) :
-    BoolAt (K + 1) (fun m => Erlang.lists.«all/2» (D m) (.function mo nm 1 caps) (Term.list l)) := by
+    BoolAt (K + 1) (fun m => Erlang.lists.«all/2» (D m) (.function false mo nm 1 caps) (Term.list l)) := by
   classical
   let res : Term → Bool := fun x => if h : x ∈ l then Classical.choose (each x h) else Bool.false
   refine ⟨l.all res, fun m hm => ?_⟩
@@ -2184,12 +2184,12 @@ theorem map_total (ops : ElemOk E K) (dops : ElemDiff E K) (jops : ElemDisj E K)
     rcases field with ⟨k, rfl⟩ | wx
     · exact Bdd.leaf_iff.mpr ⟨k, .atom "open", [], rfl, MapTag.atom_open, by simp⟩
     · exact wx.mono fun _ h => h.1
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") w) e.1) (.cons (.atom "map") w) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") w) e.1) (.cons (.atom "map") w) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun m _ => ?_⟩
     dsimp only
     unfold Elixir.Module.Types.Descr.«map_empty?/2»
     simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true, boolAtom]
-  · have fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") w) e.1) (.cons (.atom "map") w) e.1 == .eq) = Bool.false := by
+  · have fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") w) e.1) (.cons (.atom "map") w) e.1 = .eq)) = Bool.false := by
       simpa using seen
     obtain ⟨S', put⟩ : ∃ S', Erlang.maps.«put/3» (.cons (.atom "map") w) (.atom "true") (.map S) =
         .ok (.map S') := by
@@ -2293,12 +2293,12 @@ theorem inter_lookup (depth : Nat) (L R : List (Term × Term)) (sL : mapLookup L
     | .error _ => .nil
   have value : ∀ q x y w, Elixir.Module.Types.Descr.«bare_intersection/3» (D depth) q x y = .ok w → g q x y = w := by
     intro q x y w run; simp [g, run]
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (depth + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (depth + 1)) false "Elixir.Module.Types.Descr"
     "bare_intersection" #[] L R g (by
       intro e member y hy
       obtain ⟨w, run⟩ := calls e.1 e.2 y (mapLookup_of_mem_mapEntries member) hy
       rw [Erlang.program.«Elixir.Module.Types.Descr:bare_intersection/3».pure, run, value _ _ _ _ run])
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (depth + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (depth + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])
@@ -3087,7 +3087,7 @@ theorem repr_diff_fold (n : Nat) (g : Term → Term → Term → Term) (es acc :
     (calls : ∀ e ∈ es, ∀ v₁, mapLookup acc e.1 = some v₁ →
       Elixir.Module.Types.Descr.«bdd_difference/2» v₁ e.2 = .ok (g e.1 v₁ e.2)) :
     ∃ M, es.foldlM (fun acc entry =>
-        (Dispatch.dispatch (D n) (.function "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
+        (Dispatch.dispatch (D n) (.function false "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
           #[entry.1, entry.2, acc] : Except Exception Term)) (.map acc) = .ok (.map M) ∧
       (∀ q, mapLookup M q =
         match es.find? (fun e => decide (compareExact (fuel q e.1) q e.1 = .eq)) with
@@ -3098,7 +3098,7 @@ theorem repr_diff_fold (n : Nat) (g : Term → Term → Term → Term) (es acc :
   | nil => exact ⟨acc, rfl, fun q => rfl, rfl⟩
   | cons e rest ih =>
     have apart := List.pairwise_cons.mp distinct
-    have step : (Dispatch.dispatch (D n) (.function "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
+    have step : (Dispatch.dispatch (D n) (.function false "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
         #[e.1, e.2, .map acc] : Except Exception Term) = .ok (.map (differenceStep g acc e)) := by
       rw [dispatch_except, Erlang.program.«Elixir.Module.Types.Descr:-fun_repr_difference/2-fun-0-/3».pure,
         repr_diff_step g acc e.1 e.2 (calls e (List.mem_cons_self ..))]
@@ -3148,7 +3148,7 @@ theorem repr_union_sem (n : Nat) {P : Term → Term → Prop} {R₁ R₂ : List 
     have : g k v₁ v₂ = r := by simp [g, run]
     rw [this]
     exact ⟨run, keep _ w₁ w₂, sem⟩
-  obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup (D (n + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup (D (n + 1)) false "Elixir.Module.Types.Descr"
     "-fun_repr_union/2-fun-0-" #[] R₁ R₂ g (by
       intro e me v hv
       rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_repr_union/2-fun-0-/3».pure]
@@ -3202,13 +3202,13 @@ theorem repr_inter_sem (n : Nat) {P : Term → Term → Prop} {R₁ R₂ : List 
     have : g k v₁ v₂ = r := by simp [g, run]
     rw [this]
     exact ⟨run, keep _ w₁ w₂, sem⟩
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (n + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (n + 1)) false "Elixir.Module.Types.Descr"
     "-fun_repr_intersection/2-fun-0-" #[] R₁ R₂ g (by
       intro e me v hv
       rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_repr_intersection/2-fun-0-/3».pure]
       simp only [Elixir.Module.Types.Descr.«-fun_repr_intersection/2-fun-0-/3»]
       exact (gspec e.1 _ _ (b₁ _ _ (mapLookup_of_mem_mapEntries me)) (b₂ _ _ hv)).1)
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (n + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (n + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])
@@ -3575,8 +3575,8 @@ theorem all1_true (d : Dispatcher) (f : Term) :
     simp [hf x List.mem_cons_self, ih fun y m => hf y (List.mem_cons_of_mem _ m)]
 
 theorem all_true (d : Dispatcher) (m nm : String) (caps : Array Term) (l : List Term)
-    (hf : ∀ x ∈ l, d.pure (.function m nm 1 caps) #[x] = .ok (.atom "true")) :
-    Erlang.lists.«all/2» d (.function m nm 1 caps) (Term.list l) = .ok (.atom "true") := by
+    (hf : ∀ x ∈ l, d.pure (.function false m nm 1 caps) #[x] = .ok (.atom "true")) :
+    Erlang.lists.«all/2» d (.function false m nm 1 caps) (Term.list l) = .ok (.atom "true") := by
   cases l with
   | nil => simp [Erlang.lists.«all/2», Erlang.erlang.«is_function/2»]
   | cons x xs =>
@@ -3774,7 +3774,7 @@ theorem union_any (depth : Nat) (L R : List (Term × Term))
       exact ⟨L, by simp [emptyL], fun q => by simp [mapLookup]⟩
     simp only [emptyL, emptyR]
     unfold Elixir.Module.Types.Descr.«symmetrical_merge/3»
-    obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup (D (depth + 1)) "Elixir.Module.Types.Descr" "bare_union" #[]
+    obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup (D (depth + 1)) false "Elixir.Module.Types.Descr" "bare_union" #[]
       L R g (by
         intro e me x hx
         have hy := mapLookup_of_mem_mapEntries me
@@ -4127,7 +4127,7 @@ theorem sem_neg (δ : Nat) (hterm : E (.atom "term")) (X : List (Term × Term)) 
     | .error _ => .nil
   have value : ∀ q x y w, Elixir.Module.Types.Descr.«bare_difference/3» (D (δ + 98)) q x y = .ok w → g q x y = w := by
     intro q x y w run; simp [g, run]
-  obtain ⟨N, fold, lookN, -⟩ := difference_fold (δ + 98) (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  obtain ⟨N, fold, lookN, -⟩ := difference_fold (δ + 98) (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries X) T (mapEntries_distinct X) (by
       intro e member v₁ found
       have hy := mapLookup_of_mem_mapEntries member
@@ -4338,7 +4338,7 @@ theorem dnf_lines {ok : Term → Prop} {r : Term} (wr : Bdd ok r) :
     Lynx.Except.orElse (.ok (boolAtom a)) (.ok (boolAtom b)) Bool.true = .ok (boolAtom (a || b)) := by
   cases a <;> cases b <;> simp [boolAtom, Lynx.Except.orElse]
 
-def litsFun : Term := .function "Elixir.Module.Types.Descr" "-non_empty_list_literals_intersection/2-fun-0-" 2 #[]
+def litsFun : Term := .function false "Elixir.Module.Types.Descr" "-non_empty_list_literals_intersection/2-fun-0-" 2 #[]
 
 theorem lits_fold (ops : ElemOk E K) : ∀ (l : List Term), (∀ t ∈ l, LLit E t) → ∀ a b, E a → E b →
     ∃ a' b', E a' ∧ E b' ∧ ∀ m, K + 1 ≤ m →
@@ -4388,7 +4388,7 @@ theorem literals_total (ops : ElemOk E K) (S : List (Term × Term)) (pos : List 
     have e₁ := hea m (by omega)
     have e₂ := heb m (by omega)
     unfold Elixir.Module.Types.Descr.«non_empty_list_literals_intersection/2»
-    have f' : Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr"
+    have f' : Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr"
         "-non_empty_list_literals_intersection/2-fun-0-" 2 #[]) (.tuple #[.atom "term", .atom "term"])
         (Term.list pos) = .ok (.tuple #[a, b]) := by rw [← litsFun, foldEq, f]
     simp only [pure_bind, f', Lynx.Except.ok_bind, e₁, e₂, orElse_bool]
@@ -4468,7 +4468,7 @@ theorem list_total (ops : ElemOk E K) (dops : ElemDiff E K) (tail : TailOk E) (S
   by_cases top : w = .tuple #[.integer 46675407, .atom "term", .atom "term"]
   · subst top
     exact ⟨Bool.false, fun m _ => by dsimp only; unfold Elixir.Module.Types.Descr.«list_empty?/2»; rfl⟩
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") w) e.1) (.cons (.atom "list") w) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") w) e.1) (.cons (.atom "list") w) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun m _ => ?_⟩
     dsimp only
     unfold Elixir.Module.Types.Descr.«list_empty?/2»
@@ -4476,7 +4476,7 @@ theorem list_total (ops : ElemOk E K) (dops : ElemDiff E K) (tail : TailOk E) (S
     · exact absurd rfl top
     · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true,
         boolAtom]
-  have fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") w) e.1) (.cons (.atom "list") w) e.1 == .eq) = Bool.false := by
+  have fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") w) e.1) (.cons (.atom "list") w) e.1 = .eq)) = Bool.false := by
     simpa using seen
   obtain ⟨S', put⟩ : ∃ S', Erlang.maps.«put/3» (.cons (.atom "list") w) (.atom "true") (.map S) =
       .ok (.map S') := by
@@ -4538,9 +4538,9 @@ theorem foldl1_uni (K : Nat) (f : Term) (Inv : Term → Prop) :
 /-- Folds whose steps give the same results at every call depth from `K`. -/
 theorem foldl_uni (K : Nat) (mo nm : String) (caps : Array Term) (Inv : Term → Prop) (l : List Term)
     (step : ∀ x ∈ l, ∀ a, Inv a → ∃ a', Inv a' ∧ ∀ m, K ≤ m →
-      (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (hacc : Inv acc) :
+      (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (hacc : Inv acc) :
     ∃ r, Inv r ∧ ∀ m, K ≤ m →
-      Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r := by
+      Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r := by
   obtain ⟨r, hr, run⟩ := foldl1_uni K _ Inv l step acc hacc
   refine ⟨r, hr, fun m hm => ?_⟩
   have := run m hm
@@ -4554,8 +4554,8 @@ theorem foldl_uni (K : Nat) (mo nm : String) (caps : Array Term) (Inv : Term →
     simpa [Erlang.lists.«foldl/3», Lynx.Except.guard, Erlang.erlang.«is_function/2», Term.list] using this
 
 theorem any_uni (K : Nat) (mo nm : String) (caps : Array Term) (l : List Term)
-    (each : ∀ x ∈ l, BoolAt K (fun m => (D m).pure (.function mo nm 1 caps) #[x])) :
-    BoolAt K (fun m => Erlang.lists.«any/2» (D m) (.function mo nm 1 caps) (Term.list l)) := by
+    (each : ∀ x ∈ l, BoolAt K (fun m => (D m).pure (.function false mo nm 1 caps) #[x])) :
+    BoolAt K (fun m => Erlang.lists.«any/2» (D m) (.function false mo nm 1 caps) (Term.list l)) := by
   classical
   let res : Term → Bool := fun x => if h : x ∈ l then Classical.choose (each x h) else Bool.false
   refine ⟨l.any res, fun m hm => any_list (D m) mo nm caps res l fun x mx => ?_⟩
@@ -4563,8 +4563,8 @@ theorem any_uni (K : Nat) (mo nm : String) (caps : Array Term) (l : List Term)
   exact Classical.choose_spec (each x mx) m hm
 
 theorem all_uni (K : Nat) (mo nm : String) (caps : Array Term) (l : List Term)
-    (each : ∀ x ∈ l, BoolAt K (fun m => (D m).pure (.function mo nm 1 caps) #[x])) :
-    BoolAt K (fun m => Erlang.lists.«all/2» (D m) (.function mo nm 1 caps) (Term.list l)) := by
+    (each : ∀ x ∈ l, BoolAt K (fun m => (D m).pure (.function false mo nm 1 caps) #[x])) :
+    BoolAt K (fun m => Erlang.lists.«all/2» (D m) (.function false mo nm 1 caps) (Term.list l)) := by
   classical
   let res : Term → Bool := fun x => if h : x ∈ l then Classical.choose (each x h) else Bool.false
   refine ⟨l.all res, fun m hm => all_list (D m) mo nm caps res l fun x mx => ?_⟩
@@ -4583,8 +4583,8 @@ theorem map1_list (d : Dispatcher) (f : Term) (g : Term → Term) :
     simp [Term.list, hf x List.mem_cons_self, ih fun y m => hf y (List.mem_cons_of_mem _ m)]
 
 theorem map_list (d : Dispatcher) (mo nm : String) (caps : Array Term) (g : Term → Term) (l : List Term)
-    (hf : ∀ x ∈ l, d.pure (.function mo nm 1 caps) #[x] = .ok (g x)) :
-    Erlang.lists.«map/2» d (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.map g)) := by
+    (hf : ∀ x ∈ l, d.pure (.function false mo nm 1 caps) #[x] = .ok (g x)) :
+    Erlang.lists.«map/2» d (.function false mo nm 1 caps) (Term.list l) = .ok (Term.list (l.map g)) := by
   cases l with
   | nil => simp [Erlang.lists.«map/2», Erlang.erlang.«is_function/2», Term.list]
   | cons x xs =>
@@ -4686,7 +4686,7 @@ theorem descr_fields (l : List Term) (hl : ∀ e ∈ l, Static e) :
       (se || (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq))
     refine ⟨se', ?_⟩
     have eq : Erlang.erlang.«==/2» x (.map []) = .ok (boolAtom (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq)) := by
-      simp only [Erlang.erlang.«==/2»]; cases h : Term.compare (Term.fuel x (.map [])) x (.map []) <;> simp [boolAtom]
+      simp only [Erlang.erlang.«==/2»]; by_cases h : Term.compare (Term.fuel x (.map [])) x (.map []) = .eq <;> simp [h, boolAtom]
     rw [Elixir.Module.Types.Descr.«tuple_descr_fields/5».eq_def]
     simp only [Term.list] at run ⊢
     cases se <;> cases hd : (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq) <;>
@@ -5244,9 +5244,9 @@ theorem all_disjoint_total (fops : ElemFun E K) (n : Int) :
     simpa [Term.list] using h
 
 theorem nonempty_args_total (ops : ElemOk E K) (S : List (Term × Term)) (args : List Term) (hargs : ∀ a ∈ args, E a)
-    (name : String) (lam : ∀ d a, (D (d + 1)).pure (.function "Elixir.Module.Types.Descr" name 1 #[.map S]) #[a] =
+    (name : String) (lam : ∀ d a, (D (d + 1)).pure (.function false "Elixir.Module.Types.Descr" name 1 #[.map S]) #[a] =
       (do let e ← Elixir.Module.Types.Descr.«empty_seen?/2» (D d) a (.map S); Erlang.erlang.«not/1» e)) :
-    BoolAt (K + 1) (fun m => Erlang.lists.«all/2» (D m) (.function "Elixir.Module.Types.Descr" name 1 #[.map S])
+    BoolAt (K + 1) (fun m => Erlang.lists.«all/2» (D m) (.function false "Elixir.Module.Types.Descr" name 1 #[.map S])
       (Term.list args)) :=
   all_uni (K + 1) _ _ _ args fun a ma => by
     obtain ⟨e, he⟩ := ops.empty (hargs a ma) S
@@ -5305,7 +5305,7 @@ theorem phi_starter_total (ops : ElemOk E K) (dops : ElemDiff E K) (fops : ElemF
   obtain ⟨v, hv, rv⟩ := domains_total ops fops n S args hargs pos hpos
   rcases hv with rfl | rfl | rfl
   · obtain ⟨neg, hneg, rneg⟩ := negation_total ops dops fops hnone hret
-    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function "Elixir.Module.Types.Descr" "-phi_starter/4-fun-0-" 1 #[])
+    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function false "Elixir.Module.Types.Descr" "-phi_starter/4-fun-0-" 1 #[])
         (Term.list args) = .ok (Term.list (args.map fun x => .tuple #[boolAtom Bool.false, x])) := fun m =>
       map_list (D m) _ _ _ _ args fun x _ => by
         rw [Erlang.program.«Elixir.Module.Types.Descr:-phi_starter/4-fun-0-/1».pure]; rfl
@@ -5391,7 +5391,7 @@ theorem fun_line_total (ops : ElemOk E K) (dops : ElemDiff E K) (fops : ElemFun 
     | cons q qs =>
       obtain ⟨k, args, ret, rfl, len, -, -⟩ := hneg _ List.mem_cons_self
       obtain ⟨kt, leaf⟩ := leaf_fun (args.map fun _ => .map [])
-      have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-0-" 1 #[])
+      have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function false "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-0-" 1 #[])
           (Term.list args) = .ok (Term.list (args.map fun _ => .map [])) := fun m =>
         map_list (D m) _ _ _ _ args fun x _ => by
           rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_line_empty?/3-fun-0-/1».pure]; rfl
@@ -5424,14 +5424,14 @@ theorem fun_total (ops : ElemOk E K) (dops : ElemDiff E K) (fops : ElemFun E K) 
         rintro t ⟨z, hz, lit⟩
         simp only [n, hz]
         exact lit
-      by_cases seen : S.any (fun s => Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 == .eq) = Bool.true
+      by_cases seen : S.any (fun s => decide (Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 = .eq)) = Bool.true
       · refine ⟨Bool.true, fun m hm => ?_⟩
         obtain ⟨m', rfl, -⟩ := succ_of_le (show 1 ≤ m by omega)
         dsimp only
         rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_empty?/2-fun-1-/1».pure]
         simp [Elixir.Module.Types.Descr.«-fun_empty?/2-fun-1-/2», Elixir.Module.Types.Descr.«empty_bdd_seen_key/2»,
           Erlang.erlang.«is_map_key/2», seen, Term.true]
-      have fresh : S.any (fun s => Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 == .eq) = Bool.false := by simpa using seen
+      have fresh : S.any (fun s => decide (Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 = .eq)) = Bool.false := by simpa using seen
       obtain ⟨lines, dnf, hlines⟩ := dnf_lines wv (FunLit E n) conv [] [] [] (by simp) (by simp) (by simp)
       obtain ⟨lb, hlb⟩ := all_uni (K + 4) "Elixir.Module.Types.Descr" "-fun_empty?/2-fun-0-"
         #[.map ((.cons e.1 e.2, .atom "true") :: S)] lines (fun l ml => by
@@ -5590,7 +5590,7 @@ theorem iterator_disj_uni (K : Nat) (B : List (Term × Term)) (Sm : Term) :
   | cons e rest ih =>
     intro both
     obtain ⟨bt, ht⟩ := ih (fun e' m => both e' (List.mem_cons_of_mem _ m))
-    have cont : ∀ m x, K + rest.length + 1 ≤ m → (D m).pure (.function "Elixir.Module.Types.Descr"
+    have cont : ∀ m x, K + rest.length + 1 ≤ m → (D m).pure (.function false "Elixir.Module.Types.Descr"
         "-iterator_non_disjoint_intersection?/3-fun-0-" 1
         #[Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]), .map B, Sm]) #[x] = .ok (boolAtom bt) := by
       intro m x hm
@@ -6342,7 +6342,7 @@ theorem nest_diff_fold (hterm : E (.atom "term")) (left : Term) (A B : List (Ter
   have gval : ∀ name x y r, (∀ n, Elixir.Module.Types.Descr.«bare_difference/3» (D (n + 1)) (.atom name) x y =
       .ok r) → g (.atom name) x y = r := by
     intro name x y r h; simp [g, h 0]
-  have fold := fun depth => difference_fold (depth + 1) (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  have fold := fun depth => difference_fold (depth + 1) (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries B) A (mapEntries_distinct B) (by
       intro e member v₁ found
       have hy := mapLookup_of_mem_mapEntries member
@@ -6735,7 +6735,7 @@ theorem tailTerm_basic : Basic tailTerm := by
     · cases h
 
 def noList (M : List (Term × Term)) : List (Term × Term) :=
-  M.filter fun e => compareExact (fuel (.atom "list") e.1) (.atom "list") e.1 != .eq
+  M.filter fun e => !decide (compareExact (fuel (.atom "list") e.1) (.atom "list") e.1 = .eq)
 
 theorem tail_map (d : Dispatcher) (M : List (Term × Term)) :
     Elixir.Module.Types.Descr.«list_tail_unfold/1» d (.map M) = .ok (.map (noList M)) := by
@@ -6744,7 +6744,7 @@ theorem tail_map (d : Dispatcher) (M : List (Term × Term)) :
 
 theorem noList_lookup (M : List (Term × Term)) (q : Term) (h : (mapLookup (noList M) q).isSome) :
     mapLookup (noList M) q = mapLookup M q := by
-  simp only [noList, mapLookup_filter] at h ⊢
+  simp only [noList, mapLookup_remove] at h ⊢
   split at h
   · simp at h
   · rename_i n; simp [n]

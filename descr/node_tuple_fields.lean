@@ -71,7 +71,7 @@ theorem pure_val {x : Term} (fx : OField (PureLit t) x) {ρ : Term → Bool} (_h
 
 /-- The emptiness of pure tuple fields, when neither the field nor the node was seen. -/
 theorem pure_empty_val {x : Term} (fx : OField (PureLit t) x) {S : List (Term × Term)}
-    (fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 == .eq) = Bool.false)
+    (fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 = .eq)) = Bool.false)
     (noid : idIn (refOf t) S = Bool.false) {m : Nat} (hm : 2 ≤ m) :
     Elixir.Module.Types.Descr.«tuple_empty?/2» (D m) x (.map S) =
       .ok (boolAtom (!denO x (fun _ => Bool.true) && !denO x (fun _ => Bool.false))) := by
@@ -95,7 +95,7 @@ theorem pure_empty_val {x : Term} (fx : OField (PureLit t) x) {S : List (Term ×
     cases c <;> cases u <;> cases d <;> simp [denO, isOpenTop, eval, bt, litN, Term.list, boolAtom]
 
 theorem safeN_noid {N : Nat} {S : List (Term × Term)} (hS : SafeN N S) (r : List Nat) : idIn r S = Bool.false := by
-  simp only [idIn, List.any_eq_false, beq_iff_eq]
+  simp only [idIn, List.any_eq_false, decide_eq_true_eq]
   intro e me h
   obtain ⟨kind, b, e₁, -⟩ := hS e me
   rw [e₁] at h

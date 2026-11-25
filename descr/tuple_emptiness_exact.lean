@@ -117,8 +117,8 @@ theorem EF.dopsU (ef : EF nd E V den tl K) : ElemDiff E K :=
 
 /-- Types below the seen BDDs are not seen. -/
 theorem not_seen {N : Nat} {S : List (Term × Term)} (hS : SafeN N S) {x : Term} (hx : lh x < N) (kind : String) :
-    S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom kind) x) e.1) (.cons (.atom kind) x) e.1 == .eq) = Bool.false := by
-  simp only [List.any_eq_false, beq_iff_eq]
+    S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom kind) x) e.1) (.cons (.atom kind) x) e.1 = .eq)) = Bool.false := by
+  simp only [List.any_eq_false, decide_eq_true_eq]
   intro e me hit
   obtain ⟨kind', b, e₁, one, hb⟩ := hS e me
   rw [e₁, compareExact_cons, Ordering.then_eq_eq] at hit
@@ -135,8 +135,8 @@ theorem safe_put {N : Nat} {S : List (Term × Term)} (hS : SafeN N S) {x : Term}
     exact ⟨kind', b, e₁, one', by omega⟩
 
 theorem not_seenT {N : Nat} {S : List (Term × Term)} (hS : SafeT N S) {x : Term} (hx : lh x < N) (kind : String) :
-    S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom kind) x) e.1) (.cons (.atom kind) x) e.1 == .eq) = Bool.false := by
-  simp only [List.any_eq_false, beq_iff_eq]
+    S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom kind) x) e.1) (.cons (.atom kind) x) e.1 = .eq)) = Bool.false := by
+  simp only [List.any_eq_false, decide_eq_true_eq]
   intro e me hit
   obtain ⟨h, b, e₁, one, hb⟩ := hS e me
   rw [e₁, compareExact_cons, Ordering.then_eq_eq] at hit
@@ -154,7 +154,7 @@ theorem safe_putT {N : Nat} {S : List (Term × Term)} (hS : SafeT N S) {x : Term
     exact ⟨h, b, e₁, one', by omega⟩
 
 theorem tuple_empty_step {d : Dispatcher} {x : Term} {S : List (Term × Term)}
-    (fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 == .eq) = Bool.false) :
+    (fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 = .eq)) = Bool.false) :
     Elixir.Module.Types.Descr.«tuple_empty?/2» d x (.map S) =
       Elixir.Module.Types.Descr.«tuple_bdd_empty?/4» d (.tuple #[.atom "open", .nil]) .nil x
         (.map ((.cons (.atom "tuple") x, .atom "true") :: S)) := by

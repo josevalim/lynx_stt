@@ -93,7 +93,7 @@ theorem mbdd_lh {x : Term} (wx : Bdd (MLit E) x) (nt : x ≠ .atom "bdd_top") (n
     omega
 
 theorem map_empty_step {d : Dispatcher} {x : Term} {S : List (Term × Term)}
-    (fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") x) e.1) (.cons (.atom "map") x) e.1 == .eq) = Bool.false) :
+    (fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") x) e.1) (.cons (.atom "map") x) e.1 = .eq)) = Bool.false) :
     Elixir.Module.Types.Descr.«map_empty?/2» d x (.map S) =
       Elixir.Module.Types.Descr.«map_bdd_empty?/4» d (.tuple #[.atom "open", .nil]) .nil x
         (.map ((.cons (.atom "map") x, .atom "true") :: S)) := by
@@ -160,7 +160,7 @@ theorem map_empty_exact (ef : EF nd E V den tl K) {x : Term} (fx : MField E x) (
   · refine direct Bool.false ?_ ⟨fun h => absurd h (by decide), fun h => absurd (h (fun _ => Option.none))
       (by rw [denMF_top]; simp)⟩
     have merge : ∀ (mod name : String) (caps : Array Term),
-        Erlang.orddict.«merge/3» (D (K + 4)) (.function mod name 3 caps) .nil .nil = .ok .nil := by
+        Erlang.orddict.«merge/3» (D (K + 4)) (.function false mod name 3 caps) .nil .nil = .ok .nil := by
       intro mod name caps; rw [Erlang.orddict.«merge/3».eq_def]; simp [Erlang.erlang.«is_function/2»]
     simp [Elixir.Module.Types.Descr.«map_bdd_empty?/4», Elixir.Module.Types.Descr.«map_line_intersection/3»,
       Elixir.Module.Types.Descr.«map_literal_intersection/6», boolAtom, merge, init_open_nil]

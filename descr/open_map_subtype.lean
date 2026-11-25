@@ -21,7 +21,7 @@ theorem atom_list_ok : ∀ (A : Term), Elixir.STTDescrProofsTest.«atom_list?/1�
       exact ⟨_, rfl⟩
     exact ⟨.atom s :: as, rfl, fun b mb => (List.mem_cons.mp mb).elim (fun e => ⟨s, e⟩) (has b)⟩
   | .nil, _ => ⟨[], rfl, by simp⟩
-  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _, h | .pid _, h | .tuple _, h
+  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _ _, h | .pid _, h | .tuple _, h
   | .map _, h | .bitstring _ _ _, h => by
     rw [Elixir.STTDescrProofsTest.«atom_list?/1».eq_def] at h
     cases nil_of_eq h
@@ -60,7 +60,7 @@ theorem kind_list_ok : ∀ (A : Term), Elixir.STTDescrProofsTest.«kind_list?/1�
       exact domain_kind_ok h.1
     exact ⟨.atom s :: ks, rfl, fun b mb => (List.mem_cons.mp mb).elim (fun e => ⟨s, ms, e⟩) (hks b)⟩
   | .nil, _ => ⟨[], rfl, by simp⟩
-  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _, h | .pid _, h | .tuple _, h
+  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _ _, h | .pid _, h | .tuple _, h
   | .map _, h | .bitstring _ _ _, h => by
     rw [Elixir.STTDescrProofsTest.«kind_list?/1».eq_def] at h
     cases nil_of_eq h

@@ -6,11 +6,11 @@ open Lynx Lynx.Term BddProofs
 /-- Intersecting the empty type with a map of fields keeps no field. -/
 theorem symmetrical_none_left (d : Dispatcher) (X : List (Term × Term)) :
     Elixir.Module.Types.Descr.«symmetrical_intersection/3» d (.map []) (.map X)
-      (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok (.map []) := by
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup d "Elixir.Module.Types.Descr"
+      (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok (.map []) := by
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup d false "Elixir.Module.Types.Descr"
     "bare_intersection" #[] [] X (fun _ _ _ => .nil) (by intro e me; simp at me)
   obtain rfl : I = [] := nil_of_lookup_none I fun q => by rw [lookI]; simp
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup d "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup d false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] [] kept (by intro e member; simp at member)
   obtain rfl : out = [] := nil_of_lookup_none out fun q => by rw [lookO]; simp
   unfold Elixir.Module.Types.Descr.«symmetrical_intersection/3»

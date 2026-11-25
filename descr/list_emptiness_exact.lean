@@ -80,14 +80,14 @@ theorem nl_lits_bound (ef : EF nd E V den tl K) {ok : Term → Prop} {r : Term} 
 
 /-- Seen sets of higher BDDs never hold a BDD. -/
 theorem nl_fresh {N : Nat} {S : List (Term × Term)} (hS : SafeN N S) {r : Term} (hr : lh r < N) (kind : String) :
-    S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom kind) r) e.1) (.cons (.atom kind) r) e.1 == .eq) = Bool.false := by
-  cases h : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom kind) r) e.1) (.cons (.atom kind) r) e.1 == .eq)
+    S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom kind) r) e.1) (.cons (.atom kind) r) e.1 = .eq)) = Bool.false := by
+  cases h : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom kind) r) e.1) (.cons (.atom kind) r) e.1 = .eq))
   · rfl
   · exfalso
     obtain ⟨e, me, hit⟩ := List.any_eq_true.mp h
     obtain ⟨k, b, e₁, -, hb⟩ := hS e me
     rw [e₁] at hit
-    simp only [beq_iff_eq, compareExact_cons, Ordering.then_eq_eq] at hit
+    simp only [decide_eq_true_eq, compareExact_cons, Ordering.then_eq_eq] at hit
     have := lh_exact _ _ _ (Nat.lt_succ_self _) hit.2
     omega
 

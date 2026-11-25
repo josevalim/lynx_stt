@@ -169,7 +169,7 @@ theorem nl_literals_sound (ops : ElemOk E K) (sem : ElemSem E K V den Safe) (S :
     have e₁ := hea m (by omega)
     have e₂ := heb m (by omega)
     unfold Elixir.Module.Types.Descr.«non_empty_list_literals_intersection/2»
-    have f' : Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr"
+    have f' : Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr"
         "-non_empty_list_literals_intersection/2-fun-0-" 2 #[]) (.tuple #[.atom "term", .atom "term"])
         (Term.list pos) = .ok (.tuple #[a, b]) := by rw [← litsFun, foldEq, f]
     simp only [pure_bind, f', Lynx.Except.ok_bind, e₁, e₂, Elixir.STTDescrProofsTest.orElse_bool]
@@ -192,7 +192,7 @@ theorem nl_literals_sound (ops : ElemOk E K) (sem : ElemSem E K V den Safe) (S :
 and the seen set with it keeps the emptiness of elements exact. -/
 theorem nl_list_sound (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) {tl : V → Prop}
     (tsem : TailSem E den tl) {m : Nat} (hm : K + 2 ≤ m) {r : Term} (wr : Bdd (LLit E) r) (S : List (Term × Term))
-    (fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 == .eq) = Bool.false)
+    (fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 = .eq)) = Bool.false)
     (safe : Safe ((.cons (.atom "list") r, .atom "true") :: S))
     (run : Elixir.Module.Types.Descr.«list_empty?/2» (D m) r (.map S) = .ok (.atom "true")) :
     ∀ v : LV V, v.xs ≠ [] → ¬tl v.last → eval (valL E den v) r = Bool.false := by

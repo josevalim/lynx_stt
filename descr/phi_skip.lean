@@ -81,7 +81,7 @@ theorem phi_base (ctx : PhiCtx E den K seen) {args : List (Bool × Term)} {ret :
   refine ⟨r, c, ?_, sem, okc⟩
   have er := ctx.empty vR (k + 1) (by omega)
   have v11 : Lynx.Except.orElse (Erlang.lists.«any/2» (D (k + 1))
-      (.function "Elixir.Module.Types.Descr" "-phi/5-fun-0-" 1 #[seen]) (encA args))
+      (.function false "Elixir.Module.Types.Descr" "-phi/5-fun-0-" 1 #[seen]) (encA args))
       (Lynx.Except.andAlso (pure (boolAtom ret.1)) (Elixir.Module.Types.Descr.«empty_seen?/2» (D (k + 1)) ret.2 seen)
         Bool.true) Bool.true = .ok (boolAtom r) := by
     simp only [encA]; rw [any, er]; simp only [r]

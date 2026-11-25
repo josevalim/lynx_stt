@@ -7,10 +7,10 @@ open Lynx Lynx.Term BddProofs
 variable {s : Term}
 
 theorem filter_list (d : Dispatcher) (mo nm : String) (caps : Array Term) (res : Term → Bool) (l : List Term)
-    (hf : ∀ x ∈ l, d.pure (.function mo nm 1 caps) #[x] = .ok (boolAtom (res x))) :
-    Erlang.lists.«filter/2» d (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filter res)) := by
-  have loop : ∀ l' : List Term, (∀ x ∈ l', d.pure (.function mo nm 1 caps) #[x] = .ok (boolAtom (res x))) →
-      Erlang.lists.«-filter/2-lc$^0/1-/2» d (Term.list l') (.function mo nm 1 caps) = .ok (Term.list (l'.filter res)) := by
+    (hf : ∀ x ∈ l, d.pure (.function false mo nm 1 caps) #[x] = .ok (boolAtom (res x))) :
+    Erlang.lists.«filter/2» d (.function false mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filter res)) := by
+  have loop : ∀ l' : List Term, (∀ x ∈ l', d.pure (.function false mo nm 1 caps) #[x] = .ok (boolAtom (res x))) →
+      Erlang.lists.«-filter/2-lc$^0/1-/2» d (Term.list l') (.function false mo nm 1 caps) = .ok (Term.list (l'.filter res)) := by
     intro l'
     induction l' with
     | nil => intro _; simp [Erlang.lists.«-filter/2-lc$^0/1-/2», Term.list]
@@ -28,10 +28,10 @@ def fmAns : Option Term → Term
   | some y => .tuple #[.atom "true", y]
 
 theorem filtermap_list (d : Dispatcher) (mo nm : String) (caps : Array Term) (o : Term → Option Term)
-    (l : List Term) (hf : ∀ x ∈ l, d.pure (.function mo nm 1 caps) #[x] = .ok (fmAns (o x))) :
-    Erlang.lists.«filtermap/2» d (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filterMap o)) := by
-  have loop : ∀ l' : List Term, (∀ x ∈ l', d.pure (.function mo nm 1 caps) #[x] = .ok (fmAns (o x))) →
-      Erlang.lists.«filtermap_1/2» d (.function mo nm 1 caps) (Term.list l') = .ok (Term.list (l'.filterMap o)) := by
+    (l : List Term) (hf : ∀ x ∈ l, d.pure (.function false mo nm 1 caps) #[x] = .ok (fmAns (o x))) :
+    Erlang.lists.«filtermap/2» d (.function false mo nm 1 caps) (Term.list l) = .ok (Term.list (l.filterMap o)) := by
+  have loop : ∀ l' : List Term, (∀ x ∈ l', d.pure (.function false mo nm 1 caps) #[x] = .ok (fmAns (o x))) →
+      Erlang.lists.«filtermap_1/2» d (.function false mo nm 1 caps) (Term.list l') = .ok (Term.list (l'.filterMap o)) := by
     intro l'
     induction l' with
     | nil => intro _; simp [Erlang.lists.«filtermap_1/2», Term.list]
@@ -135,7 +135,7 @@ noncomputable def supB (den : Term → V → Prop) (p : Term × List Term × Ter
 
 theorem supB_run (fe : FunElem E den K seen) {m : Nat} (hm : K ≤ m) {n : Nat} (p : Term × List Term × Term)
     (hp : PosOk E n [p]) (w : List (Term × List Term × Term)) (hw : PosOk E n w) :
-    (D (m + 1)).pure (.function "Elixir.Module.Types.Descr" "-fun_eliminate_unions/2-fun-0-" 1
+    (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr" "-fun_eliminate_unions/2-fun-0-" 1
       #[Term.list p.2.1, p.2.2]) #[encP w] = .ok (boolAtom (supB den p (encP w))) := by
   rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_eliminate_unions/2-fun-0-/1».pure]
   match w, hw with
@@ -203,7 +203,7 @@ theorem eliminate_run (fe : FunElem E den K seen) {n : Nat} :
     | [p], hP =>
       let res := supB den p
       have each : ∀ (l : List (List (Term × List Term × Term))), (∀ q ∈ l, PosOk E n q) → ∀ m, K ≤ m →
-          ∀ x ∈ l.map encP, (D (m + 1)).pure (.function "Elixir.Module.Types.Descr" "-fun_eliminate_unions/2-fun-0-" 1
+          ∀ x ∈ l.map encP, (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr" "-fun_eliminate_unions/2-fun-0-" 1
             #[Term.list p.2.1, p.2.2]) #[x] = .ok (boolAtom (res x)) := by
         intro l hl m hm x mx
         obtain ⟨w, mw, rfl⟩ := List.mem_map.mp mx
@@ -382,7 +382,7 @@ theorem pos_dnf_run (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den dden 
     obtain ⟨l, ml, rfl⟩ := List.mem_map.mp mq
     exact posOk l (hkept l ml).1) (by simp)
   have filt : ∀ m, K + 3 ≤ m → Erlang.lists.«filter/2» (D (m + 1))
-      (.function "Elixir.Module.Types.Descr" "-fun_bdd_to_dnf/1-fun-0-" 1 #[]) (Term.list (ls.map encL)) =
+      (.function false "Elixir.Module.Types.Descr" "-fun_bdd_to_dnf/1-fun-0-" 1 #[]) (Term.list (ls.map encL)) =
       .ok (Term.list (kept.map encL)) := by
     intro m hm
     rw [filter_list _ _ _ _ (liveB den n) _ fun x mx => ?_, List.filter_map]
@@ -406,7 +406,7 @@ theorem pos_dnf_run (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den dden 
     split
     · exact absurd rfl ntop
     have mp : Erlang.lists.«map/2» (D (m' + 1))
-        (.function "Elixir.Module.Types.Descr" "-fun_bdd_to_pos_dnf/2-fun-0-" 1 #[.integer n])
+        (.function false "Elixir.Module.Types.Descr" "-fun_bdd_to_pos_dnf/2-fun-0-" 1 #[.integer n])
         (Term.list (kept.map encL)) = .ok (Term.list ((kept.map fun l => posOf k n l.1).map encP)) := by
       rw [map_list _ _ _ _ (fun x => match x with
           | .tuple ⟨[.nil, _]⟩ => Term.list [.tuple #[.integer k, Term.list (List.replicate n (.map [])), .atom "term"]]
@@ -483,7 +483,7 @@ theorem bdd_dead_run (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den dden
     (cg : DenCongr E₀ den) (hE : ∀ a, E a → E₀ a) {n : Nat} {L : Term → Prop} (hL : ∀ t, L t → FunLit E n t)
     {b : Term} (wb : Bdd L b) {m : Nat} (hm : K + 3 ≤ m) :
     ∃ lines, Elixir.Module.Types.Descr.«bdd_to_dnf/1» b = .ok lines ∧
-      Erlang.lists.«all/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-bdds_non_empty_arities/1-fun-0-" 1 #[])
+      Erlang.lists.«all/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-bdds_non_empty_arities/1-fun-0-" 1 #[])
         lines = .ok (boolAtom (deadB E₀ den n b)) := by
   obtain ⟨ls, dnf, hls, sem⟩ := bdd_sat_lines cg hE hL wb
   let res : Term → Bool := fun x => bp (∃ l : List (Term × List Term × Term) × List (Term × List Term × Term),
@@ -539,7 +539,7 @@ theorem nonempty_arities_run (fe : FunElem E den K (.map [])) (fd : FunDom Dm E 
     | .tuple ⟨[a, _]⟩ => some a
     | _ => none
   have each : ∀ e ∈ mapEntries R, ∀ m, K + 3 ≤ m →
-      (D (m + 2)).pure (.function "Elixir.Module.Types.Descr" "-bdds_non_empty_arities/1-fun-1-" 1 #[])
+      (D (m + 2)).pure (.function false "Elixir.Module.Types.Descr" "-bdds_non_empty_arities/1-fun-1-" 1 #[])
         #[.tuple #[e.1, e.2]] = .ok (fmAns (o (.tuple #[e.1, e.2]))) := by
     intro e me m hm
     obtain ⟨n, hn, L, hL, wb⟩ := hR e.1 e.2 (mapLookup_of_mem_mapEntries me)
@@ -615,7 +615,7 @@ theorem domain_fold (fd : FunDom Dm E den dden K (.map [])) {n : Nat} :
     ∀ (Q : List (List (Term × List Term × Term))), (∀ q ∈ Q, PosOk E n q) →
       ∀ (dom₀ : Term) (acc : List (List (Term × List Term × Term))), NDom Dm dom₀ →
       ∃ dom, NDom Dm dom ∧ (Q ≠ [] → Dm dom) ∧ (∀ m, K + 2 ≤ m → Erlang.lists.«foldl_1/3» (D m)
-          (.function "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
+          (.function false "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
           (.tuple #[dom₀, Term.list (acc.map encP)]) (Term.list (Q.map encP)) =
             .ok (.tuple #[dom, Term.list ((Q.reverse ++ acc).map encP)])) ∧
         ∀ x, nden dden dom x ↔ nden dden dom₀ x ∧ ∀ q ∈ Q, ∃ p ∈ semP den q, FunSem.InDomR p.1 x
@@ -673,13 +673,13 @@ open Classical in
 /-- Removing a key from a map, for keys only equal to themselves. -/
 theorem lookup_drop_key (k : Term) (hk : ∀ x, compareExact (fuel k x) k x = .eq ↔ x = k)
     (hk' : ∀ x, compareExact (fuel x k) x k = .eq ↔ x = k) : ∀ (R : List (Term × Term)) (q : Term),
-    mapLookup (R.filter fun e => Term.compareExact (Term.fuel k e.1) k e.1 != .eq) q =
+    mapLookup (R.filter fun e => !decide (Term.compareExact (Term.fuel k e.1) k e.1 = .eq)) q =
       (if q = k then none else mapLookup R q : Option Term)
   | [], q => by simp [mapLookup]
   | e :: R, q => by
     have ih := lookup_drop_key k hk hk' R q
     by_cases he : e.1 = k
-    · have : (Term.compareExact (Term.fuel k e.1) k e.1 != .eq) = Bool.false := by
+    · have : (!decide (Term.compareExact (Term.fuel k e.1) k e.1 = .eq)) = Bool.false := by
         simp [he]
       rw [List.filter_cons, this]
       simp only [Bool.false_eq_true, ite_false]
@@ -688,7 +688,7 @@ theorem lookup_drop_key (k : Term) (hk : ∀ x, compareExact (fuel k x) k x = .e
       · simp [hq]
       · have nq : ¬compareExact (fuel q e.1) q e.1 = .eq := by rw [he, hk']; exact hq
         simp [hq, mapLookup, nq]
-    · have : (Term.compareExact (Term.fuel k e.1) k e.1 != .eq) = Bool.true := by
+    · have : (!decide (Term.compareExact (Term.fuel k e.1) k e.1 = .eq)) = Bool.true := by
         simp [hk, he]
       rw [List.filter_cons, this]
       simp only [ite_true]
@@ -704,12 +704,12 @@ theorem lookup_drop_key (k : Term) (hk : ∀ x, compareExact (fuel k x) k x = .e
 open Classical in
 /-- Removing an arity from a map of arities. -/
 theorem lookup_drop (n : Int) (R : List (Term × Term)) (q : Term) :
-    mapLookup (R.filter fun e => Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 != .eq) q =
+    mapLookup (R.filter fun e => !decide (Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 = .eq)) q =
       (if q = .integer n then none else mapLookup R q : Option Term) :=
   lookup_drop_key (.integer n) (integer_compareExact_eq n) (fun x => compareExact_eq_integer x n) R q
 
 theorem arityBdds_drop {R : List (Term × Term)} (h : ArityBdds E R) (n : Int) :
-    ArityBdds E (R.filter fun e => Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 != .eq) := by
+    ArityBdds E (R.filter fun e => !decide (Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 = .eq)) := by
   intro q v hv
   classical
   rw [lookup_drop] at hv
@@ -759,8 +759,8 @@ theorem pos_dnf_norm (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den dden
     exact ⟨Q, run, ⟨pos, ne, cover, live⟩⟩
 
 theorem foldl3_of_1 (d : Dispatcher) (mo nm : String) (caps : Array Term) (acc r : Term) (l : List Term)
-    (h : Erlang.lists.«foldl_1/3» d (.function mo nm 2 caps) acc (Term.list l) = .ok r) :
-    Erlang.lists.«foldl/3» d (.function mo nm 2 caps) acc (Term.list l) = .ok r := by
+    (h : Erlang.lists.«foldl_1/3» d (.function false mo nm 2 caps) acc (Term.list l) = .ok r) :
+    Erlang.lists.«foldl/3» d (.function false mo nm 2 caps) acc (Term.list l) = .ok r := by
   cases l with
   | nil =>
     have e : acc = r := by simpa [Term.list, Erlang.lists.«foldl_1/3», pure, Except.pure] using h
@@ -784,13 +784,13 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
             evalR R (.integer a) (valF E₀ den g) = Bool.false) ∧
           (res = .atom "badfun" ∨ ∃ o, res = .tuple #[.atom "badarity", .atom "positive", o]))) := by
   classical
-  let rest := R.filter fun e => Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 != .eq
+  let rest := R.filter fun e => !decide (Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 = .eq)
   have evalRest : ∀ (a : Nat) ρ, a ≠ n → evalR rest (.integer a) ρ = evalR R (.integer a) ρ := by
     intro a ρ ha
     simp only [evalR, rest, lookup_drop, Term.integer.injEq]
     rw [ite_eq_right (by omega)]
   have restN : ∀ ρ, evalR rest (.integer n) ρ = Bool.false := by
-    intro ρ; simp [evalR, rest, lookup_drop]
+    intro ρ; simp [evalR, rest, lookup_drop, -integer_compareExact_eq]
   -- What `bdds_non_empty_arities/1` answers on the other arities, once the arity `n` holds no function.
   have others : ∀ (dead : ∀ g : List (FunSem.Row V), (∀ r ∈ g, FunSem.ValidRow n r) →
       evalR R (.integer n) (valF E₀ den g) = Bool.false) (R' : List (Term × Term)), ArityBdds E R' →
@@ -835,7 +835,7 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
         match t with
         | .tuple ⟨[bdd, rest]⟩ => do
           let q ← Elixir.Module.Types.Descr.«fun_bdd_to_pos_dnf/2» d (.integer n) bdd
-          let acc ← Erlang.lists.«foldl/3» d (.function "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
+          let acc ← Erlang.lists.«foldl/3» d (.function false "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
             (.tuple #[.atom "term", .nil]) q
           match acc with
           | .tuple ⟨[dom, arrows]⟩ => do
@@ -875,7 +875,7 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
     obtain ⟨Q, rQ, nQ⟩ := pos_dnf_norm fe fd cg hE hL wb
     obtain ⟨dom, -, hdom, rdom, sdom⟩ := domain_fold fd Q nQ.pos (.atom "term") [] (Or.inl rfl)
     have fold : ∀ m, K + 2 ≤ m → Erlang.lists.«foldl/3» (D m)
-        (.function "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
+        (.function false "Elixir.Module.Types.Descr" "-fun_normalize/2-fun-0-" 2 #[])
         (.tuple #[.atom "term", .nil]) (Term.list (Q.map encP)) =
           .ok (.tuple #[dom, Term.list (Q.reverse.map encP)]) := fun m hm =>
       foldl3_of_1 _ _ _ _ _ _ _ (by simpa using rdom m hm)
@@ -892,7 +892,7 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
       rw [shape]
       simp only [Erlang.maps.«take/2», hl, Lynx.Except.ok_bind]
       rw [rQ m (by omega), Lynx.Except.ok_bind, fold m (by omega), Lynx.Except.ok_bind]
-      simp [Term.list, Erlang.erlang.«==/2»]
+      simp [Term.list, Erlang.erlang.«==/2», -integer_compareExact_eq]
       exact run m (by omega)
     | cons q Q' =>
       refine ⟨.tuple #[.atom "ok", dom, Term.list ((q :: Q').reverse.map encP)], fun m hm => ?_,
@@ -1108,7 +1108,7 @@ theorem subN_funs {X Y : List (Term × Term)} :
 
 open Classical in
 theorem lookup_drop_fun (X : List (Term × Term)) (q : Term) :
-    mapLookup (X.filter fun e => Term.compareExact (Term.fuel (.atom "fun") e.1) (.atom "fun") e.1 != .eq) q =
+    mapLookup (X.filter fun e => !decide (Term.compareExact (Term.fuel (.atom "fun") e.1) (.atom "fun") e.1 = .eq)) q =
       (if q = .atom "fun" then none else mapLookup X q : Option Term) := by
   classical
   exact lookup_drop_key (.atom "fun") (atom_compareExact_eq "fun") (fun x => compareExact_eq_atom x "fun") X q
@@ -1126,7 +1126,7 @@ theorem fun_only_run {X : List (Term × Term)} (sX : DE (level t n).E (.map X)) 
     · exact h
   simp only [Term.map.injEq] at e
   subst e
-  let Y := X.filter fun e => Term.compareExact (Term.fuel (.atom "fun") e.1) (.atom "fun") e.1 != .eq
+  let Y := X.filter fun e => !decide (Term.compareExact (Term.fuel (.atom "fun") e.1) (.atom "fun") e.1 = .eq)
   have sY : DescrC (FunA (level t n).E) (TField (level t n).E) (LF (level t n).E) (MField (level t n).E) Y := by
     refine ⟨fun q h => ?_, fun name x h => ?_⟩
     · rw [lookup_drop_fun] at h
@@ -1252,13 +1252,13 @@ theorem normalize_both_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E 
   classical
   obtain ⟨res, run, cs⟩ := normalize_union fe fd cg hE hX hR n
   rcases cs with ⟨b, dom, Q, hb, nQ, ne, hdom, sdom, rfl⟩ | ⟨dead, bf, sh⟩
-  · let rest := R.filter fun e => Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 != .eq
+  · let rest := R.filter fun e => !decide (Term.compareExact (Term.fuel (.integer n) e.1) (.integer n) e.1 = .eq)
     obtain ⟨l, rl, sl⟩ := nonempty_arities_run fe fd cg hE (arityBdds_drop hR n)
     have other : ∀ m, K + 5 ≤ m → Elixir.Module.Types.Descr.«fun_other_non_empty_arities/2» (D m) (.map X)
         (.integer n) = .ok (Term.list l) := by
       intro m hm
       unfold Elixir.Module.Types.Descr.«fun_other_non_empty_arities/2»
-      simp [getMapKeys_single, hX, Erlang.maps.«take/2», hb]
+      simp [getMapKeys_single, hX, Erlang.maps.«take/2», hb, -integer_compareExact_eq]
       exact rl m hm
     have restEq : ∀ (a : Nat) ρ, a ≠ n → evalR rest (.integer a) ρ = evalR R (.integer a) ρ := by
       intro a ρ ha
@@ -1277,7 +1277,7 @@ theorem normalize_both_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E 
         refine Classical.byContradiction fun none => ?_
         have : o :: os = [] := sl.mpr fun a g vg => by
           by_cases ha : a = n
-          · subst ha; simp [evalR, lookup_drop]
+          · subst ha; simp [evalR, lookup_drop, -integer_compareExact_eq]
           · rw [restEq a _ ha]
             cases h : evalR R (.integer a) (valF E₀ den g)
             · rfl
@@ -1399,13 +1399,13 @@ theorem normalize_both_neg {X : List (Term × Term)} {R : Term}
 /-- The static branch of `fun_apply_with_strategy/4`, once the arguments are not empty and the function normalizes:
 the arguments are in the domain, and the arrows apply to them. -/
 theorem strategy_ok {X : List (Term × Term)} {args : List Term} {d : Dispatcher} {dom a r : Term}
-    (hany : Erlang.lists.«any/2» d (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+    (hany : Erlang.lists.«any/2» d (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (.atom "false"))
     (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok (.tuple #[.atom "ok", dom, a, a]))
     {T Y : List (Term × Term)} (hT : Elixir.Module.Types.Descr.«args_to_domain/1» (Term.list args) = .ok (.map T))
     (sT : mapLookup T (.atom "dynamic") = none) (hdom : dom = .map Y) (sY : mapLookup Y (.atom "dynamic") = none)
-    (hall : Erlang.lists.«all/2» d (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
+    (hall : Erlang.lists.«all/2» d (.function false "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
       (Term.list args) = .ok (.atom "true"))
     (run : Elixir.Module.Types.Descr.«fun_apply_with_strategy/4» d (.map X) (.atom "nil") (Term.list args) s =
       .ok (.tuple #[.atom "ok", r])) :
@@ -1427,7 +1427,7 @@ theorem strategy_ok {X : List (Term × Term)} {args : List Term} {d : Dispatcher
     · simp at run
 
 theorem strategy_needs {X : List (Term × Term)} {args : List Term} {d : Dispatcher} {r : Term}
-    (hany : Erlang.lists.«any/2» d (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+    (hany : Erlang.lists.«any/2» d (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (.atom "false"))
     {nb : Term} (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok nb) (n2 : ∀ x, nb ≠ .tuple #[.atom "ok", x])
@@ -1443,7 +1443,7 @@ theorem strategy_needs {X : List (Term × Term)} {args : List Term} {d : Dispatc
 
 /-- `fun_apply_with_strategy/4` with non-empty arguments returns what fails to normalize. -/
 theorem strategy_fail {X : List (Term × Term)} {args : List Term} {d : Dispatcher}
-    (hany : Erlang.lists.«any/2» d (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+    (hany : Erlang.lists.«any/2» d (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (.atom "false"))
     {nb : Term} (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok nb) (n4 : ∀ a b c, nb ≠ .tuple #[.atom "ok", a, b, c]) :
@@ -1455,14 +1455,14 @@ theorem strategy_fail {X : List (Term × Term)} {args : List Term} {d : Dispatch
 
 /-- The static branch of `fun_apply_with_strategy/4` succeeds when the arguments are in the domain. -/
 theorem strategy_run {X : List (Term × Term)} {args : List Term} {d : Dispatcher} {a r : Term}
-    (hany : Erlang.lists.«any/2» d (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+    (hany : Erlang.lists.«any/2» d (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (.atom "false"))
     {T Y : List (Term × Term)}
     (hnb : Elixir.Module.Types.Descr.«fun_normalize_both/3» d (.map X) (.atom "nil") (.integer args.length) =
       .ok (.tuple #[.atom "ok", .map Y, a, a]))
     (hT : Elixir.Module.Types.Descr.«args_to_domain/1» (Term.list args) = .ok (.map T))
     (sT : mapLookup T (.atom "dynamic") = none) (sY : mapLookup Y (.atom "dynamic") = none)
-    (hall : Erlang.lists.«all/2» d (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
+    (hall : Erlang.lists.«all/2» d (.function false "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
       (Term.list args) = .ok (.atom "true"))
     (sub : Elixir.Module.Types.Descr.«subtype?/2» d (.map T) (.map Y) = .ok (.atom "true"))
     (app : Elixir.Module.Types.Descr.«fun_apply_static/2» d (Term.list args) a = .ok r) :
@@ -1541,7 +1541,7 @@ theorem apply_ok_facts {H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
   have only : ∀ v : PN t n, v.1.1 ≠ "fun" → ¬denD (.map X) v := bp_true.mp only
   -- Non-empty arguments.
   obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
-  have anyE : Erlang.lists.«any/2» (D (m' + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+  have anyE : Erlang.lists.«any/2» (D (m' + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (boolAtom (args.any (isEmpty (level t n).den))) :=
     any_list _ _ _ _ _ _ fun a ma => by
       rw [Erlang.program.«Elixir.Module.Types.Descr:empty?/1».pure]
@@ -1556,7 +1556,7 @@ theorem apply_ok_facts {H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
     have := List.any_eq_false.mp hA a ma
     simp only [Bool.not_eq_true, isEmpty, decide_eq_false_iff_not, Classical.not_forall, Classical.not_not] at this
     exact this
-  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[])
+  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[])
       (Term.list args) = .ok (.atom "false") := by rw [anyE, hA]; rfl
   -- Results of `fun_normalize_both/3` that are not `{:ok, _}` or `{:ok, _, _, _}` are returned.
   have fails : ∀ nb, Elixir.Module.Types.Descr.«fun_normalize_both/3» (D (m' + 1)) (.map X) (.atom "nil")
@@ -1614,7 +1614,7 @@ theorem apply_ok_facts {H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
       subst e
       exact sZ.static
     have hall : Erlang.lists.«all/2» (D (m' + 1))
-        (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[]) (Term.list args) =
+        (.function false "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[]) (Term.list args) =
         .ok (.atom "true") := by
       have := all_list (D (m' + 1)) _ _ _ (fun _ => Bool.true) args fun a ma => by
         rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_apply_with_strategy/4-fun-0-/1».pure]
@@ -1784,7 +1784,7 @@ theorem apply_badfun {n H : Nat} (one : 1 ≤ H) {fn : Term} (hX : DE (level t n
   have noFun : ∀ (a : Nat) g, (∀ r ∈ g, FunSem.ValidRow a r) → ¬FunIn t n X a g := fun a g vg h =>
     empty _ ((denD_fpt a g vg).mpr h)
   obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
-  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[])
+  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[])
       (Term.list args) = .ok (.atom "false") := by
     rw [any_list _ _ _ _ (isEmpty (level t n).den) _ fun a ma => by
       rw [Erlang.program.«Elixir.Module.Types.Descr:empty?/1».pure]
@@ -1887,7 +1887,7 @@ theorem apply_domain {n H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
       exact ⟨a, g, vg, (e X).mp hv⟩
     · exact absurd hv (only v f)
   obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
-  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[])
+  have anyF : Erlang.lists.«any/2» (D (m' + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[])
       (Term.list args) = .ok (.atom "false") := by
     rw [any_list _ _ _ _ (isEmpty (level t n).den) _ fun a ma => by
       rw [Erlang.program.«Elixir.Module.Types.Descr:empty?/1».pure]
@@ -1933,7 +1933,7 @@ theorem apply_domain {n H : Nat} (one : 1 ≤ H) {X : List (Term × Term)} (hX :
     subst e
     exact sZ.static
   have hall : Erlang.lists.«all/2» (D (m' + 1))
-      (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[]) (Term.list args) =
+      (.function false "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[]) (Term.list args) =
       .ok (.atom "true") := by
     have := all_list (D (m' + 1)) _ _ _ (fun _ => Bool.true) args fun a ma => by
       rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_apply_with_strategy/4-fun-0-/1».pure]

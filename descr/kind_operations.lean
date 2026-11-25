@@ -227,7 +227,7 @@ theorem diff_gen {slh : Prop} (depth : Nat) (fn : Term) (f : Term → Term → T
       ∀ p, PtOkC TV LV MV FV name p → dn name (keptO name w) p = (dn name (some x) p && !dn name (some y) p)) :
     ∃ O, (mapEntries R).foldlM (fun acc entry =>
         (Dispatch.dispatch (Dispatcher.ofTable Erlang.program.fun_table (depth + 2))
-          (.function "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3 #[fn]) #[entry.1, entry.2, acc] :
+          (.function false "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3 #[fn]) #[entry.1, entry.2, acc] :
           Except Exception Term)) (.map L) = .ok (.map O) ∧
       DescrC Fn TF LF MF O ∧ (∀ name p, PtOkC TV LV MV FV name p → dn name (mapLookup O (.atom name)) p =
         (dn name (mapLookup L (.atom name)) p && !dn name (mapLookup R (.atom name)) p)) ∧
@@ -310,7 +310,7 @@ theorem descr_diff (ks : Kinds K TF LF MF TV LV MV) (fc : FunC K Fn FV FS H) {m 
     refine ⟨L, by unfold Elixir.Module.Types.Descr.«bare_difference/2»; simp [Erlang.erlang.«==/2»], sL,
       fun name p _ => by simp [mapLookup, dn_none], by omega⟩
   obtain ⟨O, fold, sO, dO, lO⟩ := diff_gen (slh := H) m
-    (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+    (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     (fun q x y => Elixir.Module.Types.Descr.«bare_difference/3» (D m) q x y) sL sR
     (fun q x y => by rw [Erlang.program.«Elixir.Module.Types.Descr:bare_difference/3».pure])
     (fun name x y fx fy => let ⟨w, run, k, sem⟩ := fieldC_diff ks fc hm fx fy;
@@ -333,7 +333,7 @@ theorem descr_opt_diff (ks : Kinds K TF LF MF TV LV MV) (fc : FunC K Fn FV FS H)
     refine ⟨L, by unfold Elixir.Module.Types.Descr.«opt_difference/3»; simp [Erlang.erlang.«==/2»], sL,
       fun name p _ => by simp [mapLookup, dn_none]⟩
   obtain ⟨O, fold, sO, dO, -⟩ := diff_gen (slh := False) m
-    (.function "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-0-" 3 #[.map S])
+    (.function false "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-0-" 3 #[.map S])
     (fun q x y => Elixir.Module.Types.Descr.«opt_difference/4» (D m) q x y (.map S)) sL sR
     (fun q x y => by
       rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_difference/3-anonymous-0-/3».pure]

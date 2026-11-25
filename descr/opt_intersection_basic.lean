@@ -42,6 +42,6 @@ theorem opt_inter_term_l (d : Dispatcher) (x S : Term) :
   unfold Elixir.Module.Types.Descr.«opt_intersection/3»; rfl
 
 /-- The intersection function of optimized map leaf intersections. -/
-def optMapIFun (S : Term) : Term := .function "Elixir.Module.Types.Descr" "-opt_map_leaf_intersection/3-fun-0-" 2 #[S]
+def optMapIFun (S : Term) : Term := .function false "Elixir.Module.Types.Descr" "-opt_map_leaf_intersection/3-fun-0-" 2 #[S]
 
 end Elixir.STTDescrProofsTest

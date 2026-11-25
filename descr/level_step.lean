@@ -149,7 +149,7 @@ theorem combo_diff {nd : Term} {K : Nat} {Fn TF LF MF : Term → Prop} {TV LV MV
   have sA' := comboMap_descr fz sA cA
   have sB' := comboMap_descr fz sB cB
   obtain ⟨O', fold, sO, -, -⟩ := diff_gen (slh := True) (TV := TV) (LV := LV) (MV := MV) m
-    (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+    (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     (fun q x y => Elixir.Module.Types.Descr.«bare_difference/3» (D m) q x y) sA' sB'
     (fun q x y => by rw [Erlang.program.«Elixir.Module.Types.Descr:bare_difference/3».pure])
     (fun name x y fx fy => by
@@ -222,7 +222,7 @@ theorem dg_cdiff (st : StepOk nd C K Fn TF LF MF TV LV MV FV) {a b c : Term} {m 
     exact combo_map.mpr (combo_diff st.ks (fcOf K) st.fz (by omega) sA sB (combo_map.mp ca) (combo_map.mp cb) runO)
 
 theorem map_topk_nonempty (d : Dispatcher) (k : Int) {S : List (Term × Term)}
-    (fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer k, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer k, .atom "open", .nil])) e.1 == .eq) =
+    (fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer k, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer k, .atom "open", .nil])) e.1 = .eq)) =
       Bool.false) :
     Elixir.Module.Types.Descr.«map_empty?/2» d (.tuple #[.integer k, .atom "open", .nil]) (.map S) = .ok (.atom "false") := by
   unfold Elixir.Module.Types.Descr.«map_empty?/2»
@@ -253,9 +253,9 @@ theorem dg_cempty (st : StepOk nd C K Fn TF LF MF TV LV MV FV) {a : Term} {S : L
     subst this
     exact ⟨fun _ v => by simp [denD_map, mapLookup, dn_none], fun _ => rfl⟩
   have fresh : ∀ x, OField (PureLit nd) x →
-      S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 == .eq) = Bool.false := by
+      S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 = .eq)) = Bool.false := by
     intro x px
-    simp only [List.any_eq_false, beq_iff_eq]
+    simp only [List.any_eq_false, decide_eq_true_eq]
     exact fun e me => hS.2 e me x px
   have ht : ∀ x, mapLookup X (.atom "tuple") = some x → Elixir.Module.Types.Descr.«tuple_empty?/2» (D m) x (.map S) =
       .ok (boolAtom (!denO x (fun _ => Bool.true) && !denO x (fun _ => Bool.false))) := fun x hx =>

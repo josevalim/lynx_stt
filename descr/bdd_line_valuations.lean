@@ -291,7 +291,7 @@ theorem literals_val (ops : ElemOk E K) (sem : ElemSem E K V den Safe) (S : List
     have e₁ := hea m (by omega)
     have e₂ := heb m (by omega)
     unfold Elixir.Module.Types.Descr.«non_empty_list_literals_intersection/2»
-    have f' : Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr"
+    have f' : Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr"
         "-non_empty_list_literals_intersection/2-fun-0-" 2 #[]) (.tuple #[.atom "term", .atom "term"])
         (Term.list pos) = .ok (.tuple #[a, b]) := by rw [← litsFun, foldEq, f]
     simp only [pure_bind, f', Lynx.Except.ok_bind, e₁, e₂, Elixir.STTDescrProofsTest.orElse_bool]
@@ -316,12 +316,12 @@ theorem list_empty_val (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E
     rw [eval_leaf, (valL_iff sem ⟨_, _, _, rfl, ops.term, ops.term⟩).mpr
       (llitSem_iff.mpr ⟨fun x _ => sem.term x, sem.term _⟩)] at this
     cases this
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 = .eq)) = Bool.true
   · unfold Elixir.Module.Types.Descr.«list_empty?/2»
     split
     · exact absurd rfl top
     · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true]
-  have fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 == .eq) = Bool.false := by
+  have fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 = .eq)) = Bool.false := by
     simpa using seen
   obtain ⟨S', put⟩ : ∃ S', Erlang.maps.«put/3» (.cons (.atom "list") r) (.atom "true") (.map S) = .ok (.map S') := by
     simp [Erlang.maps.«put/3»]
@@ -377,8 +377,8 @@ theorem noList_den (M : List (Term × Term)) (v : FV) :
     denF (.map (noList M)) v ↔ denF (.map M) v ∧ v ≠ .kind 1 := by
   have look : ∀ name, name ≠ "list" → mapLookup (noList M) (.atom name) = mapLookup M (.atom name) := by
     intro name ne
-    simp [noList, mapLookup_filter, ne]
-  have lookL : mapLookup (noList M) (.atom "list") = Option.none := by simp [noList, mapLookup_filter]
+    simp [noList, mapLookup_remove, ne]
+  have lookL : mapLookup (noList M) (.atom "list") = Option.none := by simp [noList, mapLookup_remove]
   cases v with
   | bit i => simp [denF, bits, look "bitmap" (by decide)]
   | atom q => simp [denF, amem, look "atom" (by decide)]

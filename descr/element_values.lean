@@ -448,7 +448,7 @@ theorem InT.iff_open {c : Bool} : ∀ {l : List Term} {v : List V},
 theorem zip_sem (ops : ElemOk E K) (sem : ElemSem E K V den Safe) {m : Nat} (hm : K + 1 ≤ m) :
     ∀ (l₁ : List Term), (∀ e ∈ l₁, E e) → ∀ (l₂ : List Term), (∀ e ∈ l₂, E e) → ∀ acc : List Term,
       ∃ r : List Term, Elixir.Module.Types.Descr.«zip_intersection/4» (D m) (Term.list l₁) (Term.list l₂)
-          (Term.list acc) (.function "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) =
+          (Term.list acc) (.function false "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) =
           .ok (Term.list (acc.reverse ++ r)) ∧ (∀ e ∈ r, E e) ∧ r.length = max l₁.length l₂.length ∧
         ∀ v, InT den Bool.false r v ↔ InT den Bool.false l₁ v ∧ InT den Bool.false l₂ v := by
   obtain ⟨n, rfl, hn⟩ := succ_of_le hm

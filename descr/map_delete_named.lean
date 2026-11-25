@@ -12,7 +12,7 @@ theorem del_fold (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (a : String)
     (Q' : List Term) (hQ : MQOk E den Q') (kQ : KeepsQ (LitA E a) Q')
     (acc : List Term) (ha : UpdQ E a absF Bool.true acc) :
     ∃ Qf, Erlang.lists.«foldl/3» (D (n + 1))
-        (.function "Elixir.Module.Types.Descr" "-map_update_project_pair/5-fun-0-" 2 #[absF])
+        (.function false "Elixir.Module.Types.Descr" "-map_update_project_pair/5-fun-0-" 2 #[absF])
         (Term.list acc) (Term.list Q') = .ok (Term.list Qf) ∧ UpdQ E a absF Bool.true Qf ∧
       ∀ u, WithF E den absF Qf u ↔
         WithF E den absF acc u ∨ (∃ x, MInPairs E den Q' (some x) u) ∨ MInPairs E den Q' none u := by
@@ -308,7 +308,7 @@ theorem line_pairs_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a
 theorem del_fold_lines (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) (keep : Bool)
     (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) :
     ∃ (pr : List Term) (F : Term), Erlang.lists.«foldl/3» (D (n + 3))
-        (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-0-" 2 #[.atom a, delOpK keep])
+        (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-0-" 2 #[.atom a, delOpK keep])
         (.tuple #[.nil, .tuple #[.map [], .atom "false"]]) (Term.list lines) = .ok (.tuple #[Term.list pr, F]) ∧
       FieldValue E F ∧ (∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o) ∧
       UpdQ E a absF Bool.true pr ∧
@@ -374,9 +374,9 @@ theorem del_tail (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : String)
         let p ← Elixir.Module.Types.Descr.«map_update_maybe_apply_callback/2» (D (m + 1)) (Term.list pairs)
           (delOpK keep)
         let groups ← Erlang.lists.«foldl/3» (D (m + 1))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
         let l ← Erlang.maps.«to_list/1» groups
-        let b ← Erlang.lists.«map/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
+        let b ← Erlang.lists.«map/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
           #[.atom a]) l
         κ b) = κ (Term.list bdds)) ∧
       (∀ b ∈ bdds, MField E b) ∧
@@ -419,9 +419,9 @@ theorem del_lines (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : St
         let p ← Elixir.Module.Types.Descr.«map_update_maybe_apply_callback/2» (D (n + 3)) (Term.list pairs)
           (delOpK keep)
         let groups ← Erlang.lists.«foldl/3» (D (n + 3))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
         let l ← Erlang.maps.«to_list/1» groups
-        let b ← Erlang.lists.«map/2» (D (n + 3)) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
+        let b ← Erlang.lists.«map/2» (D (n + 3)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
           #[.atom a]) l
         κ b) = κ (Term.list bdds)) ∧ (∀ b ∈ bdds, MField E b) ∧
       ∀ w, (∃ b ∈ bdds, denMF E den b w = Bool.true) ↔
@@ -565,7 +565,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
   have loop : ∀ (ks : List String) (B : List Term) (f : Bool) (T Er : Term), E T →
       ∃ (B' : List Term) (f' : Bool) (T' Er' : Term),
         Erlang.lists.«foldl_1/3» (D (n + 4))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
             #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, .atom "true", boolAtom bd, .atom "true",
               boolAtom (decide (md = "force"))])
           (.tuple #[T, Term.list B, Er, boolAtom f]) (Term.list (ks.map Term.atom)) =
@@ -588,7 +588,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
       obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] ht hT (m := n + 3) (by omega)
       -- One step of the fold: the maps of the key are added, and the old values stay a type.
       obtain ⟨f₁, T₁, Er₁, step, hT₁⟩ : ∃ (f₁ : Bool) (T₁ Er₁ : Term),
-          (D (n + 4)).pure (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+          (D (n + 4)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
             #[Term.list lines, cOp (.map []) Bool.true md, boolAtom req, .atom "true", boolAtom bd, .atom "true",
               boolAtom (decide (md = "force"))]) #[.atom a, .tuple #[T, Term.list B, Er, boolAtom f]] =
             .ok (.tuple #[T₁, Term.list (ba ++ B), Er₁, boolAtom f₁]) ∧ E T₁ := by

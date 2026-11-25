@@ -313,7 +313,7 @@ variable {t : Term}
 
 /-- `opt_tuple_leaf_difference/3` finds expansion literals in each other. -/
 theorem pure_cmp {n : Nat} (hn : 8 ≤ n) (a₁ a₂ type : Term) (h₁ : PureLit t a₁) (h₂ : PureLit t a₂) :
-    ∃ res, (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[])
+    ∃ res, (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[])
       #[a₁, a₂, type] = .ok res ∧ CmpOk Resp (PureLit t) a₁ a₂ type res := by
   obtain ⟨e₁, he₁, rfl⟩ := h₁
   obtain ⟨e₂, he₂, rfl⟩ := h₂

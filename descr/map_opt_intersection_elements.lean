@@ -272,7 +272,7 @@ theorem opt_map_inter_push_lG {d : Dispatcher} {S : Term} {k : Term} {fo : Term}
     {h lit c u e : Term} :
     Elixir.Module.Types.Descr.«opt_map_intersection/3» d (.tuple #[k, .atom "open", fo]) (.tuple #[h, lit, c, u, e]) S =
       Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo])
-        (.function "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) := by
   unfold Elixir.Module.Types.Descr.«opt_map_intersection/3»
   split
   all_goals first
@@ -287,7 +287,7 @@ theorem opt_map_inter_push_rG {d : Dispatcher} {S : Term} {k : Term} {fo : Term}
     {h lit c u e : Term} :
     Elixir.Module.Types.Descr.«opt_map_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo]) S =
       Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo])
-        (.function "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) := by
   unfold Elixir.Module.Types.Descr.«opt_map_intersection/3»
   split
   all_goals first
@@ -342,7 +342,7 @@ theorem leaf_inter (ef : EF nd E V den tl K) {m : Nat} (hm : K + 2 ≤ m) {k₁ 
 theorem push_open_map (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {H : Int} {lo : List (Term × Term)}
     (hL : MLit E (.tuple #[.integer H, .atom "open", fieldsTerm lo])) (hH : 0 ≤ H) {b : Term} (wb : Bdd (MLit E) b) :
     ∃ r, Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» (D m) b (.tuple #[.integer H, .atom "open", fieldsTerm lo])
-        (.function "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) = .ok r ∧
+        (.function false "Elixir.Module.Types.Descr" "map_closed_subtype_of_open?" 2 #[]) = .ok r ∧
       MField E r ∧ ∀ w, denMF E den r w =
         (denMF E den b w && denMF E den (.tuple #[.integer H, .atom "open", fieldsTerm lo]) w) := by
   obtain ⟨n, rfl, hn⟩ := succ_of_le hm
@@ -361,7 +361,7 @@ theorem push_open_map (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {H 
       subst e₂ e₁
       obtain ⟨c, runc, sound⟩ := cso_val ef (m := n) (by omega) _ l _ (Nat.le_refl _) sl so
       refine ⟨c, by
-        rw [Erlang.program.«Elixir.Module.Types.Descr:map_closed_subtype_of_open?/2».pure]
+        rw [Erlang.program.«Elixir.Module.Types.Descr:map_closed_subtype_of_open?/2».pure (external := false)]
         exact runc, fun cc ρ ⟨w, hw⟩ hρ => ?_⟩
       subst hw
       have lit : MapLitV E (.tuple #[.integer k, .atom "closed", fieldsTerm l]) := MapLitV.atom (Or.inr rfl) sl

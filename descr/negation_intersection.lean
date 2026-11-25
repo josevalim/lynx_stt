@@ -3,16 +3,16 @@ theorem symmetrical_gone (depth : Nat) (name : String) (captures : Array Term) (
     (g : Term → Term → Term → Term)
     (common : ∀ q x y, mapLookup L q = some x → mapLookup R q = some y →
       Lynx.Dispatcher.pure (Dispatcher.ofTable Erlang.program.fun_table (depth + 1))
-        (.function "Elixir.Module.Types.Descr" name 3 captures) #[q, x, y] = .ok (g q x y) ∧
+        (.function false "Elixir.Module.Types.Descr" name 3 captures) #[q, x, y] = .ok (g q x y) ∧
       (kept (q, g q x y) = Bool.true → Gone K q (g q x y))) :
     ∃ I, Elixir.Module.Types.Descr.«symmetrical_intersection/3» (Dispatcher.ofTable Erlang.program.fun_table (depth + 1))
-      (.map L) (.map R) (.function "Elixir.Module.Types.Descr" name 3 captures) = .ok (.map I) ∧
+      (.map L) (.map R) (.function false "Elixir.Module.Types.Descr" name 3 captures) = .ok (.map I) ∧
       ∀ q w, mapLookup I q = some w → Gone K q w := by
   obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr"
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr"
     name captures L R g (fun e member y hy => (common e.1 e.2 y (mapLookup_of_mem_mapEntries member) hy).1)
   obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr"
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure,
@@ -189,7 +189,7 @@ theorem negation_fields (ops : ElemOk E K) (depth : Nat) (X : List (Term × Term
     | .ok w => w
     | .error _ => .nil
   have noAtoms : Erlang.sets.elements? (.map []) = some [] := by simp [Erlang.sets.elements?]
-  obtain ⟨N, fold, lookN, -⟩ := difference_fold depth (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  obtain ⟨N, fold, lookN, -⟩ := difference_fold depth (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries X) T (mapEntries_distinct X) (by
     intro e member v₁ found
     have hy := mapLookup_of_mem_mapEntries member

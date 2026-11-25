@@ -5,7 +5,7 @@ open Lynx Lynx.Term BddProofs
 
 /-- The intersection function of optimized tuple leaf intersections. -/
 def optTupleIFun (S : Term) : Term :=
-  .function "Elixir.Module.Types.Descr" "-opt_tuple_leaf_intersection/3-fun-0-" 2 #[S]
+  .function false "Elixir.Module.Types.Descr" "-opt_tuple_leaf_intersection/3-fun-0-" 2 #[S]
 
 theorem closed_lt_open' {k H : Int} (hk : k < 0) (hH : 0 ≤ H) (cl fo : Term) :
     Term.compare (Term.fuel (.tuple #[.integer k, .atom "closed", cl]) (.tuple #[.integer H, .atom "open", fo])) (.tuple #[.integer k, .atom "closed", cl]) (.tuple #[.integer H, .atom "open", fo]) = .lt := by

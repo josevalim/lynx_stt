@@ -3,6 +3,15 @@ open Lynx Lynx.Term
 
 /-! Valid types: every field is a non-empty bitmap or an atom type. -/
 
+/-- Removing a key's bindings, as `maps:remove/2` filters them, leaves the bindings of other keys. -/
+theorem mapLookup_remove (entries : List (Term × Term)) (key query : Term) :
+    mapLookup (entries.filter fun entry => !decide (compareExact (fuel key entry.1) key entry.1 = .eq)) query =
+      if compareExact (fuel query key) query key = .eq then none else mapLookup entries query := by
+  rw [← mapLookup_filter]
+  congr 2
+  funext entry
+  by_cases h : compareExact (fuel key entry.1) key entry.1 = .eq <;> simp [h]
+
 /-- `min/2` on integers. -/
 @[simp] theorem min_integers (a b : Int) :
     Erlang.erlang.«min/2» (.integer a) (.integer b) = .ok (.integer (min a b)) := by

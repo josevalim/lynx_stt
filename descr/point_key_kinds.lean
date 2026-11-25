@@ -196,7 +196,7 @@ theorem dom_step {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y)) {nam
 theorem dom_fold {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y)) {m : Nat} (hm : (level t n).K + 23 ≤ m) :
     ∀ (es : List (Term × Term)), (∀ e ∈ es, mapLookup Y e.1 = some e.2) → ∀ acc : List Term,
       ∃ out, es.foldlM (fun acc e => Lynx.Dispatcher.pure (D (m + 1))
-          (.function "Elixir.Module.Types.Descr" "-to_domain_keys/1-fun-0-" 3 #[.map Y]) #[e.1, e.2, acc])
+          (.function false "Elixir.Module.Types.Descr" "-to_domain_keys/1-fun-0-" 3 #[.map Y]) #[e.1, e.2, acc])
           (Term.list acc) = .ok (Term.list (out ++ acc)) ∧ (∀ d ∈ out, ∃ s ∈ domainKinds, d = .atom s) ∧
         ∀ s, .atom s ∈ out ↔ ∃ e ∈ es, ∃ name, e.1 = .atom name ∧ Contrib (t := t) (n := n) Y name e.2 s
   | [], _, acc => ⟨[], rfl, by simp, by simp⟩

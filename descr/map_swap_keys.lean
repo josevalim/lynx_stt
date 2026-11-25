@@ -85,7 +85,7 @@ theorem mtl_static3 {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) {b : Term} (
   · have ha : AccOk t n lines acc₀ [] acc₀ := ⟨d₀, fun p => by simp⟩
     obtain ⟨S, a, rr, hS, -, ha', named⟩ : ∃ S a, Elixir.Module.Types.Descr.«bdd_reduce/3» (D (M + 5)) b
         (.tuple #[.map [], acc₀])
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
           .ok (.tuple #[.map S, a]) ∧ SeenOk S ∧ True ∧ AccOk t n lines acc₀ S a ∧
         ((∃ k : Int, b = .tuple #[.integer k, .atom "open", .nil]) ∨
           Bdd (fun u => MLit (level t (n + 1)).E u ∧ SeenNamed S u) b) := by

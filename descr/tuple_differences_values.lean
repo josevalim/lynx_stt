@@ -131,7 +131,7 @@ theorem valT_respT : ∀ ρ, ValT E den ρ → Resp ρ := fun _ ⟨v, e⟩ => e 
 
 /-- `opt_tuple_leaf_difference/3` compares tuple literals soundly. -/
 theorem tuple_cmp (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (a₁ a₂ type : Term) (h₁ : TLit E a₁) (h₂ : TLit E a₂) :
-    ∃ res, (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[])
+    ∃ res, (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[])
       #[a₁, a₂, type] = .ok res ∧ CmpOk (ValT E den) (TLit E) a₁ a₂ type res := by
   obtain ⟨⟨⟨k₁, t₁, l₁, rfl, g₁, e₁⟩, -⟩, -⟩ := h₁
   obtain ⟨⟨⟨k₂, t₂, l₂, rfl, g₂, e₂⟩, -⟩, -⟩ := h₂
@@ -277,7 +277,7 @@ nothing. -/
 theorem opt_tuple_split (d : Dispatcher) (x y : Term) :
     Elixir.Module.Types.Descr.«opt_tuple_difference/2» d x y = Elixir.Module.Types.Descr.«tuple_difference/2» x y ∨
     (Elixir.Module.Types.Descr.«opt_tuple_difference/2» d x y = Elixir.Module.Types.Descr.«bdd_difference/3» d x y
-        (.function "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[]) ∧
+        (.function false "Elixir.Module.Types.Descr" "opt_tuple_leaf_difference" 3 #[]) ∧
       Elixir.Module.Types.Descr.«tuple_difference/2» x y = Elixir.Module.Types.Descr.«bdd_difference/2» x y ∧
       (∀ k, y ≠ .tuple #[k, .atom "open", .nil]) ∧
       ((∀ k, x ≠ .tuple #[k, .atom "open", .nil]) ∨ ∀ arr, y ≠ .tuple arr)) ∨

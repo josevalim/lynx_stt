@@ -5,11 +5,11 @@ open Lynx Lynx.Term BddProofs
 
 /-- The bindings of a map other than its dynamic part, as `maps:remove/2` and `maps:take/2` leave them. -/
 def rmDyn (X : List (Term × Term)) : List (Term × Term) :=
-  X.filter fun entry => compareExact (fuel (.atom "dynamic") entry.1) (.atom "dynamic") entry.1 != .eq
+  X.filter fun entry => !decide (compareExact (fuel (.atom "dynamic") entry.1) (.atom "dynamic") entry.1 = .eq)
 
 theorem lookup_rmDyn (X : List (Term × Term)) (q : Term) :
     mapLookup (rmDyn X) q = if compareExact (fuel q (.atom "dynamic")) q (.atom "dynamic") = .eq then none else mapLookup X q := by
-  rw [rmDyn, mapLookup_filter]
+  rw [rmDyn, mapLookup_remove]
 
 theorem lookup_rmDyn_name (X : List (Term × Term)) {name : String} (h : name ≠ "dynamic") :
     mapLookup (rmDyn X) (.atom name) = mapLookup X (.atom name) := by
@@ -17,7 +17,7 @@ theorem lookup_rmDyn_name (X : List (Term × Term)) {name : String} (h : name �
 
 theorem rmDyn_static {X : List (Term × Term)} (h : mapLookup X (.atom "dynamic") = none) : rmDyn X = X := by
   refine List.filter_eq_self.mpr fun e me => ?_
-  cases c : compareExact (fuel (.atom "dynamic") e.1) (.atom "dynamic") e.1 <;> simp
+  by_cases c : compareExact (fuel (.atom "dynamic") e.1) (.atom "dynamic") e.1 = .eq <;> simp [c]
   have : (mapLookup X (.atom "dynamic")).isSome := (mapLookup_isSome X _).mpr ⟨e, me, c⟩
   rw [h] at this; cases this
 
@@ -27,10 +27,10 @@ theorem names_ne_dyn {name : String} (h : name ∈ names) : name ≠ "dynamic" :
 /-- Merging maps with atom keys looks up the combined values of shared keys and the others' values. -/
 theorem merge_gen (d : Dispatcher) (module name : String) (caps : Array Term)
     (f : Term → Term → Term → Except Exception Term)
-    (call : ∀ q v₁ v₂, d.pure (.function module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂)
+    (call : ∀ q v₁ v₂, d.pure (.function false module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂)
     (L R : List (Term × Term)) (keysR : ∀ q, (mapLookup R q).isSome → ∃ n, q = .atom n)
     (calls : ∀ q x y, mapLookup L q = some x → mapLookup R q = some y → ∃ u, f q x y = .ok u) :
-    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map L) (.map R) (.function module name 3 caps) =
+    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map L) (.map R) (.function false module name 3 caps) =
         .ok (.map U) ∧
       ∀ q, (mapLookup R q = none → mapLookup U q = mapLookup L q) ∧
         (∀ y, mapLookup R q = some y → mapLookup L q = none → mapLookup U q = some y) ∧
@@ -42,7 +42,7 @@ theorem merge_gen (d : Dispatcher) (module name : String) (caps : Array Term)
   have value : ∀ q x y u, f q x y = .ok u → g q x y = u := by
     intro q x y u run; simp [g, run]
   unfold Elixir.Module.Types.Descr.«symmetrical_merge/3»
-  obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup d module name caps L R g (by
+  obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup d false module name caps L R g (by
     intro e me x hx
     have hy := mapLookup_of_mem_mapEntries me
     obtain ⟨u, ru⟩ := calls e.1 x e.2 hx hy
@@ -73,10 +73,10 @@ theorem merge_gen (d : Dispatcher) (module name : String) (caps : Array Term)
 /-- Intersecting maps looks up the kept combined values of shared keys. -/
 theorem intersect_gen (n : Nat) (module name : String) (caps : Array Term)
     (f : Term → Term → Term → Except Exception Term)
-    (call : ∀ q v₁ v₂, (D (n + 1)).pure (.function module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂)
+    (call : ∀ q v₁ v₂, (D (n + 1)).pure (.function false module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂)
     (L R : List (Term × Term)) (keysL : ∀ q, (mapLookup L q).isSome → ∃ n, q = .atom n)
     (calls : ∀ q x y, mapLookup L q = some x → mapLookup R q = some y → ∃ u, f q x y = .ok u) :
-    ∃ I, Elixir.Module.Types.Descr.«symmetrical_intersection/3» (D (n + 1)) (.map L) (.map R) (.function module name 3 caps) =
+    ∃ I, Elixir.Module.Types.Descr.«symmetrical_intersection/3» (D (n + 1)) (.map L) (.map R) (.function false module name 3 caps) =
         .ok (.map I) ∧
       ∀ q, (mapLookup L q = none → mapLookup I q = none) ∧ (mapLookup R q = none → mapLookup I q = none) ∧
         (∀ x y u, mapLookup L q = some x → mapLookup R q = some y → f q x y = .ok u →
@@ -87,7 +87,7 @@ theorem intersect_gen (n : Nat) (module name : String) (caps : Array Term)
     | .error _ => .nil
   have value : ∀ q x y u, f q x y = .ok u → g q x y = u := by
     intro q x y u run; simp [g, run]
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (n + 1)) module name caps L R g (by
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (n + 1)) false module name caps L R g (by
     intro e member y hy
     obtain ⟨w, run⟩ := calls e.1 e.2 y (mapLookup_of_mem_mapEntries member) hy
     rw [call, run, value _ _ _ _ run])
@@ -107,7 +107,7 @@ theorem intersect_gen (n : Nat) (module name : String) (caps : Array Term)
       rw [h, ← hn]
       dsimp only
       cases mapLookup R e.1 <;> rfl
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (n + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (n + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])

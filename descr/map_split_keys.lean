@@ -244,7 +244,7 @@ theorem get_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term
   obtain ⟨T₅, r₅, h₅, s₅⟩ := get_domains ef hn lines hl' ds (fun d md => let ⟨s, _, e⟩ := hs.hds d md; ⟨s, e⟩) h₄
   refine ⟨T₅, ?_, h₅, fun x => ?_⟩
   · have nil : Erlang.lists.«foldl/3» (D (n + 4))
-        (.function "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) T₅ .nil = .ok T₅ := by
+        (.function false "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) T₅ .nil = .ok T₅ := by
       simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
     simp only [Term.list] at r₃
     simp [Elixir.Module.Types.Descr.«map_get_static_dnf/3», r₂, r₃, rR, r₄, r₅, nil]

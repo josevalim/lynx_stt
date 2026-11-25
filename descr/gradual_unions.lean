@@ -29,19 +29,19 @@ theorem opt_union_dyn_op {n : Nat} (hm : L.K + 12 ≤ n) (S : List (Term × Term
 
 theorem bare_union_dyn (d : Dispatcher) (x y : Term) :
     Elixir.Module.Types.Descr.«bare_union/3» d (.atom "dynamic") x y =
-      Elixir.Module.Types.Descr.«dynamic_union/3» d x y (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) := by
+      Elixir.Module.Types.Descr.«dynamic_union/3» d x y (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) := by
   unfold Elixir.Module.Types.Descr.«bare_union/3»; rfl
 
 theorem opt_union_dyn (d : Dispatcher) (x y S : Term) :
     Elixir.Module.Types.Descr.«opt_union/4» d (.atom "dynamic") x y S =
-      Elixir.Module.Types.Descr.«dynamic_union/3» d x y (.function "Elixir.Module.Types.Descr" "-opt_union/4-fun-0-" 3 #[S]) := by
+      Elixir.Module.Types.Descr.«dynamic_union/3» d x y (.function false "Elixir.Module.Types.Descr" "-opt_union/4-fun-0-" 3 #[S]) := by
   unfold Elixir.Module.Types.Descr.«opt_union/4»; rfl
 
 theorem union_run_grad (d : Dispatcher) {X Y : List (Term × Term)} (nX : X ≠ []) (nY : Y ≠ [])
     (g : (mapLookup X (.atom "dynamic")).isSome ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«bare_union/2» d (.map X) (.map Y) =
       Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map (alignT X)) (.map (alignT Y))
-        (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) := by
   unfold Elixir.Module.Types.Descr.«bare_union/2»
   cases hX : mapLookup X (.atom "dynamic") <;> cases hY : mapLookup Y (.atom "dynamic") <;> rw [hX, hY] at g <;>
     simp at g <;>
@@ -51,7 +51,7 @@ theorem opt_union_run_grad (d : Dispatcher) {X Y : List (Term × Term)} (S : Ter
     (g : (mapLookup X (.atom "dynamic")).isSome ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«opt_union/3» d (.map X) (.map Y) S =
       Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map (alignT X)) (.map (alignT Y))
-        (.function "Elixir.Module.Types.Descr" "-opt_union/3-anonymous-0-" 3 #[S]) := by
+        (.function false "Elixir.Module.Types.Descr" "-opt_union/3-anonymous-0-" 3 #[S]) := by
   unfold Elixir.Module.Types.Descr.«opt_union/3»
   cases hX : mapLookup X (.atom "dynamic") <;> cases hY : mapLookup Y (.atom "dynamic") <;> rw [hX, hY] at g <;>
     simp at g <;>

@@ -429,7 +429,7 @@ theorem de_resp (st : StepOk nd C K Fn TF LF MF TV LV MV FV) {e e' : Term} {v : 
 
 theorem noList_atom (M : List (Term × Term)) (name : String) :
     mapLookup (noList M) (.atom name) = if name = "list" then none else mapLookup M (.atom name) := by
-  simp only [noList, mapLookup_filter, compareExact_eq_atom, Term.atom.injEq]
+  simp only [noList, mapLookup_remove, compareExact_eq_atom, Term.atom.injEq]
 
 /-- Types without their list field. -/
 theorem descr_noList {X : List (Term × Term)} (sX : DescrC Fn TF LF MF X) :

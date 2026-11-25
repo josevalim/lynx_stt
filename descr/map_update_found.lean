@@ -142,7 +142,7 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
   have loop : ∀ (ks : List String) (T B : Term) (Er : List Term) (f : Bool), E T →
       ∃ (T' B' : Term) (extra : List Term) (f' : Bool),
         Erlang.lists.«foldl_1/3» (D (n + 4))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
             #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, .atom "true", bd,
               .atom "true", boolAtom (decide (md = "force"))])
           (.tuple #[T, B, Term.list Er, boolAtom f]) (Term.list (ks.map Term.atom)) =
@@ -182,7 +182,7 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
         [.tuple #[.atom "badkey", .atom a]] else []
       let f₁ : Bool := if md = "force" then Bool.true else if e then f else f || !o
       have hT₁ : E T₁ := by simp only [T₁]; split; exact hT; exact hu
-      have step : (D (n + 4)).pure (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+      have step : (D (n + 4)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
             #[Term.list lines, .tuple #[.tuple #[.atom "constant", fld], .atom md], boolAtom req, .atom "true", bd,
               .atom "true", boolAtom (decide (md = "force"))]) #[.atom a, .tuple #[T, B, Term.list Er, boolAtom f]] =
           .ok (.tuple #[T₁, ba.foldr Term.cons B, Term.list (e₁ ++ Er), boolAtom f₁]) := by
@@ -313,7 +313,7 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
   have m₁ : Erlang.erlang.«--/2» (Term.list (R.map Term.atom)) (Term.list (rk.map Term.atom)) =
       .ok (Term.list (R.map Term.atom)) := by
     rcases hRk with rfl | rfl
-    · have e0 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
+    · have e0 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc)
           ([] : List Term) L = [] := fun L => by induction L <;> simp_all
       simp [Erlang.erlang.«--/2», e0, Term.properList?, Term.list]
     · simp [Erlang.erlang.«--/2», Term.properList?, Term.list]
@@ -322,7 +322,7 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
   have m₃ : Erlang.erlang.«++/2» (Term.list (Ds.map Term.atom)) .nil = .ok (Term.list (Ds.map Term.atom)) := by
     simpa using append_list (Ds.map Term.atom) []
   obtain ⟨c, hc, sc⟩ := any_named_sem ef (n := n) (by omega) lines hl (rk ++ R)
-  have hcb : (D (n + 5)).pure (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
+  have hcb : (D (n + 5)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
       #[Term.list lines, Term.list (R.map Term.atom), Term.list (rk.map Term.atom)]) #[] = .ok (boolAtom c) := by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
     simpa [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», append_list] using hc
@@ -337,7 +337,7 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
   rw [eT] at hT₁
   clear r₁' eT
   have rE' : Erlang.lists.«map/2» (D (n + 6))
-      (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list mis₁) =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list mis₁) =
       .ok (Term.list (mis₁.map bdErr)) := by
     refine map_list _ _ _ _ bdErr _ fun x mx => ?_
     obtain ⟨s, ms, rfl, -⟩ := (mD₁ x).mp mx
@@ -345,11 +345,11 @@ theorem dnf_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : T
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-1-/1».pure]
     simp [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-1-/1», hy, bdErr, domDescr]
   have r₁'' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
-      (Term.list (Ds.map Term.atom)) (.map []) (.atom "true") (.function "Elixir.Module.Types.Descr"
+      (Term.list (Ds.map Term.atom)) (.map []) (.atom "true") (.function false "Elixir.Module.Types.Descr"
         "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R.map Term.atom), Term.list (rk.map Term.atom)]) =
       .ok (.tuple #[boolAtom f₁, Term.list val₁, Term.list mis₁, T₁]) := r₁
   have r₂' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines) .nil T₁ (.atom "true")
-      (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
+      (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
         #[Term.list lines, Term.list (R.map Term.atom), Term.list (rk.map Term.atom)]) =
       .ok (.tuple #[.atom "false", .nil, .nil, T₁]) := by
     simp [Elixir.Module.Types.Descr.«map_update_get_domains/5», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]

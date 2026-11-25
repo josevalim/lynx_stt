@@ -49,15 +49,15 @@ theorem de_gd {a : Term} (ha : DE (level t n).E a) : GD t n a ∧ lower a = a �
 theorem dyn_union_de {k : Nat} (hk : (level t n).K + 12 ≤ k) {a b c : Term} (ha : DE (level t n).E a)
     (hb : DE (level t n).E b)
     (run : Elixir.Module.Types.Descr.«dynamic_union/3» (D (k + 1)) a b
-      (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok c) : DE (level t n).E c := by
+      (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok c) : DE (level t n).E c := by
   rcases ha with rfl | ⟨A, rfl, sA⟩
   · have e : Elixir.Module.Types.Descr.«dynamic_union/3» (D (k + 1)) (.atom "term") b
-        (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.atom "term") := by
+        (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.atom "term") := by
       unfold Elixir.Module.Types.Descr.«dynamic_union/3»; rfl
     rw [e] at run; cases run; exact Or.inl rfl
   rcases hb with rfl | ⟨B, rfl, sB⟩
   · have e : Elixir.Module.Types.Descr.«dynamic_union/3» (D (k + 1)) (.map A) (.atom "term")
-        (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.atom "term") := by
+        (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.atom "term") := by
       unfold Elixir.Module.Types.Descr.«dynamic_union/3»; rfl
     rw [e] at run; cases run; exact Or.inl rfl
   have st := stepOf (level t n).ef (level t n).none
@@ -68,7 +68,7 @@ theorem dyn_union_de {k : Nat} (hk : (level t n).K + 12 ≤ k) {a b c : Term} (h
       obtain ⟨u, ru, -⟩ := fieldC_union st.ks st.fc (by omega) (sA.fields name x hx) (sB.fields name y hy)
       exact ⟨u, ru⟩)
   have e : Elixir.Module.Types.Descr.«dynamic_union/3» (D (k + 1)) (.map A) (.map B)
-      (.function "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.map U) := by
+      (.function false "Elixir.Module.Types.Descr" "bare_union" 3 #[]) = .ok (.map U) := by
     unfold Elixir.Module.Types.Descr.«dynamic_union/3»; simpa [unfold_map] using rU
   rw [e] at run; cases run
   refine Or.inr ⟨U, rfl, mergeL_descr st.ks st.fc (by omega) sA sB ⟨fun name => look _, fun q h => ?_⟩⟩

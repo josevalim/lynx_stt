@@ -229,7 +229,7 @@ theorem descr_fields_g (l : List Term) (hl : ∀ e ∈ l, GA e) :
       (dy || isDynB x) (se || isNoneB (lower x))
     have eq : Erlang.erlang.«==/2» (lower x) (.map []) = .ok (boolAtom (isNoneB (lower x))) := by
       simp only [Erlang.erlang.«==/2», isNoneB]
-      cases Term.compare (Term.fuel (lower x) (.map [])) (lower x) (.map []) <;> simp [boolAtom]
+      by_cases h : Term.compare (Term.fuel (lower x) (.map [])) (lower x) (.map []) = .eq <;> simp [h, boolAtom]
     rw [Elixir.Module.Types.Descr.«tuple_descr_fields/5».eq_def]
     simp only [Term.list] at run ⊢
     simp only [split_ga hx, Lynx.Except.ok_bind, eq]
@@ -638,7 +638,7 @@ theorem normalize_both_g {H : Nat} (two : 2 ≤ H) {Xs : List (Term × Term)} (h
       (felem (level t n).ef (level t n).ef.subc (by omega) (safeN_nil H)).mono (by omega)
     have fd := fdom (level t n).ef (H := H) (by omega) (safeT_nil (H + 1))
     have cg : DenCongr (level t n).E (level t n).den := (level t n).ef.congrE
-    let rest := R.filter fun e => Term.compareExact (Term.fuel (.integer a) e.1) (.integer a) e.1 != .eq
+    let rest := R.filter fun e => !decide (Term.compareExact (Term.fuel (.integer a) e.1) (.integer a) e.1 = .eq)
     obtain ⟨l, rl, sl⟩ := nonempty_arities_run fe fd cg (fun x h => h.1) (arityBdds_drop hR a)
     have restEq : ∀ (b : Nat) ρ, b ≠ a → evalR rest (.integer b) ρ = evalR R (.integer b) ρ := by
       intro b ρ hb
@@ -838,28 +838,28 @@ variable {t : Term} {d : Nat}
 theorem gd_ga {a : Term} (h : GD t d a) : GA a := h.1.shape
 
 theorem any_empty_g {args : List Term} (h : ∀ a ∈ args, GD t d a) {m : Nat} (hm : (level t d).K + 23 ≤ m) :
-    Erlang.lists.«any/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
+    Erlang.lists.«any/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list args) =
       .ok (boolAtom (args.any fun a => bp (∀ v : PN t d, ¬denD (upper a) v))) :=
   any_list _ _ _ _ _ _ fun a ma => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:empty?/1».pure, empty_upper _ (h a ma).1,
       next_empty (h a ma).2.2 hm]
 
 theorem map_upper_g {args : List Term} (h : ∀ a ∈ args, GD t d a) (m : Nat) :
-    Erlang.lists.«map/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "upper_bound" 1 #[]) (Term.list args) =
+    Erlang.lists.«map/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "upper_bound" 1 #[]) (Term.list args) =
       .ok (Term.list (args.map upper)) :=
   map_list _ _ _ _ upper _ fun a ma => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:upper_bound/1».pure]
     exact upper_bound_run (h a ma).1.ub
 
 theorem map_lower_g {args : List Term} (h : ∀ a ∈ args, GD t d a) (m : Nat) :
-    Erlang.lists.«map/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "lower_bound" 1 #[]) (Term.list args) =
+    Erlang.lists.«map/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "lower_bound" 1 #[]) (Term.list args) =
       .ok (Term.list (args.map lower)) :=
   map_list _ _ _ _ lower _ fun a ma => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:lower_bound/1».pure]
     exact lower_bound_run (h a ma).1.shape
 
 theorem all_static_g {args : List Term} (h : ∀ a ∈ args, GD t d a) (m : Nat) :
-    Erlang.lists.«all/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
+    Erlang.lists.«all/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-fun_apply_with_strategy/4-fun-0-" 1 #[])
       (Term.list args) = .ok (boolAtom (!args.any isDynB)) := by
   rw [all_list _ _ _ _ (fun a => !isDynB a) _ fun a ma => ?_]
   · congr 2
@@ -1179,7 +1179,7 @@ def ResSem (t : Term) (d m : Nat) (s r : Term) (Lo Up : (level t (d + 1)).V → 
       .ok (boolAtom (bp (SubN t d lr (lower b) ∧ SubN t d ur (upper b))))) ∧ SubN t d lr ur
 
 theorem any_empty_s {Z : List Term} (h : ∀ z ∈ Z, DE (level t d).E z) {m : Nat} (hm : (level t d).K + 23 ≤ m) :
-    Erlang.lists.«any/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list Z) =
+    Erlang.lists.«any/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) (Term.list Z) =
       .ok (boolAtom (Z.any fun z => bp (∀ v : PN t d, ¬denD z v))) :=
   any_list _ _ _ _ _ _ fun z mz => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:empty?/1».pure, next_empty (h z mz) hm]

@@ -246,7 +246,7 @@ structure NestMap (E : Term → Prop) (X : List (Term × Term)) : Prop where
 def NestOf (E : Term → Prop) (t : Term) : Prop := t = .atom "term" ∨ ∃ X, t = .map X ∧ NestMap E X
 
 /-- The generator of the recursive node of the laws. -/
-def gen : Term := .function "Elixir.STTDescrProofsTest" "tuple_list" 1 #[]
+def gen : Term := .function true "Elixir.STTDescrProofsTest" "tuple_list" 1 #[]
 
 /-- Recursive nodes of the reference `r`: their state maps `t` to the reference and the generator. -/
 def NodeAt (r : List Nat) (e : Term) : Prop :=
@@ -633,7 +633,7 @@ theorem empty_gone {K m : Nat} (hm : K + 2 ≤ m) (I : List (Term × Term))
     | none => rfl
     | some w => rcases only _ w h with ⟨e, -⟩ | ⟨e, -⟩ | ⟨e, -⟩ <;> simp at e <;> simp_all
   have none : ∀ name, name ≠ "list" → name ≠ "tuple" → name ≠ "map" →
-      I.any (fun e => compareExact (fuel (.atom name) e.1) (.atom name) e.1 == .eq) = Bool.false := by
+      I.any (fun e => decide (compareExact (fuel (.atom name) e.1) (.atom name) e.1 = .eq)) = Bool.false := by
     intro name nl nt nm
     have := absent name nl nt nm
     rw [Bool.eq_false_iff]
@@ -641,7 +641,7 @@ theorem empty_gone {K m : Nat} (hm : K + 2 ≤ m) (I : List (Term × Term))
     obtain ⟨e, me, he⟩ := List.any_eq_true.mp hany
     have := (mapLookup_isSome I (.atom name)).mpr ⟨e, me, by simpa using he⟩
     simp_all
-  have anyKey : ∀ name, (I.any fun e => compareExact (fuel (.atom name) e.1) (.atom name) e.1 == .eq) =
+  have anyKey : ∀ name, (I.any fun e => decide (compareExact (fuel (.atom name) e.1) (.atom name) e.1 = .eq)) =
       (mapLookup I (.atom name)).isSome := by
     intro name
     rw [Bool.eq_iff_iff, mapLookup_isSome]

@@ -170,11 +170,11 @@ theorem empty_expN (d : Dispatcher) (e : Term) (k : Int) (S : Term) :
 /-- A node is empty only when seen: its expansion holds nil. -/
 theorem empty_node {r : List Nat} {e : Term} (h : NodeAt r e) (m : Nat) (S : List (Term × Term)) :
     Elixir.Module.Types.Descr.«empty_seen?/2» (D (m + 1)) e (.map S) =
-      .ok (boolAtom (S.any fun p => Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 == .eq)) := by
+      .ok (boolAtom (S.any fun p => decide (Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 = .eq))) := by
   obtain ⟨k, run⟩ := expand_node_run h m
   obtain ⟨S₀, rfl, -⟩ := h
   rw [Elixir.Module.Types.Descr.«empty_seen?/2».eq_def]
-  cases hs : S.any fun p => Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 == .eq <;>
+  cases hs : S.any fun p => decide (Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 = .eq) <;>
     simp [Erlang.erlang.«is_map_key/2», hs, Term.true, Term.false, Erlang.maps.«put/3», run, empty_expN, boolAtom]
 
 theorem getMapKeys_tuple (ks : List Term) (xs : Array Term) : getMapKeys ks (.tuple xs) = [] := rfl
@@ -233,7 +233,7 @@ theorem tail_node {r : List Nat} {e : Term} (h : NodeAt r e) (m : Nat) {k : Int}
 empty unless seen. -/
 
 /-- Whether a seen set holds the id of the node `r`. -/
-def idIn (r : List Nat) (S : List (Term × Term)) : Bool := S.any fun p => Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 == .eq
+def idIn (r : List Nat) (S : List (Term × Term)) : Bool := S.any fun p => decide (Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 = .eq)
 
 theorem els_node {r : List Nat} {e : Term} (h : NodeAt r e) (m : Nat) (S : List (Term × Term)) :
     Elixir.Module.Types.Descr.«tuple_line_elements_empty?/2» (D (m + 2)) (Term.list [.atom "term", e]) (.map S) =
@@ -249,7 +249,7 @@ theorem els_node {r : List Nat} {e : Term} (h : NodeAt r e) (m : Nat) (S : List 
     Elixir.Module.Types.Descr.«-tuple_line_elements_empty?/2-fun-0-/2», e₂]
   rw [Erlang.lists.«any_1/2».eq_def]
   simp only [idIn]
-  cases hi : S.any (fun p => Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 == .eq) <;> simp [boolAtom] <;> rfl
+  cases hi : S.any (fun p => decide (Term.compareExact (Term.fuel (.reference r) p.1) (.reference r) p.1 = .eq)) <;> simp [boolAtom] <;> rfl
 
 
 theorem walk_leaf_node {r : List Nat} {e : Term} (h : NodeAt r e) (k : Int) (m : Nat) (S : List (Term × Term)) :
@@ -505,11 +505,11 @@ theorem tuple_walk_top_leaf (d : Dispatcher) (k : Int) (S : Term) :
 /-- The emptiness of the tuple field of a node expansion is decided, whatever was seen. -/
 theorem pure_tuple_empty {t x : Term} (fx : OField (PureLit t) x) (S : List (Term × Term)) :
     ∃ b, ∀ m, 2 ≤ m → Elixir.Module.Types.Descr.«tuple_empty?/2» (D m) x (.map S) = .ok (boolAtom b) := by
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun m _ => ?_⟩
     unfold Elixir.Module.Types.Descr.«tuple_empty?/2»
     simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true, boolAtom]
-  have fresh : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 == .eq) = Bool.false := by
+  have fresh : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") x) e.1) (.cons (.atom "tuple") x) e.1 = .eq)) = Bool.false := by
     simpa using seen
   obtain ⟨S', put⟩ : ∃ S', Erlang.maps.«put/3» (.cons (.atom "tuple") x) (.atom "true") (.map S) = .ok (.map S') :=
     ⟨_, by simp [Erlang.maps.«put/3»]; rfl⟩
@@ -708,7 +708,7 @@ theorem diff_pure (t : Term) (left : Term) (A B : List (Term × Term)) (bA : Pur
   have gval : ∀ name x y r, (∀ d, Elixir.Module.Types.Descr.«bare_difference/3» d (.atom name) x y = .ok r) →
       g (.atom name) x y = r := by
     intro name x y r h; simp [g, h]
-  have fold := fun depth => difference_fold depth (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  have fold := fun depth => difference_fold depth (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries B) A (mapEntries_distinct B) (by
       intro e member v₁ found
       have hy := mapLookup_of_mem_mapEntries member

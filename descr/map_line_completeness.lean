@@ -1014,9 +1014,9 @@ def TagIncl (den : Term → V → Prop) (tag ntag : Term) : Prop :=
 /-- `lists:all/2` of a closure that decides a property of every element. -/
 theorem all_sem {K' : Nat} (mo nm : String) (caps : Array Term) (l : List Term) {m : Nat} (hm : K' + 1 ≤ m)
     (P : Term → Prop) (body : Nat → Term → Except Exception Term)
-    (call : ∀ m x, Lynx.Dispatcher.pure (D (m + 1)) (.function mo nm 1 caps) #[x] = body m x)
+    (call : ∀ m x, Lynx.Dispatcher.pure (D (m + 1)) (.function false mo nm 1 caps) #[x] = body m x)
     (each : ∀ x ∈ l, ∃ b : Bool, (∀ m, K' ≤ m → body m x = .ok (boolAtom b)) ∧ (b = Bool.true ↔ P x)) :
-    ∃ b : Bool, Erlang.lists.«all/2» (D m) (.function mo nm 1 caps) (Term.list l) = .ok (boolAtom b) ∧
+    ∃ b : Bool, Erlang.lists.«all/2» (D m) (.function false mo nm 1 caps) (Term.list l) = .ok (boolAtom b) ∧
       (b = Bool.true ↔ ∀ x ∈ l, P x) := by
   classical
   let res : Term → Bool := fun x => if h : x ∈ l then Classical.choose (each x h) else Bool.false

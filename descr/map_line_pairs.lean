@@ -33,13 +33,13 @@ theorem foldl1_err {m : Nat} (f : Term) (R : List Term → Term → Prop) (Q : T
 /-- Folds whose steps either keep a relation or fail with an exception. -/
 theorem foldl_err {m : Nat} (mo nm : String) (caps : Array Term) (R : List Term → Term → Prop) (Q : Term → Prop)
     (e : Exception) (l : List Term)
-    (step : ∀ pre x a, x ∈ l → R pre a → (∃ a', R (pre ++ [x]) a' ∧ (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a') ∨
-      (Q x ∧ (D m).pure (.function mo nm 2 caps) #[x, a] = .error e)) (acc : Term) (h : R [] acc) :
-    (∃ r, R l r ∧ Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r) ∨
-      (∃ x ∈ l, Q x ∧ Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .error e) := by
-  have run := foldl1_err (.function mo nm 2 caps) R Q e l step l [] acc (fun _ h => h) h
-  have eq : Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) =
-      Erlang.lists.«foldl_1/3» (D m) (.function mo nm 2 caps) acc (Term.list l) := by
+    (step : ∀ pre x a, x ∈ l → R pre a → (∃ a', R (pre ++ [x]) a' ∧ (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a') ∨
+      (Q x ∧ (D m).pure (.function false mo nm 2 caps) #[x, a] = .error e)) (acc : Term) (h : R [] acc) :
+    (∃ r, R l r ∧ Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r) ∨
+      (∃ x ∈ l, Q x ∧ Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .error e) := by
+  have run := foldl1_err (.function false mo nm 2 caps) R Q e l step l [] acc (fun _ h => h) h
+  have eq : Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) =
+      Erlang.lists.«foldl_1/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) := by
     cases l with
     | nil => simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Erlang.lists.«foldl_1/3»]
     | cons x xs =>
@@ -199,7 +199,7 @@ theorem dkd_run {d : String} (hd : d ∈ domainKinds) :
 end
 
 /-- The pair function `map_to_list/1` passes. -/
-def mtlF : Term := .function "Elixir.Module.Types.Descr" "-map_to_list/1-fun-0-" 2 #[]
+def mtlF : Term := .function false "Elixir.Module.Types.Descr" "-map_to_list/1-fun-0-" 2 #[]
 
 /-- The type `domain_key_to_descr/1` gives a kind. -/
 def dkdT (d : String) : Term :=
@@ -235,7 +235,7 @@ def DomPair (t : Term) (n : Nat) (dl : List (Term × Term)) (p : PN t (n + 1)) :
 theorem dom_pairs {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) : ∀ (dl : List (Term × Term)),
     DomsV (level t (n + 1)).E dl → ∀ acc, DE (level t (n + 1)).E acc →
     ∃ acc', Erlang.orddict.«fold/3» (D (M + 1))
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-0-" 3 #[mtlF]) acc (fieldsTerm dl) = .ok acc' ∧
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-0-" 3 #[mtlF]) acc (fieldsTerm dl) = .ok acc' ∧
       DE (level t (n + 1)).E acc' ∧ ∀ p, denD acc' p ↔ denD acc p ∨ DomPair t n dl p
   | [], _, acc, ha => ⟨acc, by rw [Erlang.orddict.«fold/3».eq_def]; simp [fieldsTerm, Term.list,
       Erlang.erlang.«is_function/2»], ha, fun p => by simp [DomPair]⟩
@@ -298,9 +298,9 @@ def OpenLine (L : Term) : Prop := ∃ (l : Term) (negs : Term), L = .tuple #[.at
 
 theorem line_pairs_step {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) {L : Term} (hL : MLine (level t (n + 1)).E L)
     {acc : Term} (ha : DE (level t (n + 1)).E acc) :
-    (OpenLine L ∧ (D (M + 2)).pure (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF])
+    (OpenLine L ∧ (D (M + 2)).pure (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF])
         #[L, acc] = .error (.throw (.atom "open"))) ∨
-      (¬OpenLine L ∧ ∃ a', (D (M + 2)).pure (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF])
+      (¬OpenLine L ∧ ∃ a', (D (M + 2)).pure (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF])
         #[L, acc] = .ok a' ∧ DE (level t (n + 1)).E a' ∧ ∀ p, denD a' p ↔ denD acc p ∨ LinePairs t n L p) := by
   obtain ⟨tag, l, negs, rfl, g, -, -⟩ := hL
   rw [Erlang.program.«Elixir.Module.Types.Descr:-map_to_list_static/3-fun-1-/2».pure]
@@ -336,10 +336,10 @@ variable {t : Term} {n : Nat}
 theorem lines_pairs {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine (level t (n + 1)).E L) :
     (∃ L ∈ lines, OpenLine L ∧ Erlang.lists.«foldl/3» (D (M + 2))
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF]) (.map []) (Term.list lines) =
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF]) (.map []) (Term.list lines) =
           .error (.throw (.atom "open"))) ∨
       (∃ acc, Erlang.lists.«foldl/3» (D (M + 2))
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF]) (.map []) (Term.list lines) =
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" 2 #[mtlF]) (.map []) (Term.list lines) =
           .ok acc ∧ (∀ L ∈ lines, ¬OpenLine L) ∧ DE (level t (n + 1)).E acc ∧
         ∀ p, denD acc p ↔ ∃ L ∈ lines, LinePairs t n L p) := by
   rcases foldl_err (m := M + 2) "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-1-" #[mtlF]

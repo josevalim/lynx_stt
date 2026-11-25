@@ -76,7 +76,7 @@ theorem inT_replicate {e : Term} : ∀ (s : Nat) (w : List V),
 
 /-- The fold of `opt_union/2` over element types unites their values. -/
 theorem union_elements (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (l : List Term) (hl : ∀ e ∈ l, E e) :
-    ∃ r, E r ∧ Erlang.lists.«foldl/3» (D (n + 1)) (.function "Elixir.Module.Types.Descr" "opt_union" 2 #[])
+    ∃ r, E r ∧ Erlang.lists.«foldl/3» (D (n + 1)) (.function false "Elixir.Module.Types.Descr" "opt_union" 2 #[])
       (.map []) (Term.list l) = .ok r ∧ ∀ y, den r y ↔ ∃ e ∈ l, den e y := by
   obtain ⟨r, ⟨hr, sr⟩, run⟩ := foldl_rel_at (m := n + 1) "Elixir.Module.Types.Descr" "opt_union" #[]
     (fun pre a => E a ∧ ∀ y, den a y ↔ ∃ e ∈ pre, den e y) l
@@ -100,14 +100,14 @@ theorem union_elements (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (l : L
 /-- The fold of `process_tuples_values/1` over literals without negations unites the values of their positions. -/
 theorem values_pieces (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (P : List Term) (tP : ∀ p ∈ P, Piece E p) :
     ∃ r, E r ∧ Erlang.lists.«foldl/3» (D (n + 2))
-      (.function "Elixir.Module.Types.Descr" "-process_tuples_values/1-fun-0-" 2 #[]) (.map []) (Term.list P) = .ok r ∧
+      (.function false "Elixir.Module.Types.Descr" "-process_tuples_values/1-fun-0-" 2 #[]) (.map []) (Term.list P) = .ok r ∧
       ∀ y, den r y ↔ ∃ p ∈ P, PieceVal den p y := by
   obtain ⟨r, ⟨hr, sr⟩, run⟩ := foldl_rel_at (m := n + 2) "Elixir.Module.Types.Descr" "-process_tuples_values/1-fun-0-" #[]
     (fun pre a => E a ∧ ∀ y, den a y ↔ ∃ p ∈ pre, PieceVal den p y) P
     (fun pre x a mx ⟨ha, sa⟩ => by
       obtain ⟨tag, l, rfl, g, hl⟩ := tP x mx
       -- The value of the literal.
-      have empties : ∀ e ∈ l, (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "empty?" 1 #[]) #[e] =
+      have empties : ∀ e ∈ l, (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "empty?" 1 #[]) #[e] =
           .ok (boolAtom (bp (∀ v, ¬den e v))) := by
         intro e me
         obtain ⟨b, rb, sb⟩ := ef.empty_pub (hl e me)
@@ -269,7 +269,7 @@ theorem sizes_nat : ∀ {s : Term}, «sizes?/1» s = .ok (.atom "true") → ∃ 
     exact ⟨k :: ns, rfl⟩
   | .nil, _ => ⟨[], rfl⟩
   | .atom _, h | .integer _, h | .float _, h | .tuple _, h | .map _, h | .bitstring _ _ _, h
-  | .function _ _ _ _, h | .pid _, h | .reference _, h => by
+  | .function _ _ _ _ _, h | .pid _, h | .reference _, h => by
     simp [«sizes?/1», Erlang.erlang.«==/2»] at h
 
 /-- `closed_tuples/2` gives closed tuples of the sizes, of values of the type. -/

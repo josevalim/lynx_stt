@@ -14,17 +14,17 @@ theorem foldl1_congr (d : Dispatcher) (f g : Term) (h : ∀ x a, d.pure f #[x, a
     | ok a => simpa using foldl1_congr d f g h l a
   | .nil, acc => by rw [Erlang.lists.«foldl_1/3».eq_def, Erlang.lists.«foldl_1/3».eq_def]
   | .atom _, _ | .integer _, _ | .float _, _ | .tuple _, _ | .map _, _ | .bitstring _ _ _, _
-  | .function _ _ _ _, _ | .pid _, _ | .reference _, _ => by
+  | .function _ _ _ _ _, _ | .pid _, _ | .reference _, _ => by
     rw [Erlang.lists.«foldl_1/3».eq_def, Erlang.lists.«foldl_1/3».eq_def]
 
 theorem foldl_congr (d : Dispatcher) {mo nm : String} {c₁ c₂ : Array Term}
-    (h : ∀ x a, d.pure (.function mo nm 2 c₁) #[x, a] = d.pure (.function mo nm 2 c₂) #[x, a]) (l acc : Term) :
-    Erlang.lists.«foldl/3» d (.function mo nm 2 c₁) acc l = Erlang.lists.«foldl/3» d (.function mo nm 2 c₂) acc l := by
+    (h : ∀ x a, d.pure (.function false mo nm 2 c₁) #[x, a] = d.pure (.function false mo nm 2 c₂) #[x, a]) (l acc : Term) :
+    Erlang.lists.«foldl/3» d (.function false mo nm 2 c₁) acc l = Erlang.lists.«foldl/3» d (.function false mo nm 2 c₂) acc l := by
   simp only [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   cases l with
   | cons x l =>
     simp only [h]
-    cases d.pure (.function mo nm 2 c₂) #[x, acc] with
+    cases d.pure (.function false mo nm 2 c₂) #[x, acc] with
     | error e => simp
     | ok a => simpa [Lynx.Except.guard] using foldl1_congr d _ _ h l a
   | _ => simp
@@ -215,12 +215,11 @@ theorem gupd_g {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : Te
   rw [hD] at hD'; cases hD'
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
   simp only [Erlang.maps.«take/2», hD]
-  have eS : (X.filter fun entry => compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst !=
-      Ordering.eq) = rmDyn X := rfl
+  have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq)) = rmDyn X := rfl
   rw [eS]
   simp only [Lynx.Except.ok_bind]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
-      (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-1-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-1-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-1-/1».pure]
   have dSt : DE (level t n).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, dS⟩

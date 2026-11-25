@@ -10,13 +10,13 @@ theorem nil_of_lookup_none (entries : List (Term × Term))
 /-- Intersecting a map of fields with the empty type keeps no field. -/
 theorem symmetrical_none (d : Dispatcher) (X : List (Term × Term)) :
     Elixir.Module.Types.Descr.«symmetrical_intersection/3» d (.map X) (.map [])
-      (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok (.map []) := by
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup d "Elixir.Module.Types.Descr"
+      (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok (.map []) := by
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup d false "Elixir.Module.Types.Descr"
     "bare_intersection" #[] X [] (fun _ _ _ => .nil) (by intro e _ y hy; simp [mapLookup] at hy)
   obtain rfl : I = [] := nil_of_lookup_none I fun q => by
     rw [lookI]
     cases (mapEntries X).find? (fun e => decide (compareExact (fuel q e.1) q e.1 = .eq)) <;> simp [mapLookup]
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup d "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup d false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] [] kept (by intro e member; simp at member)
   obtain rfl : out = [] := nil_of_lookup_none out fun q => by rw [lookO]; simp
   unfold Elixir.Module.Types.Descr.«symmetrical_intersection/3»
@@ -47,7 +47,7 @@ theorem intersection_none_dynamic (depth : Nat) (X : List (Term × Term)) (Dy : 
     · simp [Erlang.erlang.«==/2»]
     · simp [symmetrical_none, Erlang.erlang.«==/2»]
   obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr"
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr"
     "bare_intersection" #[] X [(.atom "dynamic", .map [])] (fun _ _ _ => .integer 0) (by
       intro e me y hy
       simp [mapLookup] at hy
@@ -65,7 +65,7 @@ theorem intersection_none_dynamic (depth : Nat) (X : List (Term × Term)) (Dy : 
       exact hx.2.symm
     · cases hx
   obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr"
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])

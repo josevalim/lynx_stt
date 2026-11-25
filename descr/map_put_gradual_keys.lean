@@ -27,8 +27,8 @@ theorem foldl1_list_append (d : Dispatcher) (f : Term) : ∀ (xs ys : List Term)
     | ok a => simpa using foldl1_list_append d f xs ys a
 
 theorem foldl_fun (d : Dispatcher) (mo nm : String) (c : Array Term) (acc : Term) (xs : List Term) :
-    Erlang.lists.«foldl/3» d (.function mo nm 2 c) acc (Term.list xs) =
-      Erlang.lists.«foldl_1/3» d (.function mo nm 2 c) acc (Term.list xs) := by
+    Erlang.lists.«foldl/3» d (.function false mo nm 2 c) acc (Term.list xs) =
+      Erlang.lists.«foldl_1/3» d (.function false mo nm 2 c) acc (Term.list xs) := by
   cases xs with
   | nil => simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Erlang.lists.«foldl_1/3»]
   | cons x xs =>
@@ -59,7 +59,7 @@ theorem named_step_req (d : Dispatcher) (dnf v st build key acc : Term) :
 theorem named_keys_fold (m : Nat) (acc dnf v req st build : Term) (keys : List Term) :
     Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) acc dnf (Term.list keys) (forceOp v) req st
         (.atom "false") build =
-      Erlang.lists.«foldl_1/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+      Erlang.lists.«foldl_1/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
         #[dnf, forceOp v, req, st, build, .atom "false", .atom "true"]) acc (Term.list keys) := by
   simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», forceOp, Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
     Erlang.erlang.«not/1», Lynx.Except.orElse, foldl_fun]
@@ -85,15 +85,15 @@ theorem dnf_optional (m : Nat) (bdd dnf : Term) (rs os ds : List Term) (v st : T
     simpa using append_list [] os
   have app2 : Erlang.erlang.«++/2» (Term.list []) .nil = .ok .nil := by simpa using append_list [] []
   have app3 : Erlang.erlang.«++/2» (Term.list ds) .nil = .ok (Term.list ds) := by simpa using append_list ds []
-  have e0 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
+  have e0 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc)
       ([] : List Term) L = [] := fun L => by induction L <;> simp_all
   have nilL : Term.list ([] : List Term) = .nil := rfl
   have nkNil : ∀ acc req build, Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) acc dnf .nil
       (forceOp v) req st (.atom "false") build = .ok acc := fun acc req build => by
     rw [← nilL, named_keys_fold]; simp [Erlang.lists.«foldl_1/3»]
-  have req : ∀ acc, Erlang.lists.«foldl_1/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr"
+  have req : ∀ acc, Erlang.lists.«foldl_1/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr"
       "-map_update_named_keys/8-fun-0-" 2 #[dnf, forceOp v, .atom "true", st, .atom "true", .atom "false", .atom "true"])
-      acc (Term.list os) = Erlang.lists.«foldl_1/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr"
+      acc (Term.list os) = Erlang.lists.«foldl_1/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr"
       "-map_update_named_keys/8-fun-0-" 2 #[dnf, forceOp v, .atom "false", st, .atom "true", .atom "false",
         .atom "true"]) acc (Term.list os) := fun acc => by
     rw [← named_keys_fold, ← named_keys_fold, named_keys_req]
@@ -103,7 +103,7 @@ theorem dnf_optional (m : Nat) (bdd dnf : Term) (rs os ds : List Term) (v st : T
   have fold' : ∀ acc req build (keys : List Term), Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) acc
       dnf (Term.list keys) (.tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]], .atom "force"]) req st
       (.atom "false") build =
-      Erlang.lists.«foldl_1/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+      Erlang.lists.«foldl_1/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
         #[dnf, forceOp v, req, st, build, .atom "false", .atom "true"]) acc (Term.list keys) :=
     fun acc req build keys => named_keys_fold m acc dnf v req st build keys
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
@@ -163,10 +163,10 @@ theorem negreq_static_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
     cases ds with
     | nil => simp at hat
     | cons d ds => simp [Term.list, Erlang.erlang.«/=/2»]
-  have kdA' : List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
+  have kdA' : List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc)
       (ks.map Term.atom) (A.map Term.atom) = ks.map Term.atom := by
     have : ∀ B : List String, (∀ a ∈ B, a ∈ A) → List.foldl (fun acc y => List.eraseP
-        (fun x => compareExact (x.fuel y) x y == .eq) acc) (ks.map Term.atom) (B.map Term.atom) = ks.map Term.atom := by
+        (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc) (ks.map Term.atom) (B.map Term.atom) = ks.map Term.atom := by
       intro B
       induction B with
       | nil => intro _; rfl
@@ -177,7 +177,7 @@ theorem negreq_static_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n)
         · exact ih fun a m => hB a (List.mem_cons_of_mem _ m)
         · intro x mx
           obtain ⟨k, mk, rfl⟩ := List.mem_map.mp mx
-          simp only [beq_iff_eq, compareExact_eq_atom]
+          simp only [decide_eq_true_eq, compareExact_eq_atom]
           intro e
           injection e with e
           subst e
@@ -400,10 +400,10 @@ theorem negreq_static_dnf_empty (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 
   obtain ⟨Ks, rKs, mKs, ndKs, subKs, lenKs⟩ := kinds_usort ds hds
   have appNil : ∀ a : List Term, Erlang.erlang.«++/2» (Term.list a) .nil = .ok (Term.list a) := fun a => by
     simpa using append_list a []
-  have kdA' : List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
+  have kdA' : List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc)
       (ks.map Term.atom) (A.map Term.atom) = ks.map Term.atom := by
     have : ∀ B : List String, (∀ a ∈ B, a ∈ A) → List.foldl (fun acc y => List.eraseP
-        (fun x => compareExact (x.fuel y) x y == .eq) acc) (ks.map Term.atom) (B.map Term.atom) = ks.map Term.atom := by
+        (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc) (ks.map Term.atom) (B.map Term.atom) = ks.map Term.atom := by
       intro B
       induction B with
       | nil => intro _; rfl
@@ -414,7 +414,7 @@ theorem negreq_static_dnf_empty (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 
         · exact ih fun a m => hB a (List.mem_cons_of_mem _ m)
         · intro x mx
           obtain ⟨k, mk, rfl⟩ := List.mem_map.mp mx
-          simp only [beq_iff_eq, compareExact_eq_atom]
+          simp only [decide_eq_true_eq, compareExact_eq_atom]
           intro e
           injection e with e
           subst e
@@ -791,7 +791,7 @@ theorem dnfPuts_req' {A : List String} {N : List (Term × Term)} {ds ods : List 
 theorem diff_atoms (a b : List Term) (ha : ∀ x ∈ a, ∃ s, x = .atom s) :
     ∃ c, Erlang.erlang.«--/2» (Term.list a) (Term.list b) = .ok (Term.list c) ∧ (∀ x ∈ c, x ∈ a) ∧
       ∀ x ∈ a, x ∉ b → x ∈ c := by
-  refine ⟨List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc) a b,
+  refine ⟨List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc) a b,
     by simp [Erlang.erlang.«--/2»], ?_⟩
   induction b generalizing a with
   | nil => exact ⟨fun x h => h, fun x h _ => h⟩
@@ -801,7 +801,7 @@ theorem diff_atoms (a b : List Term) (ha : ∀ x ∈ a, ∃ s, x = .atom s) :
     refine ⟨fun x mx => List.mem_of_mem_eraseP (h₁ x mx), fun x mx nb => h₂ x ?_ fun m => nb (List.mem_cons_of_mem _ m)⟩
     obtain ⟨s, rfl⟩ := ha x mx
     refine (List.mem_eraseP_of_neg ?_).mpr mx
-    simp only [beq_iff_eq, atom_compareExact_eq]
+    simp only [decide_eq_true_eq, atom_compareExact_eq]
     rintro rfl
     exact nb List.mem_cons_self
 

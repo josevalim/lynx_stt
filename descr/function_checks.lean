@@ -624,10 +624,10 @@ theorem foldl1_or {W : Type} (K : Nat) (f : Term) (Inv : Term → Prop) (sem : T
 
 theorem foldl_or {W : Type} (K : Nat) (mo nm : String) (caps : Array Term) (Inv : Term → Prop) (sem : Term → W → Prop)
     (G : Term → W → Prop) (l : List Term)
-    (step : ∀ x ∈ l, ∀ a, Inv a → ∃ a', Inv a' ∧ (∀ m, K ≤ m → (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a') ∧
+    (step : ∀ x ∈ l, ∀ a, Inv a → ∃ a', Inv a' ∧ (∀ m, K ≤ m → (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a') ∧
       ∀ w, sem a' w ↔ sem a w ∨ G x w) (acc : Term) (hacc : Inv acc) :
     ∃ r, Inv r ∧ (∀ m, K ≤ m →
-      Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r) ∧
+      Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r) ∧
       ∀ w, sem r w ↔ sem acc w ∨ ∃ x ∈ l, G x w := by
   obtain ⟨r, hr, run, s⟩ := foldl1_or K _ Inv sem G l step acc hacc
   refine ⟨r, hr, fun m hm => ?_, s⟩
@@ -857,10 +857,10 @@ theorem all_disjoint_sem (fe : FunElem E den K seen) (n : Nat) : ∀ P : List (T
       exact sb this
 
 theorem nonempty_args_sem (fe : FunElem E den K seen) (args : List Term) (hargs : ∀ a ∈ args, E a)
-    (name : String) (lam : ∀ d a, (D (d + 1)).pure (.function "Elixir.Module.Types.Descr" name 1 #[seen]) #[a] =
+    (name : String) (lam : ∀ d a, (D (d + 1)).pure (.function false "Elixir.Module.Types.Descr" name 1 #[seen]) #[a] =
       (do let e ← Elixir.Module.Types.Descr.«empty_seen?/2» (D d) a seen; Erlang.erlang.«not/1» e))
     {m : Nat} (hm : K + 1 ≤ m) :
-    Erlang.lists.«all/2» (D m) (.function "Elixir.Module.Types.Descr" name 1 #[seen]) (Term.list args) =
+    Erlang.lists.«all/2» (D m) (.function false "Elixir.Module.Types.Descr" name 1 #[seen]) (Term.list args) =
       .ok (boolAtom (bp (∀ a ∈ args, ∃ v, den a v))) := by
   obtain ⟨m', rfl, hm'⟩ := succ_of_le hm
   have run := all_list (D (m' + 1)) "Elixir.Module.Types.Descr" name #[seen] (fun a => !isEmpty den a) args
@@ -893,7 +893,7 @@ theorem domains_sem (fe : FunElem E den K seen) (n : Nat) (args : List Term) (ha
         (v = .atom "non_empty" ∨ (v = .atom "disjoint_non_empty" ∧ List.Pairwise DisjDom (semP den P))))) := by
   let a₁ := bp (∀ a ∈ args, ∃ v, den a v)
   have h₁ : ∀ m, K + 1 ≤ m → Erlang.lists.«all/2» (D m)
-      (.function "Elixir.Module.Types.Descr" "-disjoint_non_empty_domains?/3-fun-0-" 1 #[seen]) (Term.list args) =
+      (.function false "Elixir.Module.Types.Descr" "-disjoint_non_empty_domains?/3-fun-0-" 1 #[seen]) (Term.list args) =
       .ok (boolAtom a₁) := fun m hm => nonempty_args_sem fe args hargs _ (fun d a => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-disjoint_non_empty_domains?/3-fun-0-/1».pure]; rfl) hm
   obtain ⟨a₂, h₂⟩ := all_uni (K + 2) "Elixir.Module.Types.Descr" "-all_non_empty_arguments?/2-fun-1-" #[seen]
@@ -944,7 +944,7 @@ theorem phi_starter_sem (fe : FunElem E den K seen) (fd : FunDom Dm E den dden K
     simp [(hP q mq).2.2, len]
   rcases hv with rfl | ⟨ne, rfl | ⟨rfl, disj⟩⟩
   · obtain ⟨neg, hneg, rneg, sneg⟩ := fe.neg hret
-    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function "Elixir.Module.Types.Descr" "-phi_starter/4-fun-0-" 1 #[])
+    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function false "Elixir.Module.Types.Descr" "-phi_starter/4-fun-0-" 1 #[])
         (Term.list args) = .ok (encA (args.map fun x => (Bool.false, x))) := fun m => by
       have := map_list (D m) "Elixir.Module.Types.Descr" "-phi_starter/4-fun-0-" #[]
         (fun x => .tuple #[boolAtom Bool.false, x]) args fun x _ => by
@@ -1042,7 +1042,7 @@ theorem fun_line_pos_sem (fe : FunElem E den K seen) (fd : FunDom Dm E den dden 
       · symm; exact bp_false.mpr fun h => by have := (sb cv).mpr h; rw [hb] at this; cases this
       · symm; exact bp_true.mpr ((sb cv).mp hb)
   have run : ∀ m, K + 3 ≤ m → Erlang.lists.«any/2» (D m)
-      (.function "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-1-" 1 #[encP P, seen])
+      (.function false "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-1-" 1 #[encP P, seen])
       (Term.list (N.map fun q => .tuple #[q.1, Term.list q.2.1, q.2.2])) =
       .ok (boolAtom ((N.map fun q => Term.tuple #[q.1, Term.list q.2.1, q.2.2]).any res)) := fun m hm => by
     obtain ⟨m', rfl, hm'⟩ := succ_of_le hm
@@ -1111,7 +1111,7 @@ theorem fun_line_sem (fe : FunElem E den K seen) (fd : FunDom Dm E den dden K se
       rw [List.mem_singleton.mp mt]
       exact ⟨fun a ma => by obtain ⟨_, _, rfl⟩ := List.mem_map.mp ma; exact fe.none.1, fe.term.1, by simp [top, len]⟩
     obtain ⟨b, rb, sb⟩ := fun_line_pos_sem fe fd n [top] (q :: qs) hT hN (by simp)
-    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-0-" 1 #[])
+    have margs : ∀ m, Erlang.lists.«map/2» (D m) (.function false "Elixir.Module.Types.Descr" "-fun_line_empty?/3-fun-0-" 1 #[])
         (Term.list q.2.1) = .ok (Term.list (q.2.1.map fun _ => .map [])) := fun m =>
       map_list (D m) _ _ _ _ _ fun x _ => by
         rw [Erlang.program.«Elixir.Module.Types.Descr:-fun_line_empty?/3-fun-0-/1».pure]; rfl

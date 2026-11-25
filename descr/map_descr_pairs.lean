@@ -1,7 +1,7 @@
 namespace Elixir.STTDescrProofsTest.Nest
 open Lynx Lynx.Term BddProofs
 
-theorem foldl_first (m : Nat) (f acc : Term) (fs : List Term) (hf : f = .function "Elixir.Module.Types.Descr" "-map_descr_pairs/1-fun-0-" 2 #[]) :
+theorem foldl_first (m : Nat) (f acc : Term) (fs : List Term) (hf : f = .function false "Elixir.Module.Types.Descr" "-map_descr_pairs/1-fun-0-" 2 #[]) :
     Erlang.lists.«foldl/3» (D m) f acc (Term.list fs) = Erlang.lists.«foldl_1/3» (D m) f acc (Term.list fs) := by
   subst hf
   cases fs with

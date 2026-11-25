@@ -86,7 +86,7 @@ theorem map_pairs_ok : ∀ (P : Term), Elixir.STTDescrProofsTest.«map_pairs?/2�
       · exact Or.inr ⟨ks, v, rfl, hks, Or.inl (arrows_static_ok hv)⟩
     · exact hfs p hp
   | .nil, _ => ⟨[], rfl, by simp⟩
-  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _, h | .pid _, h | .tuple _, h
+  | .integer _, h | .float _, h | .atom _, h | .reference _, h | .function _ _ _ _ _, h | .pid _, h | .tuple _, h
   | .map _, h | .bitstring _ _ _, h => by
     rw [Elixir.STTDescrProofsTest.«map_pairs?/2».eq_def] at h
     cases nil_of_eq h

@@ -129,7 +129,7 @@ theorem fetch_fold {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) (lines : List
     (hl : ∀ L ∈ lines, MLine (level t (n + 1)).E L ∧ ∃ w, InMLine (level t (n + 1)).den L w) (acc₀ : Term) :
     ∀ (l : List (Term × Term)), FieldsV (level t (n + 1)).E l → ∀ (S : List (Term × Term)) (acc : Term), SeenOk S →
       AccOk t n lines acc₀ S acc → ∃ S' acc', Erlang.orddict.«fold/3» (D (M + 4))
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-2-" 3 #[Term.list lines, mtlF])
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-2-" 3 #[Term.list lines, mtlF])
         (.tuple #[.map S, acc]) (fieldsTerm l) = .ok (.tuple #[.map S', acc']) ∧ SeenOk S' ∧
         (∀ s ∈ keyStrs l, (Term.atom s, Term.nil) ∈ S') ∧ (∀ e ∈ S, e ∈ S') ∧ AccOk t n lines acc₀ S' acc'
   | [], _, S, acc, hS, ha => ⟨S, acc, by rw [Erlang.orddict.«fold/3».eq_def]; simp [fieldsTerm, Term.list,
@@ -160,7 +160,7 @@ theorem fetch_leaf {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) (lines : List
     {lit : Term} (hlit : MapLitV (level t (n + 1)).E lit) (S : List (Term × Term)) (acc : Term) (hS : SeenOk S)
     (ha : AccOk t n lines acc₀ S acc) :
     ∃ S' acc', Lynx.Dispatcher.pure (D (M + 5))
-        (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF])
+        (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF])
         #[lit, .tuple #[.map S, acc]] = .ok (.tuple #[.map S', acc']) ∧ SeenOk S' ∧ SeenNamed S' lit ∧
       (∀ e ∈ S, e ∈ S') ∧ AccOk t n lines acc₀ S' acc' := by
   obtain ⟨k, tag, l, rfl, -, sl⟩ := hlit
@@ -178,13 +178,13 @@ theorem fetch_reduce {M : Nat} (hM : (level t (n + 1)).K + 23 ≤ M) (lines : Li
     {b : Term} (wb : Bdd (MLit (level t (n + 1)).E) b) :
     ∀ (S : List (Term × Term)) (acc : Term), SeenOk S → AccOk t n lines acc₀ S acc →
       ∃ S' acc', Elixir.Module.Types.Descr.«bdd_reduce/3» (D (M + 5)) b (.tuple #[.map S, acc])
-          (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
+          (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
           .ok (.tuple #[.map S', acc']) ∧ SeenOk S' ∧ (∀ e ∈ S, e ∈ S') ∧ AccOk t n lines acc₀ S' acc' ∧
         Bdd (fun u => MLit (level t (n + 1)).E u ∧ SeenNamed S' u) b := by
   refine Bdd.induction (P := fun ok b => (∀ u, ok u → MLit (level t (n + 1)).E u) →
       ∀ (S : List (Term × Term)) (acc : Term), SeenOk S → AccOk t n lines acc₀ S acc →
       ∃ S' acc', Elixir.Module.Types.Descr.«bdd_reduce/3» (D (M + 5)) b (.tuple #[.map S, acc])
-          (.function "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
+          (.function false "Elixir.Module.Types.Descr" "-map_to_list_static/3-fun-3-" 2 #[Term.list lines, mtlF]) =
           .ok (.tuple #[.map S', acc']) ∧ SeenOk S' ∧ (∀ e ∈ S, e ∈ S') ∧ AccOk t n lines acc₀ S' acc' ∧
         Bdd (fun u => ok u ∧ SeenNamed S' u) b)
     ?_ ?_ ?_ ?_ (MLit (level t (n + 1)).E) b wb (fun _ h => h)

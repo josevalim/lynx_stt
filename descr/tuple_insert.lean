@@ -33,7 +33,7 @@ theorem ins_exists {P : List Term} {Q : Term → List V → Prop} {i : Nat} {R :
 /-- The fold of `tuple_insert_static/3` inserts an element into each literal and unites them. -/
 theorem insert_pieces (ef : EF nd E V den tl K) {x : Term} (hx : E x) (i : Nat) (P : List Term) (tP : ∀ p ∈ P, Piece E p)
     {m : Nat} {res : Term}
-    (run : Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2
+    (run : Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2
       #[.integer i, x]) (.atom "bdd_bot") (Term.list P) = .ok res) :
     TField E res ∧ ∀ w, denTF E den res w = Bool.true ↔ ∃ p ∈ P, Ins (PieceIn den p) i (den x) w := by
   refine foldl_ok (m := m) _ _ _ (fun pre a => TField E a ∧ ∀ w, denTF E den a w = Bool.true ↔
@@ -106,7 +106,7 @@ theorem insert_static (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {X : Li
       simp only [hb', rq, rP] at run
       simp [Lynx.Term.isMember, Lynx.Except.guard, boolAtom] at run
       cases hr : Erlang.lists.«foldl/3» (D (n + 3))
-          (.function "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2 #[.integer i, x]) (.atom "bdd_bot")
+          (.function false "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2 #[.integer i, x]) (.atom "bdd_bot")
           (Term.list P) with
       | error _ => simp [hr] at run
       | ok r =>
@@ -200,7 +200,7 @@ theorem insert_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
       simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
-      rw [show (List.filter (fun entry => compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst != Ordering.eq) X) = rmT X from rfl]
+      rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
         simp [Lynx.Except.andAlso, Erlang.erlang.«not/1», boolAtom]

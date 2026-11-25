@@ -32,7 +32,7 @@ theorem fetch_step_negs (d : Dispatcher) (tag : String) (l negs lines : List Ter
         Elixir.Module.Types.Descr.«tuple_pair_projection_keeps_full_fst?/2» d (Term.list P) rest = .ok (boolAtom s) ∧
         ((s = Bool.true ∧ value' = value) ∨ (s = Bool.false ∧ ∃ Q,
           Elixir.Module.Types.Descr.«tuple_project_negative_pairs/3» d (Term.list P) value rest = .ok (Term.list Q) ∧
-          Erlang.lists.«foldl/3» d (.function "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
+          Erlang.lists.«foldl/3» d (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
             (.map []) (Term.list Q) = .ok value')) ∧
         Elixir.Module.Types.Descr.«opt_union/2» d value' ea = .ok u ∧ next = .tuple #[u, boolAtom ob]) :
     Elixir.Module.Types.Descr.«tuple_bdd_fetch_lines/3» d (Term.list (.tuple #[.atom tag, Term.list l, Term.list negs] :: lines))
@@ -191,7 +191,7 @@ theorem line_negs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (i : Na
   obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] hv' hea (show K ≤ n + 2 by omega)
   have hsv : (s = Bool.true ∧ value' = value) ∨ (s = Bool.false ∧ ∃ Q,
       Elixir.Module.Types.Descr.«tuple_project_negative_pairs/3» (D (n + 2)) (Term.list P) value rest = .ok (Term.list Q) ∧
-      Erlang.lists.«foldl/3» (D (n + 2)) (.function "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
+      Erlang.lists.«foldl/3» (D (n + 2)) (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
         (.map []) (Term.list Q) = .ok value') := by
     cases s
     · exact Or.inr ⟨rfl, hs₂ rfl⟩

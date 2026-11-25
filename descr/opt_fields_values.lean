@@ -40,14 +40,14 @@ theorem opt_inter_lookup (depth : Nat) (L R : List (Term × Term)) (seen : Term)
     | .error _ => .nil
   have value : ∀ q x y w, Elixir.Module.Types.Descr.«opt_intersection/4» (D depth) q x y seen = .ok w → g q x y = w := by
     intro q x y w run; simp [g, run]
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (depth + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (depth + 1)) false "Elixir.Module.Types.Descr"
     "-opt_intersection/3-anonymous-0-" #[seen] L R g (by
       intro e member y hy
       obtain ⟨w, run⟩ := calls e.1 e.2 y (mapLookup_of_mem_mapEntries member) hy
       rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_intersection/3-anonymous-0-/3».pure]
       simp only [Elixir.Module.Types.Descr.«-opt_intersection/3-anonymous-0-/4»]
       rw [run, value _ _ _ _ run])
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (depth + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (depth + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])

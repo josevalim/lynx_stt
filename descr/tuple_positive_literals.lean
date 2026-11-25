@@ -65,9 +65,9 @@ theorem flatmap1_lists {m : Nat} (f : Term) (h : Term → List Term) :
       simp [Term.list, tail, this]
 
 theorem flatmap_lists {m : Nat} (mo nm : String) (caps : Array Term) (h : Term → List Term) (l : List Term)
-    (step : ∀ x ∈ l, (D m).pure (.function mo nm 1 caps) #[x] = .ok (Term.list (h x))) :
-    Erlang.lists.«flatmap/2» (D m) (.function mo nm 1 caps) (Term.list l) = .ok (Term.list (l.flatMap h)) := by
-  have := flatmap1_lists (.function mo nm 1 caps) h l step
+    (step : ∀ x ∈ l, (D m).pure (.function false mo nm 1 caps) #[x] = .ok (Term.list (h x))) :
+    Erlang.lists.«flatmap/2» (D m) (.function false mo nm 1 caps) (Term.list l) = .ok (Term.list (l.flatMap h)) := by
+  have := flatmap1_lists (.function false mo nm 1 caps) h l step
   simp [Erlang.lists.«flatmap/2», Erlang.erlang.«is_function/2», this]
 
 /-- Folds whose steps may fail, keeping a relation when they succeed. -/
@@ -94,10 +94,10 @@ theorem foldl1_ok {m : Nat} (f : Term) (R : List Term → Term → Prop) (l : Li
       simpa using this
 
 theorem foldl_ok {m : Nat} (mo nm : String) (caps : Array Term) (R : List Term → Term → Prop) (l : List Term)
-    (step : ∀ pre x a a', x ∈ l → R pre a → (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a' → R (pre ++ [x]) a')
+    (step : ∀ pre x a a', x ∈ l → R pre a → (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a' → R (pre ++ [x]) a')
     (acc : Term) (h : R [] acc) (r : Term)
-    (run : Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r) : R l r := by
-  have := foldl1_ok (.function mo nm 2 caps) R l step l [] acc r (fun _ h => h) h
+    (run : Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r) : R l r := by
+  have := foldl1_ok (.function false mo nm 2 caps) R l step l [] acc r (fun _ h => h) h
   simp only [List.nil_append] at this
   apply this
   cases l with

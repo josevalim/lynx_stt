@@ -14,7 +14,7 @@ theorem valLG_resp : ∀ ρ, ValLG E den tl ρ → Resp ρ := fun _ ⟨v, _, e�
 /-- `opt_list_leaf_difference/3` compares list literals soundly. -/
 theorem nl_list_cmp (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (a₁ a₂ type : Term) (h₁ : LLit E a₁)
     (h₂ : LLit E a₂) :
-    ∃ res, (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "opt_list_leaf_difference" 3 #[])
+    ∃ res, (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "opt_list_leaf_difference" 3 #[])
       #[a₁, a₂, type] = .ok res ∧ CmpOk (ValLG E den tl) (LLit E) a₁ a₂ type res := by
   obtain ⟨k₁, l₁, t₁, rfl, hl₁, ht₁⟩ := h₁
   obtain ⟨k₂, l₂, t₂, rfl, hl₂, ht₂⟩ := h₂

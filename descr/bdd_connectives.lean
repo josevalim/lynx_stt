@@ -1935,7 +1935,7 @@ theorem list_empty_unsat (dsp : Dispatcher) {ok : Term → Prop} {r : Term} (wr 
   · have := unsat _ (resp_const Bool.true); simp at this
   · simp only [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Elixir.Module.Types.Descr.«bdd_to_dnf/1», dnf,
       Lynx.Except.ok_bind]
-    by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 == .eq) = Bool.true
+    by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "list") r) e.1) (.cons (.atom "list") r) e.1 = .eq)) = Bool.true
     · simp [Erlang.erlang.«is_map_key/2», seen, Term.true]
     · simp [Erlang.erlang.«is_map_key/2», seen, Term.true, Term.false, Erlang.maps.«put/3»,
         Erlang.lists.«all/2», Erlang.erlang.«is_function/2»]

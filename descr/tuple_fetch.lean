@@ -41,11 +41,11 @@ theorem pt_tuple (v : PN t n) (h : v.1.1 = "tuple") :
 
 /-- A map without its tuple field. -/
 def rmT (X : List (Term × Term)) : List (Term × Term) :=
-  X.filter fun entry => compareExact (fuel (.atom "tuple") entry.1) (.atom "tuple") entry.1 != .eq
+  X.filter fun entry => !decide (compareExact (fuel (.atom "tuple") entry.1) (.atom "tuple") entry.1 = .eq)
 
 theorem lookup_rmT (X : List (Term × Term)) (name : String) :
     mapLookup (rmT X) (.atom name) = if name = "tuple" then none else mapLookup X (.atom name) := by
-  rw [rmT, mapLookup_filter]
+  rw [rmT, mapLookup_remove]
   by_cases h : name = "tuple" <;> simp [h]
 
 theorem rest_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
@@ -53,7 +53,7 @@ theorem rest_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
   have sX := de_map hX
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name x h => ?_⟩, fun v => ?_⟩
   · have : (mapLookup X q).isSome := by
-      rw [rmT, mapLookup_filter] at h
+      rw [rmT, mapLookup_remove] at h
       split at h
       · simp at h
       · exact h
@@ -178,7 +178,7 @@ theorem fetch_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 2)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
       simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
-      rw [show (List.filter (fun entry => compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst != Ordering.eq) X) = rmT X from rfl]
+      rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 2) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
         simp [Lynx.Except.andAlso, Erlang.erlang.«not/1», boolAtom]

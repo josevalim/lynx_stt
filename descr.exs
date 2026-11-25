@@ -87,7 +87,7 @@
 # types. The plain negation and De Morgan laws also hold for static types whose function
 # types hold any literals, modeled as Boolean combinations of arrows.
 #
-# Checked against Elixir 1.21.0-dev (05fb2fe97), Erlang/OTP 29.1.2.
+# Checked against Elixir 1.21.0-dev (1de636e48), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
 Mix.install([{:lynx, path: Path.expand("../lynx", __DIR__)}])
@@ -384,6 +384,11 @@ defmodule STTDescrProofsTest do
   def all_precise?([left | lefts], [right | rights]), do: precise?(left, right) and all_precise?(lefts, rights)
   def all_precise?([], []), do: true
   def all_precise?(_lefts, _rights), do: false
+
+  # A less precise type keeps a dynamic part when the precise one has one: Descr treats a dynamic part as gradual
+  # even when it adds nothing to the bounds, as with dynamic(t) or t.
+  def kept_dynamic?(%{dynamic: _}, other), do: is_map(other) and :erlang.is_map_key(:dynamic, other)
+  def kept_dynamic?(_descr, _other), do: true
 
   # A static type between the bounds of a gradual type.
   def materializes?(static, gradual),
@@ -10452,5 +10457,6 @@ defmodule STTDescrProofsTest do
               · exact F₂ _ rfl
               · simp at hok
       """
+
   end
 end

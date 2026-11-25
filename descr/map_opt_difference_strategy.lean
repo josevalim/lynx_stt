@@ -106,7 +106,7 @@ theorem req_false {v : Term} (h : FieldValue E v) (r : req v = Bool.false) : Fie
 
 theorem any_req (m : Nat) (name : String) (hname : name = "-opt_map_difference_strategy/5-fun-0-" ∨
       name = "-opt_map_difference_strategy/5-fun-1-") (l : List (Term × Term)) (hl : ∀ e ∈ l, FieldValue E e.2) :
-    Erlang.lists.«any/2» (D m) (.function "Elixir.Module.Types.Descr" name 1 #[]) (fieldsTerm l) =
+    Erlang.lists.«any/2» (D m) (.function false "Elixir.Module.Types.Descr" name 1 #[]) (fieldsTerm l) =
       .ok (boolAtom (l.any fun e => req e.2)) := by
   have := any_list (D m) "Elixir.Module.Types.Descr" name #[]
     (fun x => match x with | .tuple ⟨[_, v]⟩ => req v | _ => Bool.false) (l.map fun e => .tuple #[e.1, e.2]) (by

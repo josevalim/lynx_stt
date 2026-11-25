@@ -94,16 +94,16 @@ theorem gout {A B : List (Term × Term)} (dA : DE (level t n).E (.map A)) (dB : 
 
 /-- The filters `tuple_insert_at_checked/3` applies to a gradual type: its static part, and that without tuples. -/
 theorem filter_dyn (X : List (Term × Term)) :
-    List.filter (fun entry => compareExact ((Term.atom "dynamic").fuel entry.fst) (.atom "dynamic") entry.fst != Ordering.eq) X =
+    List.filter (fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (.atom "dynamic") entry.fst = .eq)) X =
       rmDyn X := rfl
 
 theorem filter_t (Y : List (Term × Term)) :
-    List.filter (fun entry => compareExact ((Term.atom "tuple").fuel entry.fst) (.atom "tuple") entry.fst != Ordering.eq) Y =
+    List.filter (fun entry => !decide (compareExact ((Term.atom "tuple").fuel entry.fst) (.atom "tuple") entry.fst = .eq)) Y =
       rmT Y := rfl
 
 theorem filter_tdyn (X : List (Term × Term)) :
-    List.filter (fun a => compareExact ((Term.atom "tuple").fuel a.fst) (.atom "tuple") a.fst != Ordering.eq &&
-      compareExact ((Term.atom "dynamic").fuel a.fst) (.atom "dynamic") a.fst != Ordering.eq) X = rmT (rmDyn X) := by
+    List.filter (fun a => !decide (compareExact ((Term.atom "tuple").fuel a.fst) (.atom "tuple") a.fst = .eq) &&
+      !decide (compareExact ((Term.atom "dynamic").fuel a.fst) (.atom "dynamic") a.fst = .eq)) X = rmT (rmDyn X) := by
   simp [rmT, rmDyn, List.filter_filter, Bool.and_comm]
 
 /-- The static size check of a static type: when it holds, every tuple is long enough. -/
@@ -300,7 +300,7 @@ theorem ins_static_shape {X : List (Term × Term)} (hX : DE (level t n).E (.map 
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
       simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
-      rw [show (List.filter (fun entry => compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst != Ordering.eq) X) = rmT X from rfl]
+      rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
         simp [Lynx.Except.andAlso, Erlang.erlang.«not/1», boolAtom]
@@ -1059,8 +1059,8 @@ theorem vals_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X))
     case true =>
       simp [boolAtom, Elixir.Module.Types.Descr.«-tuple_values/1-fun-0-/1», pure, Except.pure] at run
       exact absurd run.symm nb
-    have get₂' : Elixir.Map.«get/3» (.map (List.filter (fun entry => compareExact ((Term.atom "dynamic").fuel entry.fst)
-        (.atom "dynamic") entry.fst != Ordering.eq) X)) (.atom "tuple") (.atom "bdd_bot") = .ok b₂ := get₂
+    have get₂' : Elixir.Map.«get/3» (.map (List.filter (fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst)
+        (.atom "dynamic") entry.fst = Ordering.eq)) X)) (.atom "tuple") (.atom "bdd_bot") = .ok b₂ := get₂
     obtain ⟨r₁, er₁, rr₁, sr₁⟩ := proc_vals fb (m := k + 3) (by omega)
     obtain ⟨c₁, hc₁, sc₁, cases₁⟩ := el_canon er₁
     obtain ⟨R, rR, gR, s₁, s₂⟩ := dyn_el_union hc₁ er₂ (m := k + 3) (by omega)

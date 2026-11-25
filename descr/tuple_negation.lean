@@ -19,8 +19,8 @@ def interList (g : Term → Term → Term → Term) (l r : List (Term × Term)) 
 theorem intersect_with_eq (d : Dispatcher) (module name : String) (captures : Array Term)
     (l r : List (Term × Term)) (g : Term → Term → Term → Term)
     (calls : ∀ entry ∈ mapEntries l, ∀ value, mapLookup r entry.1 = some value →
-      d.pure (.function module name 3 captures) #[entry.1, entry.2, value] = .ok (g entry.1 entry.2 value)) :
-    (Erlang.maps.«intersect_with/3» d (.function module name 3 captures) (.map l) (.map r) :
+      d.pure (.function false module name 3 captures) #[entry.1, entry.2, value] = .ok (g entry.1 entry.2 value)) :
+    (Erlang.maps.«intersect_with/3» d (.function false module name 3 captures) (.map l) (.map r) :
       Except Exception Term) = .ok (.map (interList g l r)) := by
   simp only [Erlang.maps.«intersect_with/3», Dispatch.dispatch]
   rw [mapM_ok _ (fun e => ((mapLookup r e.1).map (g e.1 e.2)).map fun v => (e.1, v)) _ ?all]
@@ -37,8 +37,8 @@ def mergeList (g : Term → Term → Term → Term) (l r : List (Term × Term)) 
 theorem merge_with_eq (d : Dispatcher) (module name : String) (captures : Array Term)
     (l r : List (Term × Term)) (g : Term → Term → Term → Term)
     (calls : ∀ entry ∈ mapEntries r, ∀ value, mapLookup l entry.1 = some value →
-      d.pure (.function module name 3 captures) #[entry.1, value, entry.2] = .ok (g entry.1 value entry.2)) :
-    (Erlang.maps.«merge_with/3» d (.function module name 3 captures) (.map l) (.map r) :
+      d.pure (.function false module name 3 captures) #[entry.1, value, entry.2] = .ok (g entry.1 value entry.2)) :
+    (Erlang.maps.«merge_with/3» d (.function false module name 3 captures) (.map l) (.map r) :
       Except Exception Term) = .ok (.map (mergeList g l r)) := by
   simp only [Erlang.maps.«merge_with/3», Dispatch.dispatch]
   rw [mapM_ok _ (fun e => (e.1, match mapLookup l e.1 with | some v => g e.1 v e.2 | none => e.2)) _ ?all]
@@ -54,9 +54,9 @@ def filterList (keep : Term × Term → Bool) (es : List (Term × Term)) : List 
 
 theorem filter_eq (d : Dispatcher) (module name : String) (captures : Array Term)
     (es : List (Term × Term)) (keep : Term × Term → Bool)
-    (calls : ∀ entry ∈ mapEntries es, d.pure (.function module name 2 captures) #[entry.1, entry.2] =
+    (calls : ∀ entry ∈ mapEntries es, d.pure (.function false module name 2 captures) #[entry.1, entry.2] =
       .ok (if keep entry then Term.true else Term.false)) :
-    (Erlang.maps.«filter/2» d (.function module name 2 captures) (.map es) : Except Exception Term) =
+    (Erlang.maps.«filter/2» d (.function false module name 2 captures) (.map es) : Except Exception Term) =
       .ok (.map (filterList keep es)) := by
   simp only [Erlang.maps.«filter/2», Dispatch.dispatch]
   rw [mapM_ok _ (fun e => (if keep e then some e.2 else none).map fun v => (e.1, v)) _ ?all]
@@ -131,21 +131,21 @@ theorem inter_uniform (K : Nat) (L R : List (Term × Term)) (sL : mapLookup L (.
         | some e => if kept e then some e.2 else none
         | none => none := by
   have callsI : ∀ n, K ≤ n → ∀ e ∈ mapEntries L, ∀ y, mapLookup R e.1 = some y →
-      (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) #[e.1, e.2, y] =
+      (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) #[e.1, e.2, y] =
         .ok (g e.1 e.2 y) := fun n hn e member y hy => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:bare_intersection/3».pure]
     exact calls e.1 e.2 y (mapLookup_of_mem_mapEntries member) hy n hn
-  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (K + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup (D (K + 1)) false "Elixir.Module.Types.Descr"
     "bare_intersection" #[] L R g (callsI K (Nat.le_refl _))
   have eqI : I = interList g L R := by
     have := runI.symm.trans (intersect_with_eq _ _ _ _ L R g (callsI K (Nat.le_refl _)))
     simpa using this
   subst eqI
   have callsO : ∀ n, ∀ e ∈ mapEntries (interList g L R),
-      (D (n + 1)).pure (.function "Elixir.Module.Types.Descr" "-symmetrical_intersection/3-fun-0-" 2 #[])
+      (D (n + 1)).pure (.function false "Elixir.Module.Types.Descr" "-symmetrical_intersection/3-fun-0-" 2 #[])
         #[e.1, e.2] = .ok (if kept e then Term.true else Term.false) := fun n e _ => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field]
-  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (K + 1)) "Elixir.Module.Types.Descr"
+  obtain ⟨out, runO, lookO⟩ := Erlang.maps.filter_lookup (D (K + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] (interList g L R) kept (callsO K)
   have eqO : out = filterList kept (interList g L R) := by
     have := runO.symm.trans (filter_eq _ _ _ _ _ kept (callsO K))
@@ -177,7 +177,7 @@ theorem reverse_elems (l : List Term) (hl : ∀ e ∈ l, E e) :
 theorem zip_elems (ops : ElemOk E K) (l₁ : List Term) (h₁ : ∀ e ∈ l₁, E e) :
     ∀ (l₂ : List Term), (∀ e ∈ l₂, E e) → ∀ acc, AllElem E acc →
     ∃ r, AllElem E r ∧ ∀ m, K + 1 ≤ m → Elixir.Module.Types.Descr.«zip_intersection/4» (D m)
-      (Term.list l₁) (Term.list l₂) acc (.function "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) =
+      (Term.list l₁) (Term.list l₂) acc (.function false "Elixir.Module.Types.Descr" "bare_intersection" 2 #[]) =
         .ok r := by
   induction l₁ with
   | nil =>
@@ -349,7 +349,7 @@ theorem elements_spec (hE : NestedOk E depth) : ∀ {xs : Term}, «elements?/2»
       rcases List.mem_cons.mp me with rfl | me
       · exact hE _ h.1
       · exact hl e me⟩
-  | .atom _, h | .integer _, h | .float _, h | .reference _, h | .function _ _ _ _, h | .pid _, h
+  | .atom _, h | .integer _, h | .float _, h | .reference _, h | .function _ _ _ _ _, h | .pid _, h
   | .tuple _, h | .map _, h | .bitstring _ _ _, h => by unfold «elements?/2» at h; simp [Term.true] at h
 
 /-- The top tuple literal `{_, open, []}`, which tuple operations treat as the top type. -/
@@ -467,7 +467,7 @@ theorem tuple_empty_of {K : Nat} {r : Term} (run : ∀ m S, K + 1 ≤ m → Elix
   intro n S hn
   have run' := fun S' => run n S' hn
   unfold Elixir.Module.Types.Descr.«tuple_empty?/2»
-  by_cases seen : S.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") r) e.1) (.cons (.atom "tuple") r) e.1 == .eq) = Bool.true
+  by_cases seen : S.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") r) e.1) (.cons (.atom "tuple") r) e.1 = .eq)) = Bool.true
   · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true]
   · simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen,
       Term.false, Erlang.maps.«put/3», run']

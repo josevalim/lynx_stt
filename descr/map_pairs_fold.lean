@@ -150,7 +150,7 @@ theorem field_ne_dom (a : String) (f : Term) (ks : List Term) (v : Term) :
 
 theorem fold_pairs {m : Nat} (hm : (level t n).K ≤ m) : ∀ (rest P : List Term), (∀ p ∈ rest, CPair t n p) →
     ∀ (dl : List (Term × Term)) (b : Bool), DomL t n dl → DomSem t n P dl →
-    ∃ dl' b', Erlang.lists.«foldl_1/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_descr_pairs/1-fun-0-" 2 #[])
+    ∃ dl' b', Erlang.lists.«foldl_1/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_descr_pairs/1-fun-0-" 2 #[])
         (accT (fieldsRev P) dl b) (Term.list rest) = .ok (accT (fieldsRev (P ++ rest)) dl' b') ∧
       DomL t n dl' ∧ DomSem t n (P ++ rest) dl'
   | [], P, _, dl, b, hd, hs => ⟨dl, b, by simp [Erlang.lists.«foldl_1/3»], hd, by simpa using hs⟩

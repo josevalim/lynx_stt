@@ -55,12 +55,12 @@ def SeenOk (S : Term) : Prop :=
 theorem seenOk_nil : SeenOk (.map []) := ⟨[], rfl, by simp⟩
 
 theorem seen_absent {S : Term} (ok : SeenOk S) (kind : String) :
-    ∃ L, S = .map L ∧ L.any (fun e => Term.compareExact (Term.fuel (.cons (.atom kind) (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom kind) (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 == .eq) = Bool.false := by
+    ∃ L, S = .map L ∧ L.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom kind) (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom kind) (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 = .eq)) = Bool.false := by
   obtain ⟨L, rfl, all⟩ := ok
   refine ⟨L, rfl, ?_⟩
   simp only [List.any_eq_false]
   intro e member hit
-  exact all e member kind (beq_iff_eq.mp hit)
+  exact all e member kind (of_decide_eq_true hit)
 
 theorem line_inter_open (d : Dispatcher) (k : Int) (fs S : Term) :
     Elixir.Module.Types.Descr.«map_line_intersection/3» d (.tuple #[.atom "open", .nil])
@@ -385,7 +385,7 @@ theorem diff_basic (depth : Nat) (left : Term) (A B : List (Term × Term)) (bA :
     match Elixir.Module.Types.Descr.«bare_difference/3» (Dispatcher.ofTable Erlang.program.fun_table depth) k₀ v₁ v₂ with
     | .ok w => w
     | .error _ => .nil
-  obtain ⟨C, fold, lookC, -⟩ := difference_fold depth (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  obtain ⟨C, fold, lookC, -⟩ := difference_fold depth (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries B) A (mapEntries_distinct B) (by
       intro e member v₁ found
       have hy := mapLookup_of_mem_mapEntries member
@@ -488,7 +488,7 @@ theorem inter_basic (depth : Nat) (A B : List (Term × Term)) (bA : Basic A) (bB
   have ik := fun name x y (hx : mapLookup A (.atom name) = some x) (hy : mapLookup B (.atom name) = some y) =>
     inter_key name x y (bA.field hx) (bB.field hy)
   obtain ⟨I, runI, lookI⟩ := Erlang.maps.intersect_with_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr" "bare_intersection" #[] A B g (by
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr" "bare_intersection" #[] A B g (by
       intro e me y hy
       have hx := mapLookup_of_mem_mapEntries me
       obtain ⟨name, key⟩ := bA.atomKey hx
@@ -496,7 +496,7 @@ theorem inter_basic (depth : Nat) (A B : List (Term × Term)) (bA : Basic A) (bB
       obtain ⟨r, run, -⟩ := ik name e.2 y hx hy
       rw [Erlang.program.«Elixir.Module.Types.Descr:bare_intersection/3».pure, run, gval _ _ _ _ (run _)])
   obtain ⟨C, runC, lookC⟩ := Erlang.maps.filter_lookup
-    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr"
+    (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr"
     "-symmetrical_intersection/3-fun-0-" #[] I kept (by
       intro e _
       rw [Erlang.program.«Elixir.Module.Types.Descr:-symmetrical_intersection/3-fun-0-/2».pure, keep_field])
@@ -615,7 +615,7 @@ theorem opt_union_lookup (depth : Nat) (L R : List (Term × Term)) (seen : Term)
     simp only [emptyL, emptyR]
     unfold Elixir.Module.Types.Descr.«symmetrical_merge/3»
     obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup
-      (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr" "-opt_union/3-anonymous-0-"
+      (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr" "-opt_union/3-anonymous-0-"
         #[seen] L R g (by
         intro e me x hx
         have hy := mapLookup_of_mem_mapEntries me
@@ -896,7 +896,7 @@ theorem diff_basic_u (left : Term) (A B : List (Term × Term)) (bA : Basic A) (b
   have gval : ∀ name x y r, (∀ d, Elixir.Module.Types.Descr.«bare_difference/3» d (.atom name) x y = .ok r) →
       g (.atom name) x y = r := by
     intro name x y r h; simp [g, h]
-  have fold := fun depth => difference_fold depth (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+  have fold := fun depth => difference_fold depth (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
     g (mapEntries B) A (mapEntries_distinct B) (by
       intro e member v₁ found
       have hy := mapLookup_of_mem_mapEntries member
@@ -926,11 +926,11 @@ theorem diff_basic_u (left : Term) (A B : List (Term × Term)) (bA : Basic A) (b
 theorem tuple_top_bool (L : List (Term × Term)) : ∃ b, ∀ d,
     Elixir.Module.Types.Descr.«tuple_empty?/2» d (.tuple #[.integer 61102469, .atom "open", .nil]) (.map L) =
       .ok (boolAtom b) := by
-  by_cases seen : L.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 == .eq) = Bool.true
+  by_cases seen : L.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun d => ?_⟩
     unfold Elixir.Module.Types.Descr.«tuple_empty?/2»
     simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true, boolAtom]
-  · have fresh : L.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 == .eq) = Bool.false := by
+  · have fresh : L.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "tuple") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 = .eq)) = Bool.false := by
       simpa using seen
     refine ⟨Bool.false, fun d => ?_⟩
     unfold Elixir.Module.Types.Descr.«tuple_empty?/2»
@@ -945,11 +945,11 @@ theorem tuple_top_bool (L : List (Term × Term)) : ∃ b, ∀ d,
 theorem map_top_bool (L : List (Term × Term)) : ∃ b, ∀ d,
     Elixir.Module.Types.Descr.«map_empty?/2» d (.tuple #[.integer 61102469, .atom "open", .nil]) (.map L) =
       .ok (boolAtom b) := by
-  by_cases seen : L.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 == .eq) = Bool.true
+  by_cases seen : L.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 = .eq)) = Bool.true
   · refine ⟨Bool.true, fun d => ?_⟩
     unfold Elixir.Module.Types.Descr.«map_empty?/2»
     simp [Elixir.Module.Types.Descr.«empty_bdd_seen_key/2», Erlang.erlang.«is_map_key/2», seen, Term.true, boolAtom]
-  · have fresh : L.any (fun e => Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 == .eq) = Bool.false := by
+  · have fresh : L.any (fun e => decide (Term.compareExact (Term.fuel (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1) (.cons (.atom "map") (.tuple #[.integer 61102469, .atom "open", .nil])) e.1 = .eq)) = Bool.false := by
       simpa using seen
     refine ⟨Bool.false, fun d => ?_⟩
     unfold Elixir.Module.Types.Descr.«map_empty?/2»

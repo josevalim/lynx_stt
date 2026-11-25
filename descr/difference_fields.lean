@@ -7,7 +7,7 @@ def differenceStep (g : Term → Term → Term → Term) (acc : List (Term × Te
   match mapLookup acc entry.1 with
   | some v₁ =>
     if kept (entry.1, g entry.1 v₁ entry.2) then (entry.1, g entry.1 v₁ entry.2) :: acc
-    else acc.filter fun e => compareExact (fuel entry.1 e.1) entry.1 e.1 != .eq
+    else acc.filter fun e => !decide (compareExact (fuel entry.1 e.1) entry.1 e.1 = .eq)
   | none => acc
 
 theorem member_dropped (key w : Term) :
@@ -43,7 +43,7 @@ theorem step_other (g : Term → Term → Term → Term) (acc : List (Term × Te
     by_cases keep : kept (e.1, g e.1 v₁ e.2)
     · simp [keep, mapLookup, other]
     · simp only [keep, Bool.false_eq_true, ite_false]
-      rw [mapLookup_filter]
+      rw [mapLookup_remove]
       simp [other]
 
 theorem step_same (g : Term → Term → Term → Term) (acc : List (Term × Term)) (e : Term × Term) (q : Term)
@@ -57,7 +57,7 @@ theorem step_same (g : Term → Term → Term → Term) (acc : List (Term × Ter
     by_cases keep : kept (e.1, g e.1 v₁ e.2)
     · simp [keep, mapLookup, same]
     · simp only [keep, Bool.false_eq_true, ite_false, Option.bind_some]
-      rw [mapLookup_filter]
+      rw [mapLookup_remove]
       simp [same]
 
 /-- Folding the difference over the entries of the right type. -/
@@ -68,7 +68,7 @@ theorem difference_fold (depth : Nat) (fn : Term) (g : Term → Term → Term �
         .ok (g e.1 v₁ e.2)) :
     ∃ M, es.foldlM (fun acc entry =>
         (Dispatch.dispatch (Dispatcher.ofTable Erlang.program.fun_table (depth + 2))
-          (.function "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3
+          (.function false "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3
           #[fn]) #[entry.1, entry.2, acc] : Except Exception Term))
         (.map acc) = .ok (.map M) ∧
       (∀ q, mapLookup M q =
@@ -81,7 +81,7 @@ theorem difference_fold (depth : Nat) (fn : Term) (g : Term → Term → Term �
   | cons e rest ih =>
     have apart := List.pairwise_cons.mp distinct
     have step : (Dispatch.dispatch (Dispatcher.ofTable Erlang.program.fun_table (depth + 2))
-        (.function "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3
+        (.function false "Elixir.Module.Types.Descr" "-dynamic_difference/3-fun-0-" 3
           #[fn]) #[e.1, e.2, .map acc] : Except Exception Term) =
         .ok (.map (differenceStep g acc e)) := by
       rw [dispatch_except, Erlang.program.«Elixir.Module.Types.Descr:-dynamic_difference/3-fun-0-/3».pure,
@@ -210,7 +210,7 @@ theorem unfold_map (d : Dispatcher) (entries : List (Term × Term)) :
 
 theorem static_map {X : List (Term × Term)} (static : mapLookup X (.atom "dynamic") = none) :
     Erlang.erlang.«is_map_key/2» (.atom "dynamic") (.map X) = .ok (.atom "false") := by
-  have absent : X.any (fun entry => compareExact (fuel (.atom "dynamic") entry.1) (.atom "dynamic") entry.1 == .eq) = Bool.false := by
+  have absent : X.any (fun entry => decide (compareExact (fuel (.atom "dynamic") entry.1) (.atom "dynamic") entry.1 = .eq)) = Bool.false := by
     rw [Bool.eq_false_iff]
     intro present
     obtain ⟨entry, member, same⟩ := List.any_eq_true.mp present

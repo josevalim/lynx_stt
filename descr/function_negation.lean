@@ -21,10 +21,10 @@ theorem repr_step (acc : List (Term × Term)) (key bdd : Term)
     rw [mapLookup_congr eq]; exact found
   | some v =>
     obtain rfl := same v found
-    refine ⟨acc.filter fun e => compareExact (fuel key e.1) key e.1 != .eq, ?_, fun q ne => ?_, fun q eq => ?_⟩
+    refine ⟨acc.filter fun e => !decide (compareExact (fuel key e.1) key e.1 = .eq), ?_, fun q ne => ?_, fun q eq => ?_⟩
     · simp [getMapKeys_single, found, bdd_difference_self, isMember, Erlang.maps.«remove/2»]
-    · rw [mapLookup_filter]; simp [ne]
-    · rw [mapLookup_filter]; simp [eq]
+    · rw [mapLookup_remove]; simp [ne]
+    · rw [mapLookup_remove]; simp [eq]
 
 /-- Folding `fun_repr_difference/2` over arities whose BDDs the accumulator holds as is
 removes them. -/
@@ -33,7 +33,7 @@ theorem repr_fold (n : Nat) (es acc : List (Term × Term))
     (same : ∀ e ∈ es, ∀ v, mapLookup acc e.1 = some v → v = e.2) :
     ∃ M, es.foldlM (fun acc entry =>
         (Dispatch.dispatch (Dispatcher.ofTable Erlang.program.fun_table n)
-          (.function "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
+          (.function false "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
           #[entry.1, entry.2, acc] : Except Exception Term)) (.map acc) = .ok (.map M) ∧
       ∀ q, mapLookup M q =
         match es.find? (fun e => decide (compareExact (fuel q e.1) q e.1 = .eq)) with
@@ -45,7 +45,7 @@ theorem repr_fold (n : Nat) (es acc : List (Term × Term))
     have apart := List.pairwise_cons.mp distinct
     obtain ⟨next, run₁, other, gone⟩ := repr_step acc e.1 e.2 (same e (List.mem_cons_self ..))
     have step : (Dispatch.dispatch (Dispatcher.ofTable Erlang.program.fun_table n)
-        (.function "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
+        (.function false "Elixir.Module.Types.Descr" "-fun_repr_difference/2-fun-0-" 3 #[])
         #[e.1, e.2, .map acc] : Except Exception Term) = .ok (.map next) := by
       rw [dispatch_except, Erlang.program.«Elixir.Module.Types.Descr:-fun_repr_difference/2-fun-0-/3».pure, run₁]
     obtain ⟨M, run, look⟩ := ih next apart.2 (by
@@ -95,7 +95,7 @@ theorem fun_negation (n : Nat) (w : Term) (field : FunField w) :
   obtain ⟨pos, R, rfl⟩ := field
   cases pos with
   | true =>
-    obtain ⟨out, merge, look⟩ := Erlang.maps.merge_with_lookup (Dispatcher.ofTable Erlang.program.fun_table n)
+    obtain ⟨out, merge, look⟩ := Erlang.maps.merge_with_lookup (Dispatcher.ofTable Erlang.program.fun_table n) false
       "Elixir.Module.Types.Descr" "-fun_repr_union/2-fun-0-" #[] [] R (fun _ _ _ => .nil)
       (by intro e _ v found; simp [mapLookup] at found)
     have same : ∀ q, mapLookup out q = mapLookup R q := by
@@ -112,7 +112,7 @@ theorem fun_negation (n : Nat) (w : Term) (field : FunField w) :
     have keep : Elixir.Module.Types.Descr.«fun_repr_difference/2» (Dispatcher.ofTable Erlang.program.fun_table n)
         (.map R) (.map []) = .ok (.map R) := by
       simp [Elixir.Module.Types.Descr.«fun_repr_difference/2», Erlang.maps.«fold/3»]
-    by_cases empty : ((R.map Prod.fst).eraseDupsBy (fun a b => compareExact (fuel a b) a b == .eq)).length = 0
+    by_cases empty : ((R.map Prod.fst).eraseDupsBy (fun a b => decide (compareExact (fuel a b) a b = .eq))).length = 0
     · refine ⟨.integer 0, ?_, Or.inl rfl⟩
       simp [Elixir.Module.Types.Descr.«fun_difference/2», keep, Erlang.erlang.«==/2»,
         Erlang.erlang.«map_size/1», Lynx.Except.andAlso, empty]

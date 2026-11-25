@@ -9,7 +9,7 @@ variable {L : Level}
 /-- Field operations an intersection combines fields with: they keep the common points of their fields. -/
 structure InterOp (L : Level) (n : Nat) (module name : String) (caps : Array Term)
     (f : Term → Term → Term → Except Exception Term) : Prop where
-  call : ∀ q v₁ v₂, (D (n + 1)).pure (.function module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂
+  call : ∀ q v₁ v₂, (D (n + 1)).pure (.function false module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂
   spec : ∀ name x y, FC L name x → FC L name y → ∃ w, f (.atom name) x y = .ok w ∧
     (kept (.atom name, w) = Bool.true → FC L name w) ∧
     ∀ p, PtOkD L.E L.den L.tl (FVal L.E L.den) name p → dn name (keptO name w) p = (dn name (some x) p && dn name (some y) p)
@@ -19,7 +19,7 @@ theorem inter_descr {n : Nat} {module name : String} {caps : Array Term}
     {f : Term → Term → Term → Except Exception Term} (op : InterOp L n module name caps f)
     {A B : List (Term × Term)} (sA : DC L A) (sB : DC L B) :
     ∃ I, Elixir.Module.Types.Descr.«symmetrical_intersection/3» (D (n + 1)) (.map A) (.map B)
-        (.function module name 3 caps) = .ok (.map I) ∧ DC L I ∧
+        (.function false module name 3 caps) = .ok (.map I) ∧ DC L I ∧
       ∀ v : TP L, denD (.map I) v ↔ denD (.map A) v ∧ denD (.map B) v := by
   obtain ⟨I, run, look⟩ := intersect_gen n module name caps f op.call A B sA.atoms (fun q x y hx hy => by
     obtain ⟨k, -, rfl⟩ := sA.keys q (by simp [hx])
@@ -39,7 +39,7 @@ theorem inter_descr {n : Nat} {module name : String} {caps : Array Term}
 theorem dyn_inter_tc {n : Nat} {module name : String} {caps : Array Term}
     {f : Term → Term → Term → Except Exception Term} (op : InterOp L n module name caps f)
     {a b : Term} (ha : TC L a) (hb : TC L b) :
-    ∃ c, TC L c ∧ Elixir.Module.Types.Descr.«dynamic_intersection/3» (D (n + 1)) a b (.function module name 3 caps) =
+    ∃ c, TC L c ∧ Elixir.Module.Types.Descr.«dynamic_intersection/3» (D (n + 1)) a b (.function false module name 3 caps) =
       .ok c ∧ ∀ v : TP L, denD c v ↔ denD a v ∧ denD b v := by
   rcases ha with rfl | ⟨A, rfl, sA⟩
   · exact ⟨b, hb, by unfold Elixir.Module.Types.Descr.«dynamic_intersection/3»; rfl, fun v => by simp [denD_term]⟩
@@ -58,7 +58,7 @@ def dynZero : Term → Term
 
 theorem bare_inter_dyn (d : Dispatcher) {x y c : Term}
     (run : Elixir.Module.Types.Descr.«dynamic_intersection/3» d x y
-      (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok c) (hc : TC L c) :
+      (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) = .ok c) (hc : TC L c) :
     Elixir.Module.Types.Descr.«bare_intersection/3» d (.atom "dynamic") x y = .ok (dynZero c) := by
   unfold Elixir.Module.Types.Descr.«bare_intersection/3»
   rcases hc with rfl | ⟨C, rfl, -⟩
@@ -68,7 +68,7 @@ theorem bare_inter_dyn (d : Dispatcher) {x y c : Term}
 
 theorem opt_inter_dyn (d : Dispatcher) {x y c S : Term}
     (run : Elixir.Module.Types.Descr.«dynamic_intersection/3» d x y
-      (.function "Elixir.Module.Types.Descr" "-opt_intersection/4-fun-0-" 3 #[S]) = .ok c) (hc : TC L c) :
+      (.function false "Elixir.Module.Types.Descr" "-opt_intersection/4-fun-0-" 3 #[S]) = .ok c) (hc : TC L c) :
     Elixir.Module.Types.Descr.«opt_intersection/4» d (.atom "dynamic") x y S = .ok (dynZero c) := by
   unfold Elixir.Module.Types.Descr.«opt_intersection/4»
   rcases hc with rfl | ⟨C, rfl, -⟩
@@ -86,15 +86,15 @@ theorem inter_aligned {n : Nat} {module name module' name' : String} {caps caps'
     {f f' : Term → Term → Term → Except Exception Term} (op : InterOp L (n + 1) module name caps f)
     (op' : InterOp L n module' name' caps' f')
     (dyn : ∀ x y c, Elixir.Module.Types.Descr.«dynamic_intersection/3» (D (n + 1)) x y
-      (.function module' name' 3 caps') = .ok c → TC L c → f (.atom "dynamic") x y = .ok (dynZero c))
+      (.function false module' name' 3 caps') = .ok c → TC L c → f (.atom "dynamic") x y = .ok (dynZero c))
     {X Y : List (Term × Term)} (hX : GC L (.map X)) (hY : GC L (.map Y)) :
     ∃ c, GC L c ∧
       Elixir.Module.Types.Descr.«symmetrical_intersection/3» (D (n + 2)) (.map (alignT X)) (.map (alignT Y))
-        (.function module name 3 caps) = .ok c ∧ ISem L (.map X) (.map Y) c ∧
+        (.function false module name 3 caps) = .ok c ∧ ISem L (.map X) (.map Y) c ∧
       ∃ I, c = .map I ∧ InterL f (rmDyn X) (rmDyn Y) (rmDyn I) ∧
         ((mapLookup I (.atom "dynamic") = none ∧ ∀ v : TP L, ¬denD (upper c) v) ∨
           Elixir.Module.Types.Descr.«dynamic_intersection/3» (D (n + 1))
-            (upper (.map X)) (upper (.map Y)) (.function module' name' 3 caps') = .ok (upper c)) := by
+            (upper (.map X)) (upper (.map Y)) (.function false module' name' 3 caps') = .ok (upper c)) := by
   obtain ⟨dX, sX, eX⟩ := align_gc hX
   obtain ⟨dY, sY, eY⟩ := align_gc hY
   obtain ⟨Di, ti, ri, si⟩ := dyn_inter_tc op' hX.up_tc hY.up_tc
@@ -190,7 +190,7 @@ theorem inter_run_grad (d : Dispatcher) {X Y : List (Term × Term)}
     (g : (mapLookup X (.atom "dynamic")).isSome ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«bare_intersection/2» d (.map X) (.map Y) =
       Elixir.Module.Types.Descr.«symmetrical_intersection/3» d (.map (alignT X)) (.map (alignT Y))
-        (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) := by
   unfold Elixir.Module.Types.Descr.«bare_intersection/2»
   cases hX : mapLookup X (.atom "dynamic") <;> cases hY : mapLookup Y (.atom "dynamic") <;> rw [hX, hY] at g <;>
     simp at g <;>
@@ -200,7 +200,7 @@ theorem opt_inter_run_grad (d : Dispatcher) {X Y : List (Term × Term)} (S : Ter
     (g : (mapLookup X (.atom "dynamic")).isSome ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«opt_intersection/3» d (.map X) (.map Y) S =
       Elixir.Module.Types.Descr.«symmetrical_intersection/3» d (.map (alignT X)) (.map (alignT Y))
-        (.function "Elixir.Module.Types.Descr" "-opt_intersection/3-anonymous-0-" 3 #[S]) := by
+        (.function false "Elixir.Module.Types.Descr" "-opt_intersection/3-anonymous-0-" 3 #[S]) := by
   unfold Elixir.Module.Types.Descr.«opt_intersection/3»
   cases hX : mapLookup X (.atom "dynamic") <;> cases hY : mapLookup Y (.atom "dynamic") <;> rw [hX, hY] at g <;>
     simp at g <;>
@@ -219,7 +219,7 @@ theorem isem_tc {a b c : Term} (ha : TC L a) (hb : TC L b) (hc : TC L c)
 /-- Intersections of the dynamic parts of gradual types intersect them as static types. -/
 theorem dyn_inter_bare (d : Dispatcher) {a b : Term} (ha : TC L a) (hb : TC L b) :
     Elixir.Module.Types.Descr.«dynamic_intersection/3» d a b
-      (.function "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) =
+      (.function false "Elixir.Module.Types.Descr" "bare_intersection" 3 #[]) =
         Elixir.Module.Types.Descr.«bare_intersection/2» d a b := by
   rcases ha with rfl | ⟨A, rfl, sA⟩
   · rw [inter_term_left]; unfold Elixir.Module.Types.Descr.«dynamic_intersection/3»; rfl

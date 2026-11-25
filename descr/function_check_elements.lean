@@ -324,8 +324,8 @@ theorem posOk_of {E' : Term → Prop} {n : Nat} {P : List (Term × List Term × 
   exact ⟨ha, hr, by omega⟩
 
 theorem not_seen_any {N : Nat} {S : List (Term × Term)} (hS : SafeN N S) {h x : Term} (hx : lh x < N) :
-    S.any (fun e => Term.compareExact (Term.fuel (.cons h x) e.1) (.cons h x) e.1 == .eq) = Bool.false := by
-  simp only [List.any_eq_false, beq_iff_eq]
+    S.any (fun e => decide (Term.compareExact (Term.fuel (.cons h x) e.1) (.cons h x) e.1 = .eq)) = Bool.false := by
+  simp only [List.any_eq_false, decide_eq_true_eq]
   intro e me hit
   obtain ⟨h', b, e₁, one, hb⟩ := hS e me
   rw [e₁, compareExact_cons, Ordering.then_eq_eq] at hit

@@ -15,7 +15,7 @@ theorem denD_rmDyn (X : List (Term × Term)) (v : TP L) : denD (.map (rmDyn X)) 
 /-- Field operations a union merges fields with: they unite the points of their fields. -/
 structure UnionOp (L : Level) (d : Dispatcher) (module name : String) (caps : Array Term)
     (f : Term → Term → Term → Except Exception Term) : Prop where
-  call : ∀ q v₁ v₂, d.pure (.function module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂
+  call : ∀ q v₁ v₂, d.pure (.function false module name 3 caps) #[q, v₁, v₂] = f q v₁ v₂
   spec : ∀ name x y, FC L name x → FC L name y → ∃ u, f (.atom name) x y = .ok u ∧ FC L name u ∧
     ∀ p, PtOkD L.E L.den L.tl (FVal L.E L.den) name p → dn name (some u) p = (dn name (some x) p || dn name (some y) p)
 
@@ -33,7 +33,7 @@ theorem rmDyn_atoms {X : List (Term × Term)} (sX : DC L (rmDyn X)) : ∀ q, (ma
 theorem merge_descr {d : Dispatcher} {module name : String} {caps : Array Term}
     {f : Term → Term → Term → Except Exception Term} (op : UnionOp L d module name caps f)
     {A B : List (Term × Term)} (sA : DC L A) (sB : DC L B) :
-    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map A) (.map B) (.function module name 3 caps) =
+    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map A) (.map B) (.function false module name 3 caps) =
         .ok (.map U) ∧ DC L U ∧ ∀ v : TP L, denD (.map U) v ↔ denD (.map A) v ∨ denD (.map B) v := by
   obtain ⟨U, run, look⟩ := merge_gen d module name caps f op.call A B sB.atoms (fun q x y hx hy => by
     obtain ⟨n, -, rfl⟩ := sA.keys q (by simp [hx])
@@ -53,7 +53,7 @@ theorem merge_descr {d : Dispatcher} {module name : String} {caps : Array Term}
 theorem dyn_union_tc {d : Dispatcher} {module name : String} {caps : Array Term}
     {f : Term → Term → Term → Except Exception Term} (op : UnionOp L d module name caps f)
     {a b : Term} (ha : TC L a) (hb : TC L b) :
-    ∃ c, TC L c ∧ Elixir.Module.Types.Descr.«dynamic_union/3» d a b (.function module name 3 caps) = .ok c ∧
+    ∃ c, TC L c ∧ Elixir.Module.Types.Descr.«dynamic_union/3» d a b (.function false module name 3 caps) = .ok c ∧
       ∀ v : TP L, denD c v ↔ denD a v ∨ denD b v := by
   rcases ha with rfl | ⟨A, rfl, sA⟩
   · exact ⟨_, Or.inl rfl, by unfold Elixir.Module.Types.Descr.«dynamic_union/3»; rfl, fun v => by simp [denD_term]⟩
@@ -147,7 +147,7 @@ theorem merge_grad {d : Dispatcher} {module name : String} {caps : Array Term}
     {X Y : List (Term × Term)} {Dx Dy Du : Term} (hX : mapLookup X (.atom "dynamic") = some Dx)
     (hY : mapLookup Y (.atom "dynamic") = some Dy) (sX : DC L (rmDyn X)) (sY : DC L (rmDyn Y))
     (du : f (.atom "dynamic") Dx Dy = .ok Du) :
-    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map X) (.map Y) (.function module name 3 caps) =
+    ∃ U, Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map X) (.map Y) (.function false module name 3 caps) =
         .ok (.map U) ∧ mapLookup U (.atom "dynamic") = some Du ∧ DC L (rmDyn U) ∧
         (∀ v : TP L, denD (.map U) v ↔ denD (.map X) v ∨ denD (.map Y) v) ∧ MergeL f (rmDyn X) (rmDyn Y) (rmDyn U) := by
   obtain ⟨U, run, look⟩ := merge_gen d module name caps f op.call X Y (rmDyn_atoms sY) (fun q x y hx hy => by
@@ -187,16 +187,16 @@ theorem merge_aligned {d d' : Dispatcher} {module name module' name' : String} {
     {f f' : Term → Term → Term → Except Exception Term} (op : UnionOp L d module name caps f)
     (op' : UnionOp L d' module' name' caps' f')
     (dyn : ∀ x y, f (.atom "dynamic") x y =
-      Elixir.Module.Types.Descr.«dynamic_union/3» d' x y (.function module' name' 3 caps'))
+      Elixir.Module.Types.Descr.«dynamic_union/3» d' x y (.function false module' name' 3 caps'))
     {X Y : List (Term × Term)} (hX : GC L (.map X)) (hY : GC L (.map Y)) :
     ∃ c, GC L c ∧
       Elixir.Module.Types.Descr.«symmetrical_merge/3» d (.map (alignT X)) (.map (alignT Y))
-        (.function module name 3 caps) = .ok c ∧
+        (.function false module name 3 caps) = .ok c ∧
       (∀ v : TP L, denD c v ↔ denD (.map X) v ∨ denD (.map Y) v) ∧
       (∀ v : TP L, denD (upper c) v ↔ denD (upper (.map X)) v ∨ denD (upper (.map Y)) v) ∧
       ∃ U, c = .map U ∧ MergeL f (rmDyn X) (rmDyn Y) (rmDyn U) ∧
         Elixir.Module.Types.Descr.«dynamic_union/3» d' (upper (.map X)) (upper (.map Y))
-          (.function module' name' 3 caps') = .ok (upper c) := by
+          (.function false module' name' 3 caps') = .ok (upper c) := by
   obtain ⟨dX, sX, eX⟩ := align_gc hX
   obtain ⟨dY, sY, eY⟩ := align_gc hY
   obtain ⟨Du, tu, ru, su⟩ := dyn_union_tc op' hX.up_tc hY.up_tc

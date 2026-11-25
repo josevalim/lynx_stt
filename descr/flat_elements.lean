@@ -18,8 +18,8 @@ theorem size_one_keys {A : List (Term × Term)} (h : Erlang.erlang.«map_size/1�
   | nil => simp at me
   | cons e₀ rest =>
     simp only [List.map_cons, List.eraseDupsBy_cons, List.length_cons] at h
-    have none : List.filter (fun b => decide ((compareExact (fuel b e₀.1) b e₀.1 == .eq) = Bool.false)) (rest.map Prod.fst) = [] := by
-      cases hf : List.filter (fun b => decide ((compareExact (fuel b e₀.1) b e₀.1 == .eq) = Bool.false)) (rest.map Prod.fst) with
+    have none : List.filter (fun b => decide ((decide (compareExact (fuel b e₀.1) b e₀.1 = .eq)) = Bool.false)) (rest.map Prod.fst) = [] := by
+      cases hf : List.filter (fun b => decide ((decide (compareExact (fuel b e₀.1) b e₀.1 = .eq)) = Bool.false)) (rest.map Prod.fst) with
       | nil => rfl
       | cons a as =>
         exfalso

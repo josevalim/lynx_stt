@@ -136,7 +136,7 @@ theorem iter_disj_gen (K' : Nat) (B : List (Term × Term)) (Sm : Term) :
     have calls' := fun e' (me' : e' ∈ rest) => calls e' (List.mem_cons_of_mem _ me')
     obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by simp at hm; omega⟩
     have hm' : K' + rest.length ≤ m := by simp at hm; omega
-    have cont : ∀ x, (D (m + 1)).pure (.function "Elixir.Module.Types.Descr"
+    have cont : ∀ x, (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr"
         "-iterator_non_disjoint_intersection?/3-fun-0-" 1
         #[Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]), .map B, Sm]) #[x] =
         (do
@@ -310,7 +310,7 @@ theorem iter_disj_false_seen (K' : Nat) (B : List (Term × Term)) (Sm : Term) :
     have calls' := fun e' (me' : e' ∈ rest) => calls e' (List.mem_cons_of_mem _ me')
     obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by simp at hm; omega⟩
     have hm' : K' + rest.length ≤ m := by simp at hm; omega
-    have cont : ∀ x, (D (m + 1)).pure (.function "Elixir.Module.Types.Descr"
+    have cont : ∀ x, (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr"
         "-iterator_non_disjoint_intersection?/3-fun-0-" 1
         #[Term.list (rest.map fun (e : Term × Term) => .tuple #[e.1, e.2]), .map B, Sm]) #[x] =
         (do

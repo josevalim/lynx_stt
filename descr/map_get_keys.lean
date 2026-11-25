@@ -71,7 +71,7 @@ def LineTag (den : Term → V → Prop) (L : Term) (s : String) (x : V) : Prop :
 theorem get_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L) (ds : List Term) (hd : ∀ d ∈ ds, ∃ s, d = .atom s) {acc : Term} (ha : E acc) :
     ∃ T, Erlang.lists.«foldl/3» (D (n + 4))
-        (.function "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-0-" 2 #[Term.list lines]) acc (Term.list ds) =
+        (.function false "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-0-" 2 #[Term.list lines]) acc (Term.list ds) =
           .ok T ∧ E T ∧ ∀ x, den T x ↔ den acc x ∨ ∃ s, .atom s ∈ ds ∧ ∃ L ∈ lines, LineTag den L s x := by
   obtain ⟨T, ⟨hT, sT⟩, run⟩ := foldl_rel_at (m := n + 4) "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-0-"
     #[Term.list lines] (fun pre a => E a ∧ ∀ x, den a x ↔ den acc x ∨ ∃ s, .atom s ∈ pre ∧ ∃ L ∈ lines, LineTag den L s x)
@@ -140,7 +140,7 @@ theorem negNamed_mono {N a b : List (Term × Term)} (h : ∀ e ∈ a, e ∈ b) {
 /-- `orddict:fold/3` over fields adds their keys outside a negated set. -/
 theorem neg_fold (N : List (Term × Term)) (m : Nat) : ∀ (l : List (Term × Term)), FieldsV E l → ∀ es,
     ∃ new, Erlang.orddict.«fold/3» (D m)
-        (.function "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-0-" 3 #[.map N]) (.map es)
+        (.function false "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-0-" 3 #[.map N]) (.map es)
         (fieldsTerm l) = .ok (.map (new ++ es)) ∧ NegNew N new ∧
       ∀ s ∈ keyStrs l, mapLookup N (.atom s) = none → (.atom s, .atom "true") ∈ new
   | [], _, es => ⟨[], by rw [Erlang.orddict.«fold/3».eq_def]; simp [fieldsTerm, Term.list,
@@ -178,7 +178,7 @@ theorem neg_fold (N : List (Term × Term)) (m : Nat) : ∀ (l : List (Term × Te
 
 theorem neg_leaf (N : List (Term × Term)) (m : Nat) {t : Term} (ht : MapLitV E t) (es : List (Term × Term)) :
     ∃ new, Lynx.Dispatcher.pure (D (m + 1))
-        (.function "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) #[t, .map es] =
+        (.function false "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) #[t, .map es] =
           .ok (.map (new ++ es)) ∧ NegNew N new ∧ NegNamed N new t := by
   obtain ⟨k, tag, l, rfl, -, sl⟩ := ht
   obtain ⟨new, run, hn, hk⟩ := neg_fold N m l sl es
@@ -192,11 +192,11 @@ theorem neg_leaf (N : List (Term × Term)) (m : Nat) {t : Term} (ht : MapLitV E 
 /-- `bdd_reduce/3` collects the field keys of a map BDD outside a negated set. -/
 theorem neg_reduce (N : List (Term × Term)) (m : Nat) {b : Term} (wb : Bdd (MLit E) b) :
     ∀ es, ∃ new, Elixir.Module.Types.Descr.«bdd_reduce/3» (D (m + 1)) b (.map es)
-        (.function "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) =
+        (.function false "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) =
           .ok (.map (new ++ es)) ∧ NegNew N new ∧ Bdd (fun t => MLit E t ∧ NegNamed N new t) b := by
   refine Bdd.induction (P := fun ok b => (∀ t, ok t → MLit E t) → ∀ es, ∃ new,
       Elixir.Module.Types.Descr.«bdd_reduce/3» (D (m + 1)) b (.map es)
-        (.function "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) =
+        (.function false "Elixir.Module.Types.Descr" "-map_keys_from_negated_set/2-fun-1-" 2 #[.map N]) =
           .ok (.map (new ++ es)) ∧ NegNew N new ∧ Bdd (fun t => ok t ∧ NegNamed N new t) b)
     ?_ ?_ ?_ ?_ (MLit E) b wb (fun _ h => h)
   · intro ok _ es

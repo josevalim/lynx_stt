@@ -153,7 +153,7 @@ BDDs and the lines of each BDD are decided under the seen set with that BDD, fro
 theorem fun_union_sem (cg : DenCongr E den) {K : Nat} (R S : List (Term × Term)) (L : Term → Nat → Term → Prop)
     (hL : ∀ b n t, L b n t → FunLit E n t)
     (hR : ∀ e ∈ mapEntries R, ∃ n : Nat, e.1 = .integer n ∧ Bdd (L e.2 n) e.2)
-    (fresh : ∀ e ∈ mapEntries R, S.any (fun s => Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 == .eq) = Bool.false)
+    (fresh : ∀ e ∈ mapEntries R, S.any (fun s => decide (Term.compareExact (Term.fuel (.cons e.1 e.2) s.1) (.cons e.1 e.2) s.1 = .eq)) = Bool.false)
     (lines : ∀ e ∈ mapEntries R, ∀ n : Nat, e.1 = .integer n → ∀ P N, PosOk E n P → PosOk E n N →
       (∀ p ∈ P, L e.2 n (.tuple #[p.1, Term.list p.2.1, p.2.2])) →
       (∀ p ∈ N, L e.2 n (.tuple #[p.1, Term.list p.2.1, p.2.2])) →
@@ -169,7 +169,7 @@ theorem fun_union_sem (cg : DenCongr E den) {K : Nat} (R S : List (Term × Term)
     (∀ r ∈ g, FunSem.ValidRow n r) → eval (valF E den g) e.2 = Bool.false
   let res : Term → Bool := fun t => bp (∃ e ∈ mapEntries R, t = .tuple #[e.1, e.2] ∧ ES e)
   have each : ∀ e ∈ mapEntries R, res (.tuple #[e.1, e.2]) = bp (ES e) ∧ ∀ m, K + 2 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-fun_empty?/2-fun-1-" 1 #[.map S]) #[.tuple #[e.1, e.2]] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-fun_empty?/2-fun-1-" 1 #[.map S]) #[.tuple #[e.1, e.2]] =
         .ok (boolAtom (bp (ES e))) := by
     intro e me
     refine ⟨bp_congr ⟨fun ⟨e', me', h, es⟩ => ?_, fun h => ⟨e, me, rfl, h⟩⟩, fun m hm => ?_⟩
@@ -230,7 +230,7 @@ theorem fun_union_sem (cg : DenCongr E den) {K : Nat} (R S : List (Term × Term)
       Erlang.erlang.«is_map_key/2», fresh e me, Term.false, Erlang.maps.«put/3»,
       Elixir.Module.Types.Descr.«bdd_to_dnf/1», dnf, all, allIff]
   have run : ∀ m, K + 2 ≤ m → Erlang.lists.«all/2» (D m)
-      (.function "Elixir.Module.Types.Descr" "-fun_empty?/2-fun-1-" 1 #[.map S])
+      (.function false "Elixir.Module.Types.Descr" "-fun_empty?/2-fun-1-" 1 #[.map S])
       (Term.list ((mapEntries R).map fun e => .tuple #[e.1, e.2])) =
       .ok (boolAtom (((mapEntries R).map fun e => Term.tuple #[e.1, e.2]).all res)) := fun m hm =>
     all_list _ _ _ _ res _ fun t mt => by

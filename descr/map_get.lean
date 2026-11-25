@@ -19,7 +19,7 @@ theorem get_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {rs :
   rw [Elixir.Module.Types.Descr.«map_get/2».eq_def]
   simp only [hk, Lynx.Except.ok_bind, Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 4))
-      (.function "Elixir.Module.Types.Descr" "-map_get/2-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_get/2-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_get/2-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_get/2-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with

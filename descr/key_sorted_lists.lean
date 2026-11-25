@@ -8,7 +8,7 @@ def SKL (dl : List (Term × Term)) : Prop := dl.Pairwise fun a b => Term.compare
 def SAK (ks : List Term) : Prop := ks.Pairwise fun a b => Term.compare (Term.fuel a b) a b = .lt
 
 theorem map_pairs_val (m : Nat) (val : Term) : ∀ K : List Term,
-    Erlang.lists.«map_1/2» (D m) (.function "Elixir.Module.Types.Descr" "-fields_put_all_new/3-fun-0-" 1 #[val])
+    Erlang.lists.«map_1/2» (D m) (.function false "Elixir.Module.Types.Descr" "-fields_put_all_new/3-fun-0-" 1 #[val])
       (Term.list K) = .ok (fieldsTerm (K.map fun k => (k, val)))
   | [] => by simp [Erlang.lists.«map_1/2», fieldsTerm]
   | k :: K => by

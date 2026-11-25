@@ -174,7 +174,7 @@ theorem fun_key (n m k : Nat) (x : Term) (field : FunField x) :
   obtain ⟨pos, R, rfl⟩ := field
   cases pos with
   | true =>
-    obtain ⟨out, merge, look⟩ := Erlang.maps.merge_with_lookup (Dispatcher.ofTable Erlang.program.fun_table n)
+    obtain ⟨out, merge, look⟩ := Erlang.maps.merge_with_lookup (Dispatcher.ofTable Erlang.program.fun_table n) false
       "Elixir.Module.Types.Descr" "-fun_repr_union/2-fun-0-" #[] [] R (fun _ _ _ => .nil)
       (by intro e _ v found; simp [mapLookup] at found)
     have same : ∀ q, mapLookup R q = mapLookup out q := by
@@ -192,7 +192,7 @@ theorem fun_key (n m k : Nat) (x : Term) (field : FunField x) :
     have keep : Elixir.Module.Types.Descr.«fun_repr_difference/2» (Dispatcher.ofTable Erlang.program.fun_table n)
         (.map R) (.map []) = .ok (.map R) := by
       simp [Elixir.Module.Types.Descr.«fun_repr_difference/2», Erlang.maps.«fold/3»]
-    by_cases empty : ((R.map Prod.fst).eraseDupsBy (fun a b => compareExact (fuel a b) a b == .eq)).length = 0
+    by_cases empty : ((R.map Prod.fst).eraseDupsBy (fun a b => decide (compareExact (fuel a b) a b = .eq))).length = 0
     · refine ⟨.integer 0, ?_, fun _ => ?_, fun k => by simp [kept] at k⟩
       · simp [Elixir.Module.Types.Descr.«bare_difference/3», Elixir.Module.Types.Descr.«fun_difference/2», keep,
           Erlang.erlang.«==/2», Erlang.erlang.«map_size/1», Lynx.Except.andAlso, empty]
@@ -466,7 +466,7 @@ theorem line_gt (d : Dispatcher) (k H : Int) (S : Term) :
     meets_nil, meets_term d S _ (Or.inr rfl), elements_nil, elements_term d _ _ _ S _ (Or.inr rfl)]
 
 theorem any_nil (d : Dispatcher) (m n : String) (caps : Array Term) :
-    Erlang.lists.«any/2» d (.function m n 1 caps) .nil = .ok (.atom "false") := by
+    Erlang.lists.«any/2» d (.function false m n 1 caps) .nil = .ok (.atom "false") := by
   simp [Erlang.lists.«any/2», Erlang.erlang.«is_function/2»]
 
 theorem special_lt (d : Dispatcher) (h₁ h₂ k H : Int) :
@@ -790,7 +790,7 @@ theorem union_lookup (depth : Nat) (L R : List (Term × Term))
     simp only [emptyL, emptyR]
     unfold Elixir.Module.Types.Descr.«symmetrical_merge/3»
     obtain ⟨out, run, look⟩ := Erlang.maps.merge_with_lookup
-      (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) "Elixir.Module.Types.Descr" "bare_union" #[] L R g (by
+      (Dispatcher.ofTable Erlang.program.fun_table (depth + 1)) false "Elixir.Module.Types.Descr" "bare_union" #[] L R g (by
         intro e me x hx
         have hy := mapLookup_of_mem_mapEntries me
         obtain ⟨u, ru⟩ := calls e.1 x e.2 hx hy

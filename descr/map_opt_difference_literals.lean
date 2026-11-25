@@ -248,7 +248,7 @@ theorem opt_map_ok {d : Dispatcher} {x y S S' : Term} (nx : ∀ k, x ≠ .tuple 
     (ny : ∀ k, y ≠ .tuple #[k, .atom "open", .nil]) (ne : ∀ a b c, x = .tuple #[a, b, c] → compareExact (fuel y x) y x ≠ .eq)
     (hs : Elixir.Module.Types.Descr.«opt_bdd_seen/4» S (.atom "map_difference") x y = .ok (.tuple #[.atom "ok", S'])) :
     Elixir.Module.Types.Descr.«opt_map_difference/3» d x y S = Elixir.Module.Types.Descr.«bdd_difference/3» d x y
-      (.function "Elixir.Module.Types.Descr" "-opt_map_difference/3-fun-0-" 3 #[S']) := by
+      (.function false "Elixir.Module.Types.Descr" "-opt_map_difference/3-fun-0-" 3 #[S']) := by
   rw [Elixir.Module.Types.Descr.«opt_map_difference/3».eq_def]
   split
   · exact absurd rfl (ny _)
@@ -304,7 +304,7 @@ theorem opt_map_diff_val (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {x y
     · simp [kept] at kw
     · rw [denMF_bdd ww]; exact drop_bdd ww kw _
   · obtain ⟨r, hr, okr, semr⟩ := diff3_ok valM_respM (d := D (n + 1))
-      (cmp := .function "Elixir.Module.Types.Descr" "-opt_map_difference/3-fun-0-" 3 #[.map S'])
+      (cmp := .function false "Elixir.Module.Types.Descr" "-opt_map_difference/3-fun-0-" 3 #[.map S'])
       (fun a₁ a₂ type ht h₁ h₂ => by
         obtain ⟨res, run, cmp⟩ := map_leaf_cmp ef (m := n) hn a₁ a₂ type S' ht h₁ h₂
         refine ⟨res, ?_, cmp⟩

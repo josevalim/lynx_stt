@@ -1,7 +1,7 @@
 open BddProofs
 
 theorem any_key (X : List (Term × Term)) (name : String) :
-    (X.any fun e => compareExact (fuel (.atom name) e.1) (.atom name) e.1 == .eq) = (mapLookup X (.atom name)).isSome := by
+    (X.any fun e => decide (compareExact (fuel (.atom name) e.1) (.atom name) e.1 = .eq)) = (mapLookup X (.atom name)).isSome := by
   rw [Bool.eq_iff_iff, mapLookup_isSome]
   simp
 

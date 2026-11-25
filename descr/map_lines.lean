@@ -130,7 +130,7 @@ theorem dnf_map (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V de
 theorem mline_keep (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) (jops : ElemDisj E K)
     (jsem : ElemDisjSem E K V den Safe) (hS : Safe []) {L : Term}
     (hL : MLine E L) : ∃ keep : Bool, (∀ m acc, K + 4 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep then .cons L acc else acc)) ∧ (keep = Bool.true ↔ ∃ w, InMLine den L w) := by
   obtain ⟨tag, l, negs, rfl, gt, sl, lits⟩ := hL
   obtain ⟨b, run⟩ := init_total ops dops jops [] gt.plain (fun e me => (sl.1 e me).2) (fun t m => (lits t m).plain)
@@ -168,13 +168,13 @@ theorem dnf_neg_map (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K 
   obtain ⟨all, run, tl, sl⟩ := dnf_map (den := den) ops dops sem (m := m) (by omega) hS wr (fun t h => h.1) []
     (.tuple #[.atom "open", .nil]) [] ⟨.atom "open", [], rfl, Or.inl rfl, by simp [FieldsV]⟩ (by simp)
   have keeps : ∀ L ∈ all, ∃ keep : Bool, (∀ m acc, K + 4 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep then .cons L acc else acc)) ∧ (keep = Bool.true ↔ ∃ w, InMLine den L w) :=
     fun L mL => mline_keep ops dops sem jops jsem hS (tl L mL)
   classical
   let keep : Term → Bool := fun L => if h : L ∈ all then Classical.choose (keeps L h) else Bool.false
   have hk : ∀ L ∈ all, (∀ m acc, K + 4 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep L then .cons L acc else acc)) ∧ (keep L = Bool.true ↔ ∃ w, InMLine den L w) := by
     intro L mL
     simp only [keep, dite_eq_left mL]
@@ -190,10 +190,10 @@ theorem dnf_neg_map (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K 
         .ok (Term.list all) := by simpa using run
     simp only [run', Lynx.Except.ok_bind]
     rw [show (do
-        let f ← (pure (Term.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) :
+        let f ← (pure (Term.function false "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[]) :
           Except Exception Term)
         Erlang.lists.«foldl/3» (D m) f .nil (Term.list all)) =
-        Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[])
+        Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr" "-map_bdd_to_dnf_remove_empty/1-fun-0-" 2 #[])
           .nil (Term.list all) from rfl, fold, e]
   · simp only [List.mem_reverse, List.mem_filter] at mL
     exact ⟨tl L mL.1, (hk L mL.1).2.mp mL.2⟩

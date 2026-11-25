@@ -215,7 +215,7 @@ theorem kr_update {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {ke
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
   simp only [Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 6))
-      (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with

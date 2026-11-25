@@ -40,11 +40,11 @@ theorem pt_map (v : PN t n) (h : v.1.1 = "map") :
 
 /-- A map without its map field. -/
 def rmM (X : List (Term × Term)) : List (Term × Term) :=
-  X.filter fun entry => compareExact (fuel (.atom "map") entry.1) (.atom "map") entry.1 != .eq
+  X.filter fun entry => !decide (compareExact (fuel (.atom "map") entry.1) (.atom "map") entry.1 = .eq)
 
 theorem lookup_rmM (X : List (Term × Term)) (name : String) :
     mapLookup (rmM X) (.atom name) = if name = "map" then none else mapLookup X (.atom name) := by
-  rw [rmM, mapLookup_filter]
+  rw [rmM, mapLookup_remove]
   by_cases h : name = "map" <;> simp [h]
 
 theorem rest_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
@@ -52,7 +52,7 @@ theorem rest_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
   have sX := de_map hX
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name x h => ?_⟩, fun v => ?_⟩
   · have : (mapLookup X q).isSome := by
-      rw [rmM, mapLookup_filter] at h
+      rw [rmM, mapLookup_remove] at h
       split at h
       · simp at h
       · exact h
@@ -80,7 +80,7 @@ theorem fetch_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a 
   rw [Elixir.Module.Types.Descr.«map_fetch_key/2».eq_def]
   simp only [Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 3))
-      (.function "Elixir.Module.Types.Descr" "-map_fetch_key/2-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_fetch_key/2-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_fetch_key/2-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_fetch_key/2-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with

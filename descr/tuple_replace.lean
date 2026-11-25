@@ -126,7 +126,7 @@ theorem insert_leaves_ok (ef : EF nd E V den tl K) {x : Term} (hx : E x) (i : Na
 /-- The fold of `tuple_insert_static/3` over literals without negations gives a type. -/
 theorem insert_pieces_ok (ef : EF nd E V den tl K) {x : Term} (hx : E x) (i : Nat) (P : List Term)
     (tP : ∀ p ∈ P, Piece E p) {m : Nat} :
-    ∃ res, Erlang.lists.«foldl/3» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2
+    ∃ res, Erlang.lists.«foldl/3» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-" 2
       #[.integer i, x]) (.atom "bdd_bot") (Term.list P) = .ok res := by
   obtain ⟨r, -, run⟩ := foldl_rel_at (m := m + 1) "Elixir.Module.Types.Descr" "-tuple_insert_static/3-fun-0-"
     #[.integer i, x] (fun _ a => TField E a) P (fun pre p a mp ta => by

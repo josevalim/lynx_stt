@@ -262,7 +262,7 @@ theorem opt_tuple_inter_push_l {d : Dispatcher} {S : Term} {k : Term} {fo : Term
     {h lit c u e : Term} :
     Elixir.Module.Types.Descr.«opt_tuple_intersection/3» d (.tuple #[k, .atom "open", fo]) (.tuple #[h, lit, c, u, e]) S =
       Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo])
-        (.function "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) := by
   unfold Elixir.Module.Types.Descr.«opt_tuple_intersection/3»
   split
   all_goals first
@@ -277,7 +277,7 @@ theorem opt_tuple_inter_push_r {d : Dispatcher} {S : Term} {k : Term} {fo : Term
     {h lit c u e : Term} :
     Elixir.Module.Types.Descr.«opt_tuple_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo]) S =
       Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» d (.tuple #[h, lit, c, u, e]) (.tuple #[k, .atom "open", fo])
-        (.function "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) := by
+        (.function false "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) := by
   unfold Elixir.Module.Types.Descr.«opt_tuple_intersection/3»
   split
   all_goals first
@@ -299,7 +299,7 @@ theorem tlit_closed_neg {k : Int} {cl : Term} (h : TLit E (.tuple #[.integer k, 
 theorem push_open (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {H : Int} (hH : 0 ≤ H) {l : List Term}
     (hL : TLit E (.tuple #[.integer H, .atom "open", Term.list l])) {b : Term} (wb : Bdd (TLit E) b) :
     ∃ r, Elixir.Module.Types.Descr.«bdd_open_leaf_intersection/3» (D m) b (.tuple #[.integer H, .atom "open", Term.list l])
-        (.function "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) = .ok r ∧
+        (.function false "Elixir.Module.Types.Descr" "tuple_closed_subtype_of_open?" 2 #[]) = .ok r ∧
       TField E r ∧ ∀ v, denTF E den r v = (denTF E den b v && denTF E den (.tuple #[.integer H, .atom "open", Term.list l]) v) := by
   obtain ⟨n, rfl, hn⟩ := succ_of_le hm
   have hl₀ : ∀ e ∈ l, E e := tupleLit_elems hL.1.1
@@ -314,7 +314,7 @@ theorem push_open (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {H : In
       have hcl := tupleLit_elems h₀.1.1
       obtain ⟨c, hc, sound⟩ := tcso_val ef hn cls l hcl hl₀
       refine ⟨c, by
-        rw [Erlang.program.«Elixir.Module.Types.Descr:tuple_closed_subtype_of_open?/2».pure]
+        rw [Erlang.program.«Elixir.Module.Types.Descr:tuple_closed_subtype_of_open?/2».pure (external := false)]
         exact hc, fun ct ρ ⟨v, hv⟩ hρ => ?_⟩
       subst hv
       exact (vT_lit ef (Or.inl rfl) hl₀).mpr (sound ct v ((vT_lit ef (Or.inr rfl) hcl).mp hρ)))

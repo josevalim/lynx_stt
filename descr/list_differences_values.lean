@@ -3,7 +3,7 @@ open Lynx Lynx.Term BddProofs
 
 /-! Differences of list types on lists of values. -/
 
-abbrev optListCmp : Term := .function "Elixir.Module.Types.Descr" "opt_list_leaf_difference" 3 #[]
+abbrev optListCmp : Term := .function false "Elixir.Module.Types.Descr" "opt_list_leaf_difference" 3 #[]
 
 /-- The clause of `opt_list_difference/3` for two list literals. -/
 theorem opt_list_leaves {d : Dispatcher} {S k₁ l₁ t₁ k₂ l₂ t₂ : Term}

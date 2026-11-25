@@ -168,7 +168,7 @@ theorem long_of_rest (ef : EF nd E V den tl K) (a : String) {tag : Term} (g : Ta
 of a non-empty line. -/
 theorem mline_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) {L : Term} (hL : MLine E L)
     (ne : ∃ w, InMLine den L w) {acc : Term} (ha : FieldValue E acc) :
-    ∃ acc', (D (n + 3)).pure (.function "Elixir.Module.Types.Descr" "-map_dnf_fetch_static/2-fun-0-" 2 #[.atom a])
+    ∃ acc', (D (n + 3)).pure (.function false "Elixir.Module.Types.Descr" "-map_dnf_fetch_static/2-fun-0-" 2 #[.atom a])
         #[L, acc] = .ok acc' ∧ FieldValue E acc' ∧ ∀ o, FieldSem den acc' o ↔ FieldSem den acc o ∨ LongM den L a o := by
   obtain ⟨tag, l, negs, rfl, g, sl, lits⟩ := hL
   obtain ⟨w₀, hw₀⟩ := ne

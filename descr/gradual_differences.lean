@@ -77,9 +77,9 @@ theorem diff_run_grad (d : Dispatcher) {a : Term} {Y : List (Term × Term)} (nY 
     (g : (∃ X, a = .map X ∧ (mapLookup X (.atom "dynamic")).isSome) ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«bare_difference/2» d a (.map Y) = (do
       let dp ← Elixir.Module.Types.Descr.«dynamic_difference/3» d (upper a) (lower (.map Y))
-        (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+        (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
       let sp ← Elixir.Module.Types.Descr.«dynamic_difference/3» d (lower a) (upper (.map Y))
-        (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+        (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
       Elixir.Module.Types.Descr.«put_dynamic/2» sp dp) := by
   unfold Elixir.Module.Types.Descr.«bare_difference/2»
   rcases ha with rfl | ⟨X, rfl⟩
@@ -100,9 +100,9 @@ theorem opt_diff_run_grad (d : Dispatcher) {a : Term} {Y : List (Term × Term)} 
     (g : (∃ X, a = .map X ∧ (mapLookup X (.atom "dynamic")).isSome) ∨ (mapLookup Y (.atom "dynamic")).isSome) :
     Elixir.Module.Types.Descr.«opt_difference/3» d a (.map Y) S = (do
       let dp ← Elixir.Module.Types.Descr.«dynamic_difference/3» d (upper a) (lower (.map Y))
-        (.function "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-1-" 3 #[S])
+        (.function false "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-1-" 3 #[S])
       let sp ← Elixir.Module.Types.Descr.«dynamic_difference/3» d (lower a) (upper (.map Y))
-        (.function "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-2-" 3 #[S])
+        (.function false "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-2-" 3 #[S])
       Elixir.Module.Types.Descr.«put_dynamic/2» sp dp) := by
   unfold Elixir.Module.Types.Descr.«opt_difference/3»
   rcases ha with rfl | ⟨X, rfl⟩
@@ -160,21 +160,21 @@ def DSem (L : Level) (a b c : Term) : Prop :=
     ∀ v : TP L, denD (upper c) v ↔ denD (upper a) v ∧ ¬denD b v
 
 theorem bare_diff_op {n : Nat} (hm : L.K + 13 ≤ n) :
-    DiffOp L n (.function "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
+    DiffOp L n (.function false "Elixir.Module.Types.Descr" "bare_difference" 3 #[])
       (Elixir.Module.Types.Descr.«bare_difference/3» (D n)) where
   call := fun q v₁ v₂ => Erlang.program.«Elixir.Module.Types.Descr:bare_difference/3».pure n q v₁ v₂
   spec := fun _ _ _ fx fy =>
     let ⟨w, rw', k, sw⟩ := fieldC_diff (tks L) (tfc L) (by omega) fx fy; ⟨w, rw', fun h => (k h).1, sw⟩
 
 theorem opt_diff_op₁ {n : Nat} (hm : L.K + 13 ≤ n) (S : List (Term × Term)) :
-    DiffOp L n (.function "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-1-" 3 #[.map S])
+    DiffOp L n (.function false "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-1-" 3 #[.map S])
       (fun q x y => Elixir.Module.Types.Descr.«opt_difference/4» (D n) q x y (.map S)) where
   call := fun q v₁ v₂ => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_difference/3-anonymous-1-/3».pure]; rfl
   spec := fun _ _ _ fx fy => fieldC_opt_diff (tks L) (tfc L) (by omega) fx fy S
 
 theorem opt_diff_op₂ {n : Nat} (hm : L.K + 13 ≤ n) (S : List (Term × Term)) :
-    DiffOp L n (.function "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-2-" 3 #[.map S])
+    DiffOp L n (.function false "Elixir.Module.Types.Descr" "-opt_difference/3-anonymous-2-" 3 #[.map S])
       (fun q x y => Elixir.Module.Types.Descr.«opt_difference/4» (D n) q x y (.map S)) where
   call := fun q v₁ v₂ => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-opt_difference/3-anonymous-2-/3».pure]; rfl

@@ -95,7 +95,7 @@ theorem field_empty_val (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {f : 
 theorem munion_pairs (P : List Term) (hP : ∀ p ∈ P, MPairOk E p) :
     ∃ u, MField E u ∧ (∀ w, denMF E den u w = Bool.true ↔ ∃ p ∈ P, ∃ f b, p = .tuple #[f, b] ∧ denMF E den b w = Bool.true) ∧
       ∀ m, Erlang.lists.«foldl/3» (D m)
-        (.function "Elixir.Module.Types.Descr" "-map_pair_projection_keeps_full_fst?/2-fun-0-" 2 #[])
+        (.function false "Elixir.Module.Types.Descr" "-map_pair_projection_keeps_full_fst?/2-fun-0-" 2 #[])
         (.atom "bdd_bot") (Term.list P) = .ok u := by
   obtain ⟨u, ⟨tu, su⟩, run⟩ := foldl_rel (K := 0) "Elixir.Module.Types.Descr" "-map_pair_projection_keeps_full_fst?/2-fun-0-" #[]
     (fun pre a => MField E a ∧ ∀ w, denMF E den a w = Bool.true ↔
@@ -395,7 +395,7 @@ theorem fieldValue_cases {f : Term} (hf : FieldValue E f) : ∃ t o, f = .tuple 
 theorem munion_fields (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (Q : List Term)
     (hQ : ∀ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ FieldValue E f) {acc : Term} (ha : FieldValue E acc) :
     ∃ u, FieldValue E u ∧ Erlang.lists.«foldl/3» (D (n + 1))
-        (.function "Elixir.Module.Types.Descr" "-map_split_key_line/5-fun-0-" 2 #[]) acc (Term.list Q) = .ok u ∧
+        (.function false "Elixir.Module.Types.Descr" "-map_split_key_line/5-fun-0-" 2 #[]) acc (Term.list Q) = .ok u ∧
       ∀ o, FieldSem den u o ↔ FieldSem den acc o ∨ ∃ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ FieldSem den f o := by
   obtain ⟨u, ⟨hu, su⟩, run⟩ := foldl_rel_at (m := n + 1) "Elixir.Module.Types.Descr" "-map_split_key_line/5-fun-0-" #[]
     (fun pre a => FieldValue E a ∧ ∀ o, FieldSem den a o ↔ FieldSem den acc o ∨
@@ -435,7 +435,7 @@ theorem mproj_value (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (P : 
       (s = Bool.true → Elixir.Module.Types.Descr.«field_opt_union/3» (D (n + 2)) field acc (.map []) = .ok acc') ∧
       (s = Bool.false → ∃ Q, Elixir.Module.Types.Descr.«map_remove_negative/3» (D (n + 2)) (Term.list P) field rest =
         .ok (Term.list Q) ∧ Erlang.lists.«foldl/3» (D (n + 2))
-          (.function "Elixir.Module.Types.Descr" "-map_split_key_line/5-fun-0-" 2 #[]) acc (Term.list Q) = .ok acc') ∧
+          (.function false "Elixir.Module.Types.Descr" "-map_split_key_line/5-fun-0-" 2 #[]) acc (Term.list Q) = .ok acc') ∧
       FieldValue E acc' ∧
       ∀ o, FieldSem den acc' o ↔ FieldSem den acc o ∨
         ∃ w, FieldSem den field o ∧ denMF E den rest w = Bool.true ∧ ∀ p ∈ P, ¬MPairIn E den p o w := by

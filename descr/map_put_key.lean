@@ -353,7 +353,7 @@ def pairSnd : Term → Term
 may hold anything. -/
 theorem mline_pop (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) {L : Term} (hL : MLine E L)
     (ne : ∃ w, InMLine den L w) :
-    ∃ Bs : List Term, (D (n + 3)).pure (.function "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a])
+    ∃ Bs : List Term, (D (n + 3)).pure (.function false "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a])
         #[L] = .ok (Term.list Bs) ∧ (∀ b ∈ Bs, MField E b ∧ OField (LitA E a) b) ∧
       ∀ w, (∃ b ∈ Bs, denMF E den b (eraseK a w) = Bool.true) ↔ ∃ o, InMLine den L (setK a o w) := by
   obtain ⟨tag, l, negs, rfl, g, sl, lits⟩ := hL
@@ -525,13 +525,13 @@ theorem mdnf_pop (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : Str
       ∀ w, denMF E den r (eraseK a w) = Bool.true ↔ ∃ L ∈ lines, ∃ o, InMLine den L (setK a o w) := by
   classical
   have each : ∀ L ∈ lines, ∃ Bs : List Term,
-      (D (n + 3)).pure (.function "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a]) #[L] =
+      (D (n + 3)).pure (.function false "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a]) #[L] =
         .ok (Term.list Bs) ∧ (∀ b ∈ Bs, MField E b ∧ OField (LitA E a) b) ∧
       ∀ w, (∃ b ∈ Bs, denMF E den b (eraseK a w) = Bool.true) ↔ ∃ o, InMLine den L (setK a o w) :=
     fun L mL => mline_pop ef hn a (hl L mL).1 (hl L mL).2
   let h : Term → List Term := fun L => if hL : L ∈ lines then Classical.choose (each L hL) else []
   have hh : ∀ L ∈ lines,
-      (D (n + 3)).pure (.function "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a]) #[L] =
+      (D (n + 3)).pure (.function false "Elixir.Module.Types.Descr" "-map_dnf_pop_key/2-fun-1-" 1 #[.atom a]) #[L] =
         .ok (Term.list (h L)) ∧ (∀ b ∈ h L, MField E b ∧ OField (LitA E a) b) ∧
       ∀ w, (∃ b ∈ h L, denMF E den b (eraseK a w) = Bool.true) ↔ ∃ o, InMLine den L (setK a o w) := fun L mL => by
     simp only [h, dite_eq_left mL]
@@ -797,7 +797,7 @@ theorem update_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
   simp only [Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 4))
-      (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with
@@ -1072,7 +1072,7 @@ theorem force_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a 
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
   simp only [Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 4))
-      (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with
@@ -1285,7 +1285,7 @@ theorem upd_fold (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (a : String)
     (opt : ∀ q ∈ Q', ∀ t b, q = .tuple #[.tuple #[t, .atom "true"], b] → keep = Bool.true)
     (acc : List Term) (ha : UpdQ E a (.tuple #[v, .atom "false"]) keep acc) :
     ∃ Qf, Erlang.lists.«foldl/3» (D (n + 1))
-        (.function "Elixir.Module.Types.Descr" "-map_update_project_pair/5-fun-0-" 2 #[.tuple #[v, .atom "false"]])
+        (.function false "Elixir.Module.Types.Descr" "-map_update_project_pair/5-fun-0-" 2 #[.tuple #[v, .atom "false"]])
         (Term.list acc) (Term.list Q') = .ok (Term.list Qf) ∧ UpdQ E a (.tuple #[v, .atom "false"]) keep Qf ∧
       (∀ u, WithF E den (.tuple #[v, .atom "false"]) Qf u ↔
         WithF E den (.tuple #[v, .atom "false"]) acc u ∨ ∃ x, MInPairs E den Q' (some x) u) ∧
@@ -1658,7 +1658,7 @@ def GInv (v : Term) (pre : List Term) (entries : List (Term × Term)) : Prop :=
 /-- The grouping fold of `map_update_named_key/5`. -/
 theorem group_fold {v : Term} (m : Nat) (pairs : List Term)
     (hp : ∀ q ∈ pairs, ∃ f b, q = .tuple #[f, b] ∧ UKey v f) :
-    ∃ entries, Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[])
+    ∃ entries, Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[])
         (.map []) (Term.list pairs) = .ok (.map entries) ∧ GInv v pairs entries := by
   obtain ⟨r, ⟨-, entries, rfl, inv⟩, run⟩ := foldl_rel_at (m := m) "Elixir.Module.Types.Descr"
     "-map_update_named_key/5-fun-1-" #[]
@@ -1729,7 +1729,7 @@ absent field into the rests of absent ones. -/
 theorem group_bdds (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : String) {v : Term} (hv : E v)
     {keep : Bool} (pairs : List Term) (hp : UpdQ E a (.tuple #[v, .atom "false"]) keep pairs)
     (entries : List (Term × Term)) (inv : GInv v pairs entries) :
-    ∃ bdds, Erlang.lists.«map/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
+    ∃ bdds, Erlang.lists.«map/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
         #[.atom a]) (Term.list ((mapEntries entries).map fun e => .tuple #[e.1, e.2])) = .ok (Term.list bdds) ∧
       (∀ b ∈ bdds, MField E b) ∧
       ∀ w, (∃ b ∈ bdds, denMF E den b w = Bool.true) ↔
@@ -1737,7 +1737,7 @@ theorem group_bdds (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : Strin
         (w (.atom a) = none ∧ WithF E den absF pairs (eraseK a w)) := by
   classical
   have each : ∀ x ∈ (mapEntries entries).map (fun e => Term.tuple #[e.1, e.2]), ∃ r,
-      (D (m + 1)).pure (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1 #[.atom a]) #[x] =
+      (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1 #[.atom a]) #[x] =
         .ok r ∧ MField E r ∧ ∃ e ∈ mapEntries entries, x = .tuple #[e.1, e.2] ∧ ∃ rs, e.2 = Term.list rs ∧
           ∀ w, denMF E den r w = Bool.true ↔
             ((e.1 = .tuple #[v, .atom "false"] ∧ PutAt den v a w) ∨ (e.1 = absF ∧ w (.atom a) = none)) ∧
@@ -1767,7 +1767,7 @@ theorem group_bdds (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : Strin
   let g : Term → Term := fun x => if hx : x ∈ (mapEntries entries).map (fun e => Term.tuple #[e.1, e.2]) then
     Classical.choose (each x hx) else .nil
   have hg : ∀ x ∈ (mapEntries entries).map (fun e => Term.tuple #[e.1, e.2]),
-      (D (m + 1)).pure (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1 #[.atom a]) #[x] =
+      (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1 #[.atom a]) #[x] =
         .ok (g x) ∧ MField E (g x) ∧ ∃ e ∈ mapEntries entries, x = .tuple #[e.1, e.2] ∧ ∃ rs, e.2 = Term.list rs ∧
           ∀ w, denMF E den (g x) w = Bool.true ↔
             ((e.1 = .tuple #[v, .atom "false"] ∧ PutAt den v a w) ∨ (e.1 = absF ∧ w (.atom a) = none)) ∧
@@ -1887,7 +1887,7 @@ theorem line_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : S
 theorem keep_fold (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : String) {v : Term} (hv : E v)
     (vne : ∃ x, den v x) (keep : Bool) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) :
     ∃ (pr : List Term) (F : Term), Erlang.lists.«foldl/3» (D (n + 3))
-        (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-0-" 2
+        (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-0-" 2
           #[.atom a, .tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]], modeT keep]])
         (.tuple #[.nil, .tuple #[.map [], .atom "false"]]) (Term.list lines) = .ok (.tuple #[Term.list pr, F]) ∧
       FieldValue E F ∧ (∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o) ∧
@@ -1960,9 +1960,9 @@ theorem keep_tail (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : String
         let p ← Elixir.Module.Types.Descr.«map_update_maybe_apply_callback/2» (D (m + 1)) (Term.list pairs)
           (.tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]], modeT keep])
         let groups ← Erlang.lists.«foldl/3» (D (m + 1))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
         let l ← Erlang.maps.«to_list/1» groups
-        let b ← Erlang.lists.«map/2» (D (m + 1)) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
+        let b ← Erlang.lists.«map/2» (D (m + 1)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
           #[.atom a]) l
         κ b) = κ (Term.list bdds)) ∧
       (∀ b ∈ bdds, MField E b) ∧
@@ -2007,9 +2007,9 @@ theorem keep_lines (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : S
         let p ← Elixir.Module.Types.Descr.«map_update_maybe_apply_callback/2» (D (n + 3)) (Term.list pairs)
           (.tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]], modeT keep])
         let groups ← Erlang.lists.«foldl/3» (D (n + 3))
-          (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-1-" 2 #[]) (.map []) p
         let l ← Erlang.maps.«to_list/1» groups
-        let b ← Erlang.lists.«map/2» (D (n + 3)) (.function "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
+        let b ← Erlang.lists.«map/2» (D (n + 3)) (.function false "Elixir.Module.Types.Descr" "-map_update_named_key/5-fun-2-" 1
           #[.atom a]) l
         κ b) = κ (Term.list bdds)) ∧ (∀ b ∈ bdds, MField E b) ∧
       ∀ w, (∃ b ∈ bdds, denMF E den b w = Bool.true) ↔
@@ -2309,7 +2309,7 @@ theorem keep_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a :
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
   simp only [Erlang.maps.«take/2», sX.static]
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 4))
-      (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
         Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1» r := fun r => by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-0-/1».pure]
   cases hb : mapLookup X (.atom "map") with

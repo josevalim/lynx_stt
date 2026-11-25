@@ -106,9 +106,9 @@ theorem any_optFlag {l : List (Term × Term)} (sl : FieldsV E l) :
 theorem closed_tails (m : Nat) (l₁ l₂ : List (Term × Term)) (h₁ : FieldsV E l₁) (h₂ : FieldsV E l₂) :
     Lynx.Except.orElse
       (Erlang.lists.«any/2» (D m)
-        (.function "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-0-" 1 #[]) (fieldsTerm l₁))
+        (.function false "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-0-" 1 #[]) (fieldsTerm l₁))
       (Erlang.lists.«any/2» (D m)
-        (.function "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-1-" 1 #[]) (fieldsTerm l₂))
+        (.function false "Elixir.Module.Types.Descr" "-map_literal_intersection_closed/4-fun-1-" 1 #[]) (fieldsTerm l₂))
       Bool.true = .ok (boolAtom ((l₁.map fun e => Term.tuple #[e.1, e.2]).any (fun x => !optFlag x) ||
         (l₂.map fun e => Term.tuple #[e.1, e.2]).any (fun x => !optFlag x))) := by
   have r₁ := any_list (D m) _ _ _ (fun x => !optFlag x) _ (optional_list (E := E) (D m) _ _
@@ -722,7 +722,7 @@ theorem domain_inter_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSe
         rw [both, tagSem_dom_iff hnone]
 
 def mergeFunV (ifun : Term) (S : List (Term × Term)) : Term :=
-  .function "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-0-" 3 #[ifun, .map S]
+  .function false "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-0-" 3 #[ifun, .map S]
 
 /-- The merge function of open literals meets fields, throwing `:empty` on required empty meets. -/
 theorem merge_fun_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V den Safe) {Kf n : Nat} (hK : Kf ≤ n) (hn : K ≤ n) {ifun : Term} (hI : IFun E den Kf ifun) {S : List (Term × Term)}
@@ -892,7 +892,7 @@ theorem merge_val (ops : ElemOk E K) (dops : ElemDiff E K) (esem : ElemSem E K V
           simp [run]
 
 def mergeFunV₁ (ifun : Term) (S : List (Term × Term)) : Term :=
-  .function "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-1-" 3 #[ifun, .map S]
+  .function false "Elixir.Module.Types.Descr" "-map_literal_intersection/6-fun-1-" 3 #[ifun, .map S]
 
 theorem merge_fun₁_call (n : Nat) (ifun : Term) (S : List (Term × Term)) (k v₁ v₂ : Term) :
     Lynx.Dispatcher.pure (D (n + 1)) (mergeFunV₁ ifun S) #[k, v₁, v₂] =

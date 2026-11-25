@@ -280,7 +280,7 @@ theorem elements_exact (ops : ElemOk E K) (sem : ElemSem E K V den Safe) (hS : S
 /-- Lines either hold a tuple of values or are empty. -/
 theorem line_keep (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V den Safe) (hS : Safe []) {L : Term}
     (hL : TLine E L) : ∃ keep : Bool, (∀ m acc, K + 2 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep then .cons L acc else acc)) ∧ (keep = Bool.true ↔ ∃ v, InLine den L v) := by
   obtain ⟨tag, l, negs, rfl, gt, el, lits⟩ := hL
   obtain ⟨b, check, full, empty⟩ := elements_exact ops sem hS l el
@@ -332,10 +332,10 @@ theorem foldl1_det {K : Nat} (f : Term) (g : Term → Term → Term) :
     exact ih (fun y my => step y (List.mem_cons_of_mem _ my)) _ m hm
 
 theorem foldl_det {K : Nat} (mo nm : String) (caps : Array Term) (g : Term → Term → Term) (l : List Term)
-    (step : ∀ x ∈ l, ∀ a m, K ≤ m → (D m).pure (.function mo nm 2 caps) #[x, a] = .ok (g x a)) (acc : Term) {m : Nat}
-    (hm : K ≤ m) : Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) =
+    (step : ∀ x ∈ l, ∀ a m, K ≤ m → (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok (g x a)) (acc : Term) {m : Nat}
+    (hm : K ≤ m) : Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) =
       .ok (l.foldl (fun a x => g x a) acc) := by
-  have := foldl1_det (.function mo nm 2 caps) g l step acc m hm
+  have := foldl1_det (.function false mo nm 2 caps) g l step acc m hm
   cases l with
   | nil => simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   | cons x xs =>
@@ -362,13 +362,13 @@ theorem dnf_neg (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V de
   obtain ⟨all, run, tl, sl⟩ := dnf_tuple ops sem (m := m) (by omega) wr (fun t h => h.1) [] (.tuple #[.atom "open", .nil]) []
     ⟨"open", [], rfl, Or.inl rfl, by simp⟩ (by simp)
   have keeps : ∀ L ∈ all, ∃ keep : Bool, (∀ m acc, K + 2 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep then .cons L acc else acc)) ∧ (keep = Bool.true ↔ ∃ v, InLine den L v) :=
     fun L mL => line_keep ops dops sem hS (tl L mL)
   classical
   let keep : Term → Bool := fun L => if h : L ∈ all then Classical.choose (keeps L h) else Bool.false
   have hk : ∀ L ∈ all, (∀ m acc, K + 2 ≤ m →
-      (D m).pure (.function "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
+      (D m).pure (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) #[L, acc] =
         .ok (if keep L then .cons L acc else acc)) ∧ (keep L = Bool.true ↔ ∃ v, InLine den L v) := by
     intro L mL
     simp only [keep, dite_eq_left mL]
@@ -384,10 +384,10 @@ theorem dnf_neg (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSem E K V de
         .ok (Term.list all) := by simpa using run
     simp only [run', Lynx.Except.ok_bind]
     rw [show (do
-        let f ← (pure (Term.function "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) :
+        let f ← (pure (Term.function false "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[]) :
           Except Exception Term)
         Erlang.lists.«foldl/3» (D m) f .nil (Term.list all)) =
-        Erlang.lists.«foldl/3» (D m) (.function "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[])
+        Erlang.lists.«foldl/3» (D m) (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_to_dnf_with_negations/1-fun-0-" 2 #[])
           .nil (Term.list all) from rfl, fold, e]
   · simp only [List.mem_reverse, List.mem_filter] at mL
     exact ⟨tl L mL.1, (hk L mL.1).2.mp mL.2⟩
@@ -420,9 +420,9 @@ theorem foldl1_rel {K : Nat} (f : Term) (R : List Term → Term → Prop) (l : L
 
 theorem foldl_rel {K : Nat} (mo nm : String) (caps : Array Term) (R : List Term → Term → Prop) (l : List Term)
     (step : ∀ pre x a, x ∈ l → R pre a → ∃ a', R (pre ++ [x]) a' ∧ ∀ m, K ≤ m →
-      (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (h : R [] acc) :
-    ∃ r, R l r ∧ ∀ m, K ≤ m → Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r := by
-  obtain ⟨r, hr, run⟩ := foldl1_rel (.function mo nm 2 caps) R l step l [] acc (fun _ h => h) h
+      (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (h : R [] acc) :
+    ∃ r, R l r ∧ ∀ m, K ≤ m → Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r := by
+  obtain ⟨r, hr, run⟩ := foldl1_rel (.function false mo nm 2 caps) R l step l [] acc (fun _ h => h) h
   refine ⟨r, by simpa using hr, fun m hm => ?_⟩
   have := run m hm
   cases l with
@@ -454,9 +454,9 @@ theorem foldl1_rel_at {m : Nat} (f : Term) (R : List Term → Term → Prop) (l 
 /-- Folds at a call depth whose steps keep a relation between the elements folded so far and the accumulator. -/
 theorem foldl_rel_at {m : Nat} (mo nm : String) (caps : Array Term) (R : List Term → Term → Prop) (l : List Term)
     (step : ∀ pre x a, x ∈ l → R pre a → ∃ a', R (pre ++ [x]) a' ∧
-      (D m).pure (.function mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (h : R [] acc) :
-    ∃ r, R l r ∧ Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) acc (Term.list l) = .ok r := by
-  obtain ⟨r, hr, run⟩ := foldl1_rel_at (.function mo nm 2 caps) R l step l [] acc (fun _ h => h) h
+      (D m).pure (.function false mo nm 2 caps) #[x, a] = .ok a') (acc : Term) (h : R [] acc) :
+    ∃ r, R l r ∧ Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) acc (Term.list l) = .ok r := by
+  obtain ⟨r, hr, run⟩ := foldl1_rel_at (.function false mo nm 2 caps) R l step l [] acc (fun _ h => h) h
   refine ⟨r, by simpa using hr, ?_⟩
   cases l with
   | nil =>
@@ -485,10 +485,10 @@ theorem foldl1_lists_at {m : Nat} (f : Term) (h : Term → List Term) :
 /-- Folds at a call depth whose steps prepend a list to the accumulator. -/
 theorem foldl_lists_at {m : Nat} (mo nm : String) (caps : Array Term) (h : Term → List Term) (l : List Term)
     (step : ∀ x ∈ l, ∀ (A : List Term),
-      (D m).pure (.function mo nm 2 caps) #[x, Term.list A] = .ok (Term.list (h x ++ A))) (A : List Term) :
-    Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) (Term.list A) (Term.list l) =
+      (D m).pure (.function false mo nm 2 caps) #[x, Term.list A] = .ok (Term.list (h x ++ A))) (A : List Term) :
+    Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) (Term.list A) (Term.list l) =
       .ok (Term.list (l.reverse.flatMap h ++ A)) := by
-  have := foldl1_lists_at (.function mo nm 2 caps) h l step A
+  have := foldl1_lists_at (.function false mo nm 2 caps) h l step A
   cases l with
   | nil => simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   | cons x xs =>
@@ -513,10 +513,10 @@ theorem foldl1_lists {K : Nat} (f : Term) (h : Term → List Term) :
 
 theorem foldl_lists {K : Nat} (mo nm : String) (caps : Array Term) (h : Term → List Term) (l : List Term)
     (step : ∀ x ∈ l, ∀ (A : List Term) m, K ≤ m →
-      (D m).pure (.function mo nm 2 caps) #[x, Term.list A] = .ok (Term.list (h x ++ A))) (A : List Term) {m : Nat}
-    (hm : K ≤ m) : Erlang.lists.«foldl/3» (D m) (.function mo nm 2 caps) (Term.list A) (Term.list l) =
+      (D m).pure (.function false mo nm 2 caps) #[x, Term.list A] = .ok (Term.list (h x ++ A))) (A : List Term) {m : Nat}
+    (hm : K ≤ m) : Erlang.lists.«foldl/3» (D m) (.function false mo nm 2 caps) (Term.list A) (Term.list l) =
       .ok (Term.list (l.reverse.flatMap h ++ A)) := by
-  have := foldl1_lists (.function mo nm 2 caps) h l step A m hm
+  have := foldl1_lists (.function false mo nm 2 caps) h l step A m hm
   cases l with
   | nil => simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   | cons x xs =>
@@ -614,7 +614,7 @@ theorem split_pairs (ef : EF nd E V den tl K) (negs : List Term) (lits : ∀ N �
       (∀ p ∈ P, PairOk E p) ∧ ∀ (v₁ : List V) y v₂, v₁.length = i →
         ((∃ N ∈ negs, LitSem den N (v₁ ++ y :: v₂)) ↔ ∃ p ∈ P, PairIn E den p y (v₁ ++ v₂)) := by
   have each : ∀ N ∈ negs, (∀ (A : List Term) m', 0 ≤ m' →
-      (D m').pure (.function "Elixir.Module.Types.Descr" "-tuple_split_negative_pairs/2-fun-0-" 2 #[.integer i])
+      (D m').pure (.function false "Elixir.Module.Types.Descr" "-tuple_split_negative_pairs/2-fun-0-" 2 #[.integer i])
         #[N, Term.list A] = .ok (Term.list (splitH i N ++ A))) ∧ (∀ p ∈ splitH i N, PairOk E p) ∧
       ∀ (v₁ : List V) y v₂, v₁.length = i →
         (LitSem den N (v₁ ++ y :: v₂) ↔ ∃ p ∈ splitH i N, PairIn E den p y (v₁ ++ v₂)) := by
@@ -654,7 +654,7 @@ theorem split_pairs (ef : EF nd E V den tl K) (negs : List Term) (lits : ∀ N �
 theorem union_pairs (P : List Term) (hP : ∀ p ∈ P, PairOk E p) :
     ∃ u, TField E u ∧ (∀ w, denTF E den u w = Bool.true ↔ ∃ p ∈ P, ∃ f b, p = .tuple #[f, b] ∧ denTF E den b w = Bool.true) ∧
       ∀ m, Erlang.lists.«foldl/3» (D m)
-        (.function "Elixir.Module.Types.Descr" "-tuple_pair_projection_keeps_full_fst?/2-fun-0-" 2 #[])
+        (.function false "Elixir.Module.Types.Descr" "-tuple_pair_projection_keeps_full_fst?/2-fun-0-" 2 #[])
         (.atom "bdd_bot") (Term.list P) = .ok u := by
   obtain ⟨u, ⟨tu, su⟩, run⟩ := foldl_rel (K := 0) "Elixir.Module.Types.Descr" "-tuple_pair_projection_keeps_full_fst?/2-fun-0-" #[]
     (fun pre a => TField E a ∧ ∀ w, denTF E den a w = Bool.true ↔
@@ -939,7 +939,7 @@ theorem project_pairs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (P 
 /-- The final fold of `tuple_bdd_fetch_lines/3` unites the element types of the pairs. -/
 theorem union_fields (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (Q : List Term)
     (hQ : ∀ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ E f) :
-    ∃ u, E u ∧ Erlang.lists.«foldl/3» (D (n + 1)) (.function "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
+    ∃ u, E u ∧ Erlang.lists.«foldl/3» (D (n + 1)) (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[])
         (.map []) (Term.list Q) = .ok u ∧
       ∀ y, den u y ↔ ∃ p ∈ Q, ∃ f b, p = .tuple #[f, b] ∧ den f y := by
   obtain ⟨u, ⟨hu, su⟩, run⟩ := foldl_rel_at (m := n + 1) "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" #[]
@@ -972,7 +972,7 @@ theorem proj_value (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (P : L
         .ok (boolAtom s) ∧ (s = Bool.true → value' = value) ∧
       (s = Bool.false → ∃ Q, Elixir.Module.Types.Descr.«tuple_project_negative_pairs/3» (D (n + 2)) (Term.list P) value rest =
         .ok (Term.list Q) ∧ Erlang.lists.«foldl/3» (D (n + 2))
-          (.function "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[]) (.map []) (Term.list Q) =
+          (.function false "Elixir.Module.Types.Descr" "-tuple_bdd_fetch_lines/3-fun-0-" 2 #[]) (.map []) (Term.list Q) =
             .ok value') ∧ E value' ∧
       ∀ y, den value' y ↔ ∃ w, den value y ∧ denTF E den rest w = Bool.true ∧ ∀ p ∈ P, ¬PairIn E den p y w := by
   obtain ⟨s, rs, ss⟩ := keeps_full (den := den) ef (m := n + 2) (by omega) P hP hr
