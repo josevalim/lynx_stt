@@ -10890,6 +10890,61 @@ defmodule STTDescrProofsTest do
         Lynx.Except.andAlso, Lynx.Term.true] at opt ⊢
       """
 
+    law map_get_precise(map, key, map2, depth, node),
+      requires:
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
+          precise?(map, map2) and kept_dynamic?(map, map2) and match?({:ok, _}, Descr.map_get(map, key)),
+      expects:
+        (case Descr.map_get(map2, key) do
+           {:ok, value2} -> precise?(elem(Descr.map_get(map, key), 1), value2)
+           _ -> false
+         end),
+      proof: ~LEAN"""
+      -- The maps nest at most `d + 1` levels, and the key `d`.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_get_precise:requires/5», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.1.1.1.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_get_precise:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨⟨⟨⟨⟨hg, hk⟩, hg₂⟩, -⟩, pr⟩, -⟩, hget⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 30 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hmk : (Nest.level node d).K + 23 ≤ δ + 99 := by rw [Nest.level_K] at hm ⊢; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have gT₂ := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg₂)
+      obtain ⟨lo, up⟩ := Nest.prec_bounds (t := node) (n := d + 1) (m := δ + 100) (by rw [Nest.level_K]; omega) gT gT₂
+        (by simpa using pr)
+      obtain ⟨s, rk, hs⟩ := Nest.key_gform (t := node) (n := d) (m := δ + 99) hmk (by simpa using hk)
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · rw [Nest.get_map_term] at hget; simp at hget
+      obtain ⟨T, run⟩ : ∃ T, Elixir.Module.Types.Descr.«map_get/2»
+          (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) key = .ok (.tuple #[.atom "ok", T]) := by
+        cases h : Elixir.Module.Types.Descr.«map_get/2» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
+            (.map X) key with
+        | error _ => rw [h] at hget; cases hget
+        | ok r =>
+          rw [h, Lynx.Except.ok_bind] at hget
+          split at hget
+          · rename_i a; exact ⟨a, rfl⟩
+          · simp at hget
+      obtain ⟨T₂, run₂, prT⟩ := Nest.get_prec gT.1 gT₂.1 rk hs hm lo up run
+      simp only [Lynx.apply_eq, «map_get_precise:ensures/5»]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
+        at run
+      simp [run, run₂, prT, Erlang.erlang.«element/2», Lynx.Term.true]
+      """
+
     law map_to_list_precise(map, map2, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
@@ -10943,6 +10998,60 @@ defmodule STTDescrProofsTest do
       rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
         at run
       simp [run, run₂, prL, Erlang.erlang.«element/2», Lynx.Term.true]
+      """
+
+    # Keys carry no gradual guarantee: a key type is the range of keys, its static part those that must exist, and
+    # it does not make the map or the value gradual. Getting at a gradual key gets at its range, its upper bound,
+    # while changing at it changes less than at its upper bound, as the keys of its static part surely exist.
+    law map_get_upper_key(map, key, depth, node),
+      requires:
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and depth?(depth),
+      expects:
+        (case {Descr.map_get(map, key), Descr.map_get(map, Descr.upper_bound(key))} do
+           {{:ok, value}, {:ok, value2}} -> Descr.equal?(value, value2)
+           {result, result2} -> result == result2
+         end),
+      proof: ~LEAN"""
+      -- The maps nest at most `d + 1` levels, and the key `d`.
+      obtain ⟨bound, requires⟩ := requires
+      have checked := requires bound (Nat.le_refl _)
+      simp only [Lynx.apply_eq, «map_get_upper_key:requires/4», Lynx.Term.true] at checked
+      obtain ⟨p, hp⟩ : ∃ p, Erlang.erlang.«+/2» depth (.integer 1) = .ok p := by
+        cases h : Erlang.erlang.«+/2» depth (.integer 1) with
+        | error err => rw [h] at checked; cases checked
+        | ok p => exact ⟨p, rfl⟩
+      rw [hp, Lynx.Except.ok_bind] at checked
+      simp only [Lynx.Except.andAlso_eq_true] at checked
+      obtain ⟨d, rfl⟩ := Nest.depth_nat checked.2
+      refine ⟨max bound (100 + 24 * (d + 1)), fun depth deep => ?_⟩
+      obtain ⟨hb, hd⟩ := Nat.max_le.mp deep
+      obtain ⟨δ, rfl⟩ : ∃ δ, depth = δ + 100 := ⟨depth - 100, by omega⟩
+      have requires := requires (δ + 100) hb
+      simp only [Lynx.apply_eq, «map_get_upper_key:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true,
+        Erlang.erlang.«+/2_integers», Lynx.Except.ok_bind] at requires
+      obtain ⟨⟨hg, hk⟩, -⟩ := requires
+      have hm : (Nest.level node (d + 1)).K + 30 ≤ δ + 100 := by rw [Nest.level_K]; omega
+      have hmk : (Nest.level node d).K + 23 ≤ δ + 99 := by rw [Nest.level_K] at hm ⊢; omega
+      have gT := Nest.arrows_gradual_ok (t := node) (n := d + 1) (m := δ + 100) (by omega) (by simpa using hg)
+      have hk' : «arrows_gradual?/2» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) key
+          (.tuple #[.integer ((d : Nat) : Int), node]) = .ok (.atom "true") := by simpa using hk
+      obtain ⟨gK, -, -⟩ := Nest.arrows_gradual_ok (t := node) (n := d) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega) hk'
+      obtain ⟨s, rk, hs⟩ := Nest.key_gform (t := node) (n := d) (m := δ + 99) hmk hk'
+      obtain ⟨-, -, -, -, -, -, -, rs, neg', ds, rku, oku, nru, nau, -, sku⟩ := Nest.key_gsplit (t := node) (n := d) (m := δ + 99) hmk hk'
+      have hsu := Nest.gform_splitT oku nru nau sku
+      simp only [Lynx.apply_eq, «map_get_upper_key:ensures/4»]
+      rw [Nest.upper_bound_run gK.ub]
+      rcases gT.1.shape with rfl | ⟨X, rfl⟩
+      · simp [Nest.get_map_term, Lynx.Term.true]
+      obtain ⟨r₁, r₂, run₁, run₂, h⟩ := Nest.get_same gT.1 rk hs rku hsu hm
+      rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 100) from rfl]
+      simp only [Lynx.Except.ok_bind]
+      rw [run₁]
+      simp only [Lynx.Except.ok_bind]
+      rw [run₂]
+      rcases h with ⟨T₁, T₂, rfl, rfl, eq⟩ | ⟨rfl, rfl | rfl⟩
+      · simp [eq, Lynx.Term.true]
+      all_goals simp [Lynx.Term.true, Erlang.erlang.«==/2»]
       """
 
     law map_delete_precise(map, key, mode, map2, depth, node),

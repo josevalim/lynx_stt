@@ -2209,4 +2209,589 @@ theorem tl_prec {X : List (Term × Term)} {a₂ : Term} (gX : GC (level t (n + 1
 
 end
 
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+theorem get_domains1 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term)
+    (hl : ∀ L ∈ lines, MLine E L) (ds : List Term) (hd : ∀ d ∈ ds, ∃ s, d = .atom s) {acc : Term} (ha : E acc) :
+    ∃ T, Erlang.lists.«foldl/3» (D (n + 4))
+        (.function false "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) acc (Term.list ds) =
+          .ok T ∧ E T ∧ ∀ x, den T x ↔ den acc x ∨ ∃ s, .atom s ∈ ds ∧ ∃ L ∈ lines, LineTag den L s x := by
+  obtain ⟨T, ⟨hT, sT⟩, run⟩ := foldl_rel_at (m := n + 4) "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-"
+    #[Term.list lines] (fun pre a => E a ∧ ∀ x, den a x ↔ den acc x ∨ ∃ s, .atom s ∈ pre ∧ ∃ L ∈ lines, LineTag den L s x)
+    ds (fun pre r a mr ⟨ha', sa⟩ => by
+      obtain ⟨s, rfl⟩ := hd r mr
+      obtain ⟨c, ⟨hc, sc⟩, rc⟩ := foldl_rel_at (m := n + 3) "Elixir.Module.Types.Descr" "-map_get_domain/3-fun-0-"
+        #[.atom s] (fun pre' a' => E a' ∧ ∀ x, den a' x ↔ den a x ∨ ∃ L ∈ pre', LineTag den L s x) lines
+        (fun pre' L b mL ⟨hb, sb⟩ => by
+          obtain ⟨tag, l, negs, rfl, g, -, -⟩ := hl L mL
+          have hty := tagType_value ef.mopsE g s
+          obtain ⟨c, hc, rc, sc⟩ := ef.opt_union [] hty hb (m := n + 2) (by omega)
+          refine ⟨c, ⟨hc, fun x => ?_⟩, ?_⟩
+          · rw [sc, sb]
+            simp only [List.mem_append, List.mem_singleton]
+            constructor
+            · rintro (h | h | ⟨L', m', h⟩)
+              · exact Or.inr ⟨_, Or.inr rfl, tag, l, negs, rfl, h⟩
+              · exact Or.inl h
+              · exact Or.inr ⟨L', Or.inl m', h⟩
+            · rintro (h | ⟨L', m' | e, h⟩)
+              · exact Or.inr (Or.inl h)
+              · exact Or.inr (Or.inr ⟨L', m', h⟩)
+              · subst e
+                obtain ⟨tag', l', negs', e', h'⟩ := h
+                obtain ⟨rfl, -, -⟩ := tuple3_inj e'
+                exact Or.inl h'
+          · rw [Erlang.program.«Elixir.Module.Types.Descr:-map_get_domain/3-fun-0-/2».pure,
+              tag_type_run g s, Elixir.Module.Types.Descr.«opt_union/2», rc])
+        a ⟨ha', fun x => by simp⟩
+      refine ⟨c, ⟨hc, fun x => ?_⟩, ?_⟩
+      · rw [sc, sa]
+        simp only [List.mem_append, List.mem_singleton]
+        constructor
+        · rintro ((h | ⟨s', m', h⟩) | h)
+          · exact Or.inl h
+          · exact Or.inr ⟨s', Or.inl m', h⟩
+          · exact Or.inr ⟨s, Or.inr rfl, h⟩
+        · rintro (h | ⟨s', m' | e, h⟩)
+          · exact Or.inl (Or.inl h)
+          · exact Or.inl (Or.inr ⟨s', m', h⟩)
+          · cases e; exact Or.inr h
+      · rw [Erlang.program.«Elixir.Module.Types.Descr:-map_get_static_dnf/3-fun-1-/2».pure]
+        simpa [Elixir.Module.Types.Descr.«-map_get_static_dnf/3-fun-1-/3», Elixir.Module.Types.Descr.«map_get_domain/3»]
+          using rc)
+    acc ⟨ha, fun x => by simp⟩
+  exact ⟨T, run, hT, sT⟩
+
+/-- `map_get_static_dnf/3` on the non-empty lines of a map type and the split of a gradual key type of the laws: the
+values its maps hold at the keys of the split. -/
+theorem gget_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {b : Term} (fb : MField E b) (lines : List Term)
+    (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {s : Term} {KP : MKey → Prop}
+    (hs : GForm s KP) :
+    ∃ T, Elixir.Module.Types.Descr.«map_get_static_dnf/3» (D (n + 4)) b (Term.list lines) s = .ok T ∧ E T ∧
+      ∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, KP κ ∧ w κ = some x := by
+  have hl' : ∀ L ∈ lines, MLine E L := fun L m => (hl L m).1
+  have fold1 : ∀ acc, Erlang.lists.«foldl/3» (D (n + 4))
+      (.function false "Elixir.Module.Types.Descr" "-map_get_static_dnf/3-fun-1-" 2 #[Term.list lines]) acc .nil =
+        .ok acc := fun acc => by simp [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
+  -- A split with required and optional atoms besides a split of keys and domains unites the values of both.
+  have gen : ∀ (Rs Os : List String) (neg : Term) (Ds Ds' : List Term), SplitOk [] neg (Ds ++ Ds') →
+      ∃ T, Elixir.Module.Types.Descr.«map_get_static_dnf/3» (D (n + 4)) b (Term.list lines)
+          (.tuple #[Term.list (Rs.map Term.atom), Term.list (Os.map Term.atom), neg, Term.list Ds, Term.list Ds']) =
+          .ok T ∧ E T ∧
+        ∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧
+          ∃ κ, ((∃ s, (s ∈ Rs ∨ s ∈ Os) ∧ κ = .atom s) ∨ SplitKey [] neg (Ds ++ Ds') κ) ∧ w κ = some x := by
+    intro Rs Os neg Ds Ds' hs
+    have ha : ∀ (A : List String), ∀ r ∈ A.map Term.atom, ∃ s, r = .atom s :=
+      fun A r mr => let ⟨s, _, e⟩ := List.mem_map.mp mr; ⟨s, e.symm⟩
+    obtain ⟨T₂, r₂, h₂, s₂⟩ := get_keys ef hn lines hl (Rs.map Term.atom) (ha Rs) ef.none
+    obtain ⟨T₃, r₃, h₃, s₃⟩ := get_keys ef hn lines hl (Os.map Term.atom) (ha Os) h₂
+    obtain ⟨R, rR, hR, swR⟩ := neg_keys_split ef fb (n + 3) hs
+    obtain ⟨T₄, r₄, h₄, s₄⟩ := get_keys ef hn lines hl R (fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩) h₃
+    have hd : ∀ d ∈ Ds ++ Ds', ∃ s, d = .atom s := fun d md => let ⟨s, _, e⟩ := hs.hds d md; ⟨s, e⟩
+    obtain ⟨T₅, r₅, h₅, s₅⟩ := get_domains ef hn lines hl' Ds (fun d md => hd d (List.mem_append_left _ md)) h₄
+    obtain ⟨T₆, r₆, h₆, s₆⟩ := get_domains1 ef hn lines hl' Ds' (fun d md => hd d (List.mem_append_right _ md)) h₅
+    refine ⟨T₆, ?_, h₆, fun x => ?_⟩
+    · simp [Elixir.Module.Types.Descr.«map_get_static_dnf/3», r₂, r₃, rR, r₄, r₅, r₆]
+    have pe := pieces_sem ef lines hl sl hs hR swR x
+    have lm := fun a o => longM_iff (E := E) (den := den) sl a o
+    rw [s₆, s₅, s₄, s₃, s₂]
+    simp only [ef.den_none x, false_or, List.not_mem_nil, false_and, exists_false] at pe ⊢
+    constructor
+    · rintro ((((⟨s, m, h⟩ | ⟨s, m, h⟩) | h) | ⟨k, m, h⟩) | ⟨k, m, h⟩)
+      · obtain ⟨s', ms', e⟩ := List.mem_map.mp m; cases e
+        obtain ⟨w, hw, e⟩ := (lm s (some x)).mp h
+        exact ⟨w, hw, .atom s, Or.inl ⟨s, Or.inl ms', rfl⟩, e⟩
+      · obtain ⟨s', ms', e⟩ := List.mem_map.mp m; cases e
+        obtain ⟨w, hw, e⟩ := (lm s (some x)).mp h
+        exact ⟨w, hw, .atom s, Or.inl ⟨s, Or.inr ms', rfl⟩, e⟩
+      · obtain ⟨w, hw, κ, k, e⟩ := pe.mp (Or.inl h); exact ⟨w, hw, κ, Or.inr k, e⟩
+      · obtain ⟨w, hw, κ, k, e⟩ := pe.mp (Or.inr ⟨k, List.mem_append_left _ m, h⟩); exact ⟨w, hw, κ, Or.inr k, e⟩
+      · obtain ⟨w, hw, κ, k, e⟩ := pe.mp (Or.inr ⟨k, List.mem_append_right _ m, h⟩); exact ⟨w, hw, κ, Or.inr k, e⟩
+    · rintro ⟨w, hw, κ, ⟨s, ms | ms, rfl⟩ | k, e⟩
+      · exact Or.inl (Or.inl (Or.inl (Or.inl ⟨s, List.mem_map_of_mem ms, (lm s (some x)).mpr ⟨w, hw, e⟩⟩)))
+      · exact Or.inl (Or.inl (Or.inl (Or.inr ⟨s, List.mem_map_of_mem ms, (lm s (some x)).mpr ⟨w, hw, e⟩⟩)))
+      · rcases pe.mpr ⟨w, hw, κ, k, e⟩ with h | ⟨kd, m, h⟩
+        · exact Or.inl (Or.inl (Or.inr h))
+        · rcases List.mem_append.mp m with m | m
+          · exact Or.inl (Or.inr ⟨kd, m, h⟩)
+          · exact Or.inr ⟨kd, m, h⟩
+  -- Atoms of a split are its keys.
+  have atoms : ∀ (Rs : List Term) (neg : Term) (ds : List Term), SplitOk Rs neg ds →
+      ∃ A : List String, Rs = A.map Term.atom ∧ SplitOk [] neg ds ∧ ∀ κ, SplitKey Rs neg ds κ ↔
+        ((∃ s, s ∈ A ∧ κ = .atom s) ∨ SplitKey [] neg ds κ) := by
+    intro Rs neg ds ok
+    obtain ⟨A, rfl⟩ := atoms_of ok.hrs
+    refine ⟨A, rfl, ⟨by simp, ok.hneg, ok.hds, ok.hatom⟩, fun κ => ?_⟩
+    cases κ with
+    | atom s => simp [SplitKey]
+    | dom k i => simp [SplitKey]
+  rcases hs with ⟨Rs, Os, Ds, Ds', rfl, ok, kp⟩ | ⟨N, Ds, Ds', rfl, ok, -, kp⟩ |
+    ⟨A, N, Ds, Ds', rfl, ok, -, -, kp⟩
+  · obtain ⟨A, eA, ok', sk⟩ := atoms (Rs ++ Os) _ _ ok
+    obtain ⟨Ra, rfl⟩ := atoms_of fun r mr => ok.hrs r (List.mem_append_left _ mr)
+    obtain ⟨Oa, rfl⟩ := atoms_of fun r mr => ok.hrs r (List.mem_append_right _ mr)
+    obtain ⟨T, r, h, sT⟩ := gen Ra Oa _ Ds Ds' ok'
+    refine ⟨T, r, h, fun x => (sT x).trans (exists_congr fun w => and_congr Iff.rfl
+      (exists_congr fun κ => and_congr ?_ Iff.rfl))⟩
+    rw [← kp κ, sk κ]
+    have : ∀ s, s ∈ A ↔ s ∈ Ra ∨ s ∈ Oa := fun s => by
+      rw [← List.map_append] at eA
+      have := congrArg (fun l => Term.atom s ∈ l) eA
+      simp at this; simpa [List.mem_append] using this.symm
+    simp only [this]
+  · obtain ⟨T, r, h, sT⟩ := gen [] [] _ Ds Ds' (by simpa using ok)
+    refine ⟨T, by simpa [Term.list] using r, h, fun x => (sT x).trans (exists_congr fun w => and_congr Iff.rfl
+      (exists_congr fun κ => and_congr ?_ Iff.rfl))⟩
+    rw [← kp κ]; simp
+  · obtain ⟨T, r, h, sT⟩ := gen A [] _ Ds Ds' ok
+    refine ⟨T, by simpa [Term.list] using r, h, fun x => (sT x).trans (exists_congr fun w => and_congr Iff.rfl
+      (exists_congr fun κ => and_congr ?_ Iff.rfl))⟩
+    rw [← kp κ]
+    constructor
+    · rintro (⟨s, ms | ms, rfl⟩ | k)
+      · exact Or.inl ⟨s, ms, rfl⟩
+      · cases ms
+      · exact Or.inr k
+    · rintro (⟨s, ms, rfl⟩ | k)
+      · exact Or.inl ⟨s, Or.inl ms, rfl⟩
+      · exact Or.inr k
+
+/-- `map_get_static/2` on a map field and a split of static keys: `:badmap` when it is empty, otherwise the union of
+the values its maps hold at the keys the split selects. -/
+theorem gstatic_get (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {X : List (Term × Term)} {b : Term}
+    (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) {s : Term} {KP : MKey → Prop} (hs : GForm s KP) :
+    ∃ res, Elixir.Module.Types.Descr.«map_get_static/2» (D (n + 4)) (.map X) s = .ok res ∧
+      ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨
+        (∃ T, res = .tuple #[.atom "ok", T] ∧ E T ∧ (∃ w, denMF E den b w = Bool.true) ∧
+          ∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, KP κ ∧ w κ = some x)) := by
+  by_cases three : ∃ k x y, b = .tuple #[k, x, y]
+  · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
+    obtain ⟨k, tag, l, rfl, g, sl⟩ := mfield_three fb e₀
+    have sem : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔ MSem den tag l w :=
+      fun w => denMF_leaf ef sl g w
+    obtain ⟨e, run⟩ := init_total ef.mopsE ef.mdopsE ef.jopsU [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
+    have run : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D (n + 4)) tag (fieldsTerm l) .nil (.map []) =
+        .ok (boolAtom e) := run (n + 4) (by omega)
+    cases e
+    · -- Not empty: a map of the literal.
+      have ne : ∃ w, MSem den tag l w := Classical.byContradiction fun none => by
+        have := run.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ (m := n + 4) (by omega) rfl g sl (negs := []) (by simp)
+          fun w hw => absurd ⟨w, hw⟩ none)
+        simp [boolAtom] at this
+      obtain ⟨w₀, h₀⟩ := ne
+      have line : ∀ w, InMLine den (.tuple #[tag, fieldsTerm l, Term.list []]) w ↔ MSem den tag l w := fun w => by
+        rw [inMLine_iff]; simp
+      obtain ⟨T, rT, hT, sT⟩ := gget_dnf ef hn fb [.tuple #[tag, fieldsTerm l, Term.list []]]
+        (fun L mL => by
+          simp only [List.mem_singleton] at mL
+          subst mL
+          exact ⟨⟨tag, l, [], rfl, g, sl, by simp⟩, w₀, (line w₀).mpr h₀⟩)
+        (fun w => by simp [sem, line]) hs
+      refine ⟨_, ?_, Or.inr ⟨T, rfl, hT, ⟨w₀, (sem w₀).mpr h₀⟩, sT⟩⟩
+      unfold Elixir.Module.Types.Descr.«map_get_static/2»
+      simp only [Term.list] at rT
+      simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+        Elixir.Module.Types.Descr.«init_map_line_empty?/3», run, Lynx.Term.isMember, boolAtom, rT]
+    · refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun w => ?_⟩⟩
+      · unfold Elixir.Module.Types.Descr.«map_get_static/2»
+        simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+          Elixir.Module.Types.Descr.«init_map_line_empty?/3», run, Lynx.Term.isMember, boolAtom]
+      · cases h : denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w
+        · rfl
+        · obtain ⟨N, mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ ef.jopsU (m := n + 4) (by omega) rfl g sl (negs := []) (by simp) run w
+            ((sem w).mp h)
+          simp at mN
+  · have wb : Bdd (MLit E) b := by
+      rcases fb with ⟨k, rfl⟩ | wb
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · exact wb
+    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl (m := n + 4) (by omega) wb
+    have inB : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := fun w => by
+      rw [denMF_bdd wb]; exact sl w
+    cases lines with
+    | nil =>
+      refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun w => ?_⟩⟩
+      · unfold Elixir.Module.Types.Descr.«map_get_static/2»
+        rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · exact absurd ⟨_, _, _, rfl⟩ three
+        · simp [getMapKeys_single, hb, rl, Term.list]
+      · cases h : denMF E den b w
+        · rfl
+        · simpa using (inB w).mp h
+    | cons L rest =>
+      obtain ⟨T, rT, hT, sT⟩ := gget_dnf ef hn fb (L :: rest) hl inB hs
+      obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
+      refine ⟨_, ?_, Or.inr ⟨T, rfl, hT, ⟨w₀, (inB w₀).mpr ⟨L, List.mem_cons_self, h₀⟩⟩, sT⟩⟩
+      unfold Elixir.Module.Types.Descr.«map_get_static/2»
+      rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+      · simp [getMapKeys_single, hb, rl, rT, Term.list]
+      · simp [getMapKeys_single, hb, rl, rT, Term.list]
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · simp [getMapKeys_single, hb, rl, rT, Term.list]
+
+end
+
+section
+variable {t : Term} {n : Nat}
+
+/-- The values the maps of a type hold at the keys of a key predicate. -/
+def Vals {V : Type} (M : MW V → Prop) (KP : MKey → Prop) (x : V) : Prop := ∃ w, M w ∧ ∃ κ, KP κ ∧ w κ = some x
+
+/-- `map_get_static/2` on a static map type, or the top type as the top map type. -/
+theorem gget_static {Dy : Term} (tD : TC (level t n) Dy) {s : Term} {KP : MKey → Prop} (hs : GForm s KP) {m : Nat}
+    (hm : (level t n).K + 4 ≤ m) :
+    ∃ res, Elixir.Module.Types.Descr.«map_get_static/2» (D (m + 4)) Dy s = .ok res ∧
+      ((res = .atom "badmap" ∧ ∀ w, ¬MT t n (dynL Dy) w) ∨
+        ∃ T, res = .tuple #[.atom "ok", T] ∧ (level t n).E T ∧ (∀ x, (level t n).den T x ↔ Vals (MT t n (dynL Dy)) KP x) ∧
+          ((Dy ≠ .atom "term" ∧ mapLookup (dynL Dy) (.atom "map") = none) ∨ ∃ w, MT t n (dynL Dy) w)) := by
+  have ef := (level t n).ef
+  have main : ∀ Z : List (Term × Term), DE (level t n).E (.map Z) →
+      ∃ res, Elixir.Module.Types.Descr.«map_get_static/2» (D (m + 4)) (.map Z) s = .ok res ∧
+        ((res = .atom "badmap" ∧ ∀ w, ¬MT t n Z w) ∨
+          ∃ T, res = .tuple #[.atom "ok", T] ∧ (level t n).E T ∧ (∀ x, (level t n).den T x ↔ Vals (MT t n Z) KP x) ∧
+            (mapLookup Z (.atom "map") = none ∨ ∃ w, MT t n Z w)) := by
+    intro Z hZ
+    have sZ := de_map hZ
+    cases hb : mapLookup Z (.atom "map") with
+    | none =>
+      refine ⟨.tuple #[.atom "ok", .map []], ?_, Or.inr ⟨_, rfl, ef.none, fun x => ⟨fun h => absurd h (ef.den_none x),
+        fun ⟨w, ⟨b, e, _⟩, _⟩ => by rw [hb] at e; cases e⟩, Or.inl rfl⟩⟩
+      unfold Elixir.Module.Types.Descr.«map_get_static/2»
+      simp [getMapKeys_single, hb]
+    | some b =>
+      have fb : MField (level t n).E b := fieldC_map (sZ.fields "map" b hb)
+      have mt : ∀ w, MT t n Z w ↔ denMF (level t n).E (level t n).den b w = Bool.true := fun w => by simp [MT, hb]
+      obtain ⟨res, run, ⟨rfl, emp⟩ | ⟨T, rfl, hT, ⟨w₀, h₀⟩, sT⟩⟩ := gstatic_get ef (n := m) hm hb fb hs
+      · exact ⟨_, run, Or.inl ⟨rfl, fun w h => by rw [mt, emp w] at h; cases h⟩⟩
+      · refine ⟨_, run, Or.inr ⟨T, rfl, hT, fun x => (sT x).trans ?_, Or.inr ⟨w₀, (mt w₀).mpr h₀⟩⟩⟩
+        exact exists_congr fun w => and_congr (mt w).symm Iff.rfl
+  rcases tD with rfl | ⟨Z, rfl, sZ⟩
+  · obtain ⟨res, run, h⟩ := main topM mapTop_de
+    refine ⟨res, ?_, ?_⟩
+    · rw [Elixir.Module.Types.Descr.«map_get_static/2».eq_def]; simpa [Lynx.Term.getMapKeys] using run
+    · rcases h with h | ⟨T, e, hT, sT, -⟩
+      · exact Or.inl h
+      · exact Or.inr ⟨T, e, hT, sT, Or.inr ⟨_, mt_top wNone⟩⟩
+  · obtain ⟨res, run, h⟩ := main Z (Or.inr ⟨Z, rfl, sZ⟩)
+    refine ⟨res, run, ?_⟩
+    rcases h with h | ⟨T, e, hT, sT, h⟩
+    · exact Or.inl h
+    · exact Or.inr ⟨T, e, hT, sT, h.imp (fun h => ⟨by simp, h⟩) id⟩
+
+end
+
+section
+variable {t : Term} {d : Nat}
+
+/-- `map_get/2` on a gradual map type of the next level, at the split of a key type of the laws: `:badmap` unless the
+lower bound holds only maps and the upper bound some map, `:error` when those hold no value at the keys, and otherwise
+the values of the static maps, with those of the dynamic maps in the upper bound. -/
+theorem gget_sem {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {key s : Term} {KP : MKey → Prop}
+    {m : Nat} (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s) (hs : GForm s KP)
+    (hm : (level t (d + 1)).K + 30 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«map_get/2» (D m) (.map X) key = .ok r ∧
+      (r = .atom "badmap" ∨ r = .atom "error" ∨ ∃ T, r = .tuple #[.atom "ok", T]) ∧
+      (r = .atom "badmap" ↔ ¬((∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+        ∃ w, MT t (d + 1) (dynL (upper (.map X))) w)) ∧
+      (r = .atom "error" ↔ (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+        (∃ w, MT t (d + 1) (dynL (upper (.map X))) w) ∧ ∀ x, ¬Vals (MT t (d + 1) (dynL (upper (.map X)))) KP x) ∧
+      ∀ T, r = .tuple #[.atom "ok", T] → ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+        Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+        (∀ x : PN t d, denD lt x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x) ∧
+        (∀ x : PN t d, denD ut x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x ∨
+          Vals (MT t (d + 1) (dynL (upper (.map X)))) KP x) ∧
+        ((mapLookup X (.atom "dynamic") = none ∧ (level t (d + 1)).E T ∧
+            ∀ x, (level t (d + 1)).den T x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x) ∨
+          mapLookup X (.atom "dynamic") ≠ none ∧ GC (level t d) T ∧
+            (∀ x : PN t d, denD T x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x) ∧ ∀ x : PN t d, denD (upper T) x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x ∨
+              Vals (MT t (d + 1) (dynL (upper (.map X)))) KP x) := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
+  have hK := level_K t d
+  have hK' := level_K t (d + 1)
+  have ef := (level t (d + 1)).ef
+  have dSt : DE (level t (d + 1)).E (.map (rmDyn X)) := gX.low_tc
+  obtain ⟨dR, sRm⟩ := rest_map dSt
+  have onlyIff : (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q) ↔
+      ∀ q : PN t (d + 1), denD (.map (rmDyn X)) q → q.1.1 = "map" :=
+    ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sRm q).mpr ⟨hq, nq⟩),
+      fun h q hq => ((sRm q).mp hq).2 (h q ((sRm q).mp hq).1)⟩
+  have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
+      .ok (boolAtom (bp (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    exact next_empty dR (by omega)
+  have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
+      (.function false "Elixir.Module.Types.Descr" "-map_get/2-fun-0-" 1 #[]) #[r] =
+        Elixir.Module.Types.Descr.«-map_get/2-fun-0-/1» r := fun r => by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_get/2-fun-0-/1».pure]
+  have bad1 : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
+      (.function false "Elixir.Module.Types.Descr" "-map_get/2-fun-1-" 1 #[]) #[r] =
+        Elixir.Module.Types.Descr.«-map_get/2-fun-1-/1» r := fun r => by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_get/2-fun-1-/1».pure]
+  have lX : lower (.map X) = .map (rmDyn X) := by simp [lower]
+  rw [lX]
+  rw [Elixir.Module.Types.Descr.«map_get/2».eq_def]
+  simp only [hk, Lynx.Except.ok_bind, Erlang.maps.«take/2»]
+  cases hD : mapLookup X (.atom "dynamic") with
+  | none =>
+    have eX : rmDyn X = X := rmDyn_static hD
+    have uX : upper (.map X) = .map X := by simp [upper, hD]
+    have hX : DE (level t (d + 1)).E (.map X) := GC.static gX hD
+    rw [eX] at mo onlyIff ⊢
+    rw [uX]
+    simp only [dynL, Lynx.Except.ok_bind]
+    cases hb : mapLookup X (.atom "map") with
+    | none =>
+      have noM : ∀ w, ¬MT t (d + 1) X w := fun w ⟨b, e, _⟩ => by rw [hb] at e; cases e
+      refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨_, w, hw⟩ => noM w hw, fun _ => rfl⟩,
+        ⟨fun h => (by simp at h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noM w)⟩, fun _ h => by cases h⟩
+      simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Lynx.Except.andAlso,
+        bad, Elixir.Module.Types.Descr.«-map_get/2-fun-0-/1»]
+    | some b =>
+      have key : Elixir.Module.Types.Descr.«descr_key?/2» (.map X) (.atom "map") = .ok (.atom "true") := by
+        simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
+      by_cases restE : ∀ q : PN t (d + 1), ¬denD (.map (rmM X)) q
+      rotate_left
+      · rw [bp_false.mpr restE] at mo
+        refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨h, _⟩ => restE (onlyIff.mpr h), fun _ => rfl⟩,
+          ⟨fun h => (by simp at h), fun ⟨h, _⟩ => absurd (onlyIff.mpr h) restE⟩, fun _ h => by cases h⟩
+        simp [key, mo, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_get/2-fun-0-/1», boolAtom]
+      rw [bp_true.mpr restE] at mo
+      obtain ⟨res, run, ⟨rfl, emp⟩ | ⟨T, rfl, hT, sT, ne⟩⟩ :=
+        gget_static (t := t) (n := d + 1) (Or.inr ⟨X, rfl, de_map hX⟩) hs (m := k + 4) (by omega)
+      · simp only [dynL] at emp
+        refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨_, w, hw⟩ => emp w hw, fun _ => rfl⟩,
+          ⟨fun h => (by simp at h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (emp w)⟩, fun _ h => by cases h⟩
+        simp [key, mo, run, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_get/2-fun-0-/1», boolAtom]
+      simp only [dynL] at sT ne
+      have exM : ∃ w, MT t (d + 1) X w := by
+        rcases ne with ⟨-, h⟩ | h
+        · rw [hb] at h; cases h
+        · exact h
+      obtain ⟨eb, reb, seb⟩ := ef.empty_pub hT
+      cases eb
+      · have ne' : ∃ x, Vals (MT t (d + 1) X) KP x := Classical.byContradiction fun h =>
+          absurd (seb.mpr fun x hx => h ⟨x, (sT x).mp hx⟩) (by simp)
+        refine ⟨.tuple #[.atom "ok", T], ?_, Or.inr (Or.inr ⟨_, rfl⟩), ⟨fun h => (by simp at h), fun h => absurd ⟨onlyIff.mp restE, exM⟩ h⟩,
+          ⟨fun h => (by simp at h), fun ⟨_, _, h⟩ => absurd ne' fun ⟨x, hx⟩ => h x hx⟩, fun T' e => ?_⟩
+        · simp [key, mo, run, Lynx.Except.andAlso, reb (k + 8) (by omega), Lynx.Term.isMember, boolAtom]
+        simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true, true_and] at e
+        subst e
+        obtain ⟨c, hc, sc, ub, lb, -, -⟩ := el_ops hT (k + 7)
+        exact ⟨c, c, lb, ub, hc, hc, fun x => (sc x).symm.trans (sT x),
+          fun x => ((sc x).symm.trans (sT x)).trans or_self_iff.symm, Or.inl ⟨trivial, hT, sT⟩⟩
+      · have noV : ∀ x, ¬Vals (MT t (d + 1) X) KP x := fun x hx => seb.mp rfl x ((sT x).mpr hx)
+        refine ⟨.atom "error", ?_, Or.inr (Or.inl rfl), ⟨fun h => (by simp at h), fun h => absurd ⟨onlyIff.mp restE, exM⟩ h⟩,
+          ⟨fun _ => ⟨onlyIff.mp restE, exM, noV⟩, fun _ => rfl⟩, fun _ h => by cases h⟩
+        simp [key, mo, run, Lynx.Except.andAlso, reb (k + 8) (by omega), Lynx.Term.isMember, boolAtom]
+  | some Dy =>
+    obtain ⟨tD, incl⟩ : TC (level t (d + 1)) Dy ∧ ∀ q : TP (level t (d + 1)), denD (.map X) q → denD Dy q := by
+      rcases gX with tX | ⟨X', Dy', e, hD', tD, dS, incl⟩
+      · rcases tX with h | ⟨X', e, sX'⟩
+        · cases h
+        · simp only [Term.map.injEq] at e; subst e; rw [sX'.static] at hD; cases hD
+      · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, incl⟩
+    rw [upper_dyn hD]
+    have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic")
+      entry.fst = .eq)) = rmDyn X := rfl
+    simp only [eS, Lynx.Except.ok_bind]
+    have keyD : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "map") =
+        .ok (boolAtom (mapLookup (dynL Dy) (.atom "map")).isSome) := by
+      rcases tD with rfl | ⟨Y, rfl, -⟩
+      · simp [Elixir.Module.Types.Descr.«descr_key?/2», dynL, topM, mapLookup, boolAtom, pure, Except.pure]
+      · cases h : mapLookup Y (.atom "map") <;>
+          simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, dynL, h, boolAtom]
+    by_cases restE : ∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q
+    rotate_left
+    · rw [bp_false.mpr restE] at mo
+      refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨h, _⟩ => restE (onlyIff.mpr h), fun _ => rfl⟩,
+        ⟨fun h => (by simp at h), fun ⟨h, _⟩ => absurd (onlyIff.mpr h) restE⟩, fun _ h => by cases h⟩
+      cases hk : (mapLookup (dynL Dy) (.atom "map")).isSome <;>
+        simp [keyD, hk, mo, Lynx.Except.andAlso, boolAtom, bad1, Elixir.Module.Types.Descr.«-map_get/2-fun-1-/1»]
+    rw [bp_true.mpr restE] at mo
+    have onlyS := onlyIff.mp restE
+    rcases Classical.em ((mapLookup (dynL Dy) (.atom "map")).isSome = Bool.false) with hbm | hbm
+    · have noD : ∀ w, ¬MT t (d + 1) (dynL Dy) w := fun w ⟨b, e, _⟩ => by simp [e] at hbm
+      refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨_, w, hw⟩ => noD w hw, fun _ => rfl⟩,
+        ⟨fun h => (by simp at h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noD w)⟩, fun _ h => by cases h⟩
+      simp [keyD, hbm, Lynx.Except.andAlso, boolAtom, bad1, Elixir.Module.Types.Descr.«-map_get/2-fun-1-/1»]
+    have kt : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "map") = .ok (.atom "true") := by
+      simp only [Bool.not_eq_false] at hbm
+      simp [keyD, hbm, boolAtom]
+    obtain ⟨rd, rrd, hd⟩ := gget_static (t := t) (n := d + 1) tD hs (m := k + 4) (by omega)
+    simp only [kt, mo, boolAtom, ↓reduceIte, Lynx.Except.andAlso, rrd, Lynx.Except.ok_bind]
+    rcases hd with ⟨rfl, noD⟩ | ⟨dt, rfl, hdt, sdt, ne⟩
+    · refine ⟨.atom "badmap", ?_, Or.inl rfl, ⟨fun _ => fun ⟨_, w, hw⟩ => noD w hw, fun _ => rfl⟩,
+        ⟨fun h => (by simp at h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noD w)⟩, fun _ h => by cases h⟩
+      simp [bad1, Elixir.Module.Types.Descr.«-map_get/2-fun-1-/1»]
+    have exD : ∃ w, MT t (d + 1) (dynL Dy) w := by
+      rcases ne with ⟨-, h⟩ | h
+      · simp [h] at hbm
+      · exact h
+    -- The static part, or none.
+    obtain ⟨rs, rrs, st, ers, hst, sst⟩ : ∃ rs, Elixir.Module.Types.Descr.«map_get_static/2» (D (k + 8))
+        (.map (rmDyn X)) s = .ok rs ∧ ∃ st, ((rs = .atom "badmap" ∧ st = .map []) ∨ rs = .tuple #[.atom "ok", st]) ∧
+        (level t (d + 1)).E st ∧ ∀ x, (level t (d + 1)).den st x ↔ Vals (MT t (d + 1) (rmDyn X)) KP x := by
+      obtain ⟨rs, rrs, hrs⟩ := gget_static (t := t) (n := d + 1) (Or.inr ⟨_, rfl, de_map dSt⟩) hs (m := k + 4) (by omega)
+      refine ⟨rs, rrs, ?_⟩
+      rcases hrs with ⟨rfl, noS⟩ | ⟨st, rfl, hst, sst, -⟩
+      · exact ⟨.map [], Or.inl ⟨rfl, rfl⟩, ef.none, fun x => ⟨fun h => absurd h (ef.den_none x),
+          fun ⟨w, hw, _⟩ => absurd hw (noS w)⟩⟩
+      · exact ⟨st, Or.inr rfl, hst, sst⟩
+    obtain ⟨eb, reb, seb⟩ := ef.empty_pub hdt
+    have reb' := reb (k + 8) (by omega)
+    cases eb
+    rotate_left
+    · have noV : ∀ x, ¬Vals (MT t (d + 1) (dynL Dy)) KP x := fun x hx => seb.mp rfl x ((sdt x).mpr hx)
+      refine ⟨.atom "error", ?_, Or.inr (Or.inl rfl), ⟨fun h => (by simp at h), fun h => absurd ⟨onlyS, exD⟩ h⟩,
+        ⟨fun _ => ⟨onlyS, exD, noV⟩, fun _ => rfl⟩, fun _ h => by cases h⟩
+      rcases ers with ⟨rfl, rfl⟩ | rfl <;> simp [rrs, reb', Lynx.Term.isMember, boolAtom]
+    have ne' : ∃ x, Vals (MT t (d + 1) (dynL Dy)) KP x := Classical.byContradiction fun h =>
+      absurd (seb.mpr fun x hx => h ⟨x, (sdt x).mp hx⟩) (by simp)
+    obtain ⟨c₁, hc₁, sc₁, cases₁⟩ := el_canon hdt
+    obtain ⟨R, rR, gR, s₁, s₂⟩ := dyn_el_union hc₁ hst (m := k + 8) (by omega)
+    refine ⟨.tuple #[.atom "ok", R], ?_, Or.inr (Or.inr ⟨_, rfl⟩), ⟨fun h => (by simp at h), fun h => absurd ⟨onlyS, exD⟩ h⟩,
+      ⟨fun h => (by simp at h), fun ⟨_, _, h⟩ => absurd ne' fun ⟨x, hx⟩ => h x hx⟩, fun T e => ?_⟩
+    · rcases cases₁ with ⟨de, rfl⟩ | ⟨hn, rfl⟩
+      · rcases de with rfl | ⟨Z, rfl, sZ⟩
+        · rcases ers with ⟨rfl, rfl⟩ | rfl <;>
+            simp [rrs, reb', Lynx.Term.isMember, boolAtom, getMapKeys, rR]
+        · rcases ers with ⟨rfl, rfl⟩ | rfl <;>
+            simp [rrs, reb', Lynx.Term.isMember, boolAtom, getMapKeys_single, sZ.static, rR]
+      · obtain ⟨q, SS, rfl⟩ := node_tuple hn
+        have ex := expand_isT hn (k + 7)
+        obtain ⟨Y, eY, sY⟩ := expN_map (.tuple #[.reference q, .map SS, gen]) (keyOf (level t d).nd)
+        rw [eY] at ex rR
+        have dY : Elixir.Module.Types.Descr.«dynamic/1» (D (k + 8)) (.map Y) =
+            .ok (.map [(.atom "dynamic", .map Y)]) := by
+          unfold Elixir.Module.Types.Descr.«dynamic/1»; simp [getMapKeys_single, sY]
+        have gt : getMapKeys [Term.atom "dynamic"] (.tuple #[.reference q, .map SS, gen]) = [] := by simp [getMapKeys]
+        rcases ers with ⟨rfl, rfl⟩ | rfl <;>
+          simp [rrs, reb', Lynx.Term.isMember, boolAtom, gt, ex, unfold_map, dY, rR]
+    simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true, true_and] at e
+    subst e
+    refine ⟨lower R, upper R, lower_bound_run gR.shape, upper_bound_run gR.ub, gR.low_tc, gR.up_tc,
+      fun x => (denD_lower R x).trans ((s₁ x).trans (sst x)), fun x => (s₂ x).trans ?_, ?_⟩
+    · rw [← sc₁]
+      exact (or_congr (sdt x) (sst x)).trans or_comm
+    refine Or.inr ⟨by simp, gR, fun x => (s₁ x).trans (sst x), fun x => (s₂ x).trans ?_⟩
+    rw [← sc₁]
+    exact (or_congr (sdt x) (sst x)).trans or_comm
+
+end
+
+section
+variable {t : Term} {d : Nat}
+
+theorem vals_mono {V : Type} {M₁ M₂ : MW V → Prop} (hM : ∀ u, M₁ u → M₂ u) {KP : MKey → Prop} {x : V}
+    (h : Vals M₁ KP x) : Vals M₂ KP x :=
+  let ⟨w, hw, κ, hκ, e⟩ := h; ⟨w, hM w hw, κ, hκ, e⟩
+
+/-- Getting from less precise maps is less precise. -/
+theorem get_prec {X : List (Term × Term)} {a₂ : Term} (gX : GC (level t (d + 1)) (.map X))
+    (g₂ : GC (level t (d + 1)) a₂) {key s : Term} {KP : MKey → Prop} {m : Nat}
+    (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s) (hs : GForm s KP)
+    (hm : (level t (d + 1)).K + 30 ≤ m)
+    (lo : ∀ v : PN t (d + 1), denD a₂ v → denD (.map X) v)
+    (up : ∀ v : PN t (d + 1), denD (upper (.map X)) v → denD (upper a₂) v) {T : Term}
+    (run : Elixir.Module.Types.Descr.«map_get/2» (D m) (.map X) key = .ok (.tuple #[.atom "ok", T])) :
+    ∃ T₂, Elixir.Module.Types.Descr.«map_get/2» (D m) a₂ key = .ok (.tuple #[.atom "ok", T₂]) ∧
+      «precise?/2» (D m) T T₂ = .ok (.atom "true") := by
+  obtain ⟨r, run', -, bA, eA, semA⟩ := gget_sem gX hk hs hm
+  rw [run] at run'; cases run'
+  obtain ⟨onlyA, neA⟩ : (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+      ∃ w, MT t (d + 1) (dynL (upper (.map X))) w := Classical.byContradiction fun h => by
+    have := bA.mpr h; simp at this
+  obtain ⟨x₀, hx₀⟩ : ∃ x, Vals (MT t (d + 1) (dynL (upper (.map X)))) KP x := Classical.byContradiction fun h => by
+    have := eA.mpr ⟨onlyA, neA, fun x hx => h ⟨x, hx⟩⟩; simp at this
+  have lo' : ∀ v : PN t (d + 1), denD (lower a₂) v → denD (lower (.map X)) v := fun v h =>
+    (denD_lower _ _).mpr (lo v ((denD_lower _ _).mp h))
+  obtain ⟨X₂, rfl⟩ : ∃ X₂, a₂ = .map X₂ := by
+    rcases g₂.shape with rfl | ⟨X₂, rfl⟩
+    · have := onlyA bitPt (lo' bitPt (by simp [lower, denD_term]))
+      simp [bitPt] at this
+    · exact ⟨X₂, rfl⟩
+  have muA : ∀ w, MT t (d + 1) (dynL (upper (.map X))) w → MT t (d + 1) (dynL (upper (.map X₂))) w := fun w h =>
+    (mt_dynL2 g₂.up_tc w).mpr (up _ ((mt_dynL2 gX.up_tc w).mp h))
+  have msB : ∀ w, MT t (d + 1) (rmDyn X₂) w → MT t (d + 1) (rmDyn X) w := fun w h =>
+    (denD_mpt w).mp ((denD_rmDyn X _).mpr (lo _ ((denD_rmDyn X₂ _).mp ((denD_mpt w).mpr h))))
+  have msA : ∀ w, MT t (d + 1) (rmDyn X) w → MT t (d + 1) (dynL (upper (.map X))) w := fun w h =>
+    (mt_dynL2 gX.up_tc w).mpr (GC.inv gX _ ((denD_rmDyn X _).mp ((denD_mpt w).mpr h)))
+  obtain ⟨r₂, run₂, sh₂, bB, eB, semB⟩ := gget_sem g₂ hk hs hm
+  have onlyB : ∀ q : PN t (d + 1), denD (lower (.map X₂)) q → q.1.1 = "map" := fun q h => onlyA q (lo' q h)
+  have neB : ∃ w, MT t (d + 1) (dynL (upper (.map X₂))) w := let ⟨w, hw⟩ := neA; ⟨w, muA w hw⟩
+  rcases sh₂ with rfl | rfl | ⟨T₂, rfl⟩
+  · exact absurd ⟨onlyB, neB⟩ (bB.mp rfl)
+  · exact absurd (vals_mono muA hx₀) ((eB.mp rfl).2.2 x₀)
+  obtain ⟨lt, ut, lA, uA, dlA, duA, slA, suA, -⟩ := semA T rfl
+  obtain ⟨lt₂, ut₂, lB, uB, dlB, duB, slB, suB, -⟩ := semB T₂ rfl
+  have hm' : (level t d).K + 23 ≤ m := by rw [level_K] at hm ⊢; omega
+  refine ⟨T₂, run₂, precise_of_bounds (n := d) hm' lA uA lB uB dlA duA dlB duB
+    (fun x h => (slA x).mpr (vals_mono msB ((slB x).mp h))) (fun x h => (suB x).mpr (Or.inr ?_))⟩
+  rcases (suA x).mp h with h | h
+  · exact vals_mono (fun u h => muA u (msA u h)) h
+  · exact vals_mono muA h
+
+end
+
+section
+variable {t : Term} {d : Nat}
+
+/-- Two keys whose splits select the same keys get the same results. -/
+theorem get_same {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {k₁ k₂ s₁ s₂ : Term}
+    {KP : MKey → Prop} {m : Nat}
+    (hk₁ : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) k₁ = .ok s₁) (hs₁ : GForm s₁ KP)
+    (hk₂ : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) k₂ = .ok s₂) (hs₂ : GForm s₂ KP)
+    (hm : (level t (d + 1)).K + 30 ≤ m) :
+    ∃ r₁ r₂, Elixir.Module.Types.Descr.«map_get/2» (D m) (.map X) k₁ = .ok r₁ ∧
+      Elixir.Module.Types.Descr.«map_get/2» (D m) (.map X) k₂ = .ok r₂ ∧
+      ((∃ T₁ T₂, r₁ = .tuple #[.atom "ok", T₁] ∧ r₂ = .tuple #[.atom "ok", T₂] ∧
+          Elixir.Module.Types.Descr.«equal?/2» (D m) T₁ T₂ = .ok (.atom "true")) ∨
+        (r₁ = r₂ ∧ (r₁ = .atom "badmap" ∨ r₁ = .atom "error"))) := by
+  obtain ⟨r₁, run₁, sh₁, b₁, e₁, sem₁⟩ := gget_sem gX hk₁ hs₁ hm
+  obtain ⟨r₂, run₂, sh₂, b₂, e₂, sem₂⟩ := gget_sem gX hk₂ hs₂ hm
+  refine ⟨r₁, r₂, run₁, run₂, ?_⟩
+  rcases sh₁ with rfl | rfl | ⟨T₁, rfl⟩ <;> rcases sh₂ with rfl | rfl | ⟨T₂, rfl⟩
+  · exact Or.inr ⟨rfl, Or.inl rfl⟩
+  · exact absurd (b₁.mp rfl) (fun h => h ⟨(e₂.mp rfl).1, (e₂.mp rfl).2.1⟩)
+  · exact absurd (b₁.mp rfl) (fun h => h (Classical.byContradiction fun h' => by
+      have := b₂.mpr h'; simp at this))
+  · exact absurd (b₂.mp rfl) (fun h => h ⟨(e₁.mp rfl).1, (e₁.mp rfl).2.1⟩)
+  · exact Or.inr ⟨rfl, Or.inr rfl⟩
+  · have := e₁.mp rfl
+    exact absurd (e₂.mpr this) (by simp)
+  · exact absurd (b₂.mp rfl) (fun h => h (Classical.byContradiction fun h' => by
+      have := b₁.mpr h'; simp at this))
+  · have := e₂.mp rfl
+    exact absurd (e₁.mpr this) (by simp)
+  refine Or.inl ⟨T₁, T₂, rfl, rfl, ?_⟩
+  obtain ⟨-, -, -, -, -, -, -, -, k₁'⟩ := sem₁ T₁ rfl
+  obtain ⟨-, -, -, -, -, -, -, -, k₂'⟩ := sem₂ T₂ rfl
+  rcases k₁' with ⟨hD, hT₁, sT₁⟩ | ⟨nD, gT₁, lT₁, uT₁⟩ <;> rcases k₂' with ⟨hD', hT₂, sT₂⟩ | ⟨nD', gT₂, lT₂, uT₂⟩
+  · exact elem_equal (level t (d + 1)).ef hT₁ hT₂ (fun v => (sT₁ v).trans (sT₂ v).symm) (by omega)
+  · exact absurd hD nD'
+  · exact absurd hD' nD
+  · exact gc_equal gT₁ gT₂ (by rw [level_K] at hm ⊢; omega) (fun v => (lT₁ v).trans (lT₂ v).symm)
+      (fun v => (uT₁ v).trans (uT₂ v).symm)
+
+end
+
+section
+
+/-- A static split is a gradual one with no optional keys. -/
+theorem gform_splitT {rs : List Term} {neg : Term} {ds : List Term} (ok : SplitOk rs neg ds)
+    (nr : ∀ N, neg = .map N → rs = []) (na : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
+    {KP : MKey → Prop} (kp : ∀ κ, SplitKey rs neg ds κ ↔ KP κ) : GForm (splitT rs neg ds) KP := by
+  rcases ok.hneg with rfl | ⟨N, rfl⟩
+  · exact Or.inl ⟨rs, [], ds, [], by simp [splitT, Term.list], by simpa using ok, fun κ => by simpa using kp κ⟩
+  · obtain rfl := nr N rfl
+    exact Or.inr (Or.inl ⟨N, ds, [], by simp [splitT, Term.list], by simpa using ok, na N rfl,
+      fun κ => by simpa using kp κ⟩)
+
+end
+
+
 end Elixir.STTDescrProofsTest.Nest
