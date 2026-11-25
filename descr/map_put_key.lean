@@ -1422,14 +1422,14 @@ theorem project5 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : Str
     simp only [pairs₁, List.mem_append] at mq
     rcases mq with mq | mq
     · by_cases h : s₂₇
-      · rw [if_pos h] at mq; rw [List.mem_singleton] at mq; subst mq
+      · rw [ite_eq_left h] at mq; rw [List.mem_singleton] at mq; subst mq
         refine ⟨absF, rest, rfl, Or.inr ⟨?_, rfl⟩, hr, orest⟩
         simp only [s₂₇, Bool.and_eq_true] at h; exact h.1.1
-      · rw [if_neg h] at mq; simp at mq
+      · rw [ite_eq_right h] at mq; simp at mq
     · by_cases h : s₁₇
-      · rw [if_pos h] at mq; rw [List.mem_singleton] at mq; subst mq
+      · rw [ite_eq_left h] at mq; rw [List.mem_singleton] at mq; subst mq
         exact ⟨_, rest, rfl, Or.inl rfl, hr, orest⟩
-      · rw [if_neg h] at mq; simp at mq
+      · rw [ite_eq_right h] at mq; simp at mq
   have opt : ∀ q ∈ Q', ∀ t' b, q = .tuple #[.tuple #[t', .atom "true"], b] → keep = Bool.true := by
     intro q mq t' b eq
     obtain ⟨f, b', e', -, -, w, hw⟩ := qQ' q mq
@@ -1484,7 +1484,7 @@ theorem project5 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : Str
       constructor
       · rintro (⟨rfl, h'⟩ | ⟨x, rfl, hx⟩)
         · exact Or.inr ⟨rfl, h'⟩
-        · exact Or.inl ⟨x, rfl, by simpa using h, hx⟩
+        · exact Or.inl ⟨x, rfl, by simp, hx⟩
       · rintro (⟨x, rfl, -, hx⟩ | ⟨rfl, h'⟩)
         · exact Or.inr ⟨x, rfl, hx⟩
         · exact Or.inl ⟨rfl, h'⟩
@@ -1510,10 +1510,10 @@ theorem project5 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : Str
     simp only [s₁₇, s₂₇, t₂, o₂, pairs₁, absF] at rfe rQ' rQf rs₂
     clear ss₁ ss₂ sQ' sNf sAf se sfe sb₀ uQf up₁ opt qQ' kQ' fQ' hP hP' kP
     cases fe <;> cases e <;> cases s₁ <;> cases keep <;> cases o <;> cases s₂ <;>
-      simp only [Bool.not_false, Bool.not_true, Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and,
-        Bool.false_eq_true, ↓reduceIte, List.nil_append, List.append_nil, boolAtom, s₁₇, s₂₇, t₂, o₂, pairs₁,
+      simp only [Bool.not_false, Bool.not_true, Bool.and_true, Bool.and_false,
+        Bool.false_eq_true, ↓reduceIte, List.nil_append, List.append_nil, boolAtom, s₁₇, s₂₇, pairs₁,
         List.cons_append, Term.list] at rfe rQ' rQf rs₁ rs₂ ⊢ <;>
-      simp [rb₀, re, rs₁, rs₂, rfe, rQ', rQf, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, absF, Term.list]
+      simp [rb₀, re, rs₁, rs₂, rfe, rQ', rQf, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, absF]
   · cases fe
     · exact uQf
     · exact up₁
@@ -1647,7 +1647,7 @@ theorem lookup_same {f val : Term} {es : List (Term × Term)} : mapLookup ((f, v
 
 theorem lookup_other {v f g val : Term} {es : List (Term × Term)} (hf : UKey v f) (hg : UKey v g) (ne : f ≠ g) :
     mapLookup ((f, val) :: es) g = mapLookup es g := by
-  simp [mapLookup, List.find?_cons, keyed_apart hf hg ne]
+  simp [mapLookup, keyed_apart hf hg ne]
 
 /-- Groups of rests by field: every binding names a field of updates and rests of pairs with that field, and every
 pair is found by its field. -/
@@ -2086,7 +2086,7 @@ theorem keep_lines (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : S
       (fun w => (revW _ _).trans (sN w)) (fun w => (revW _ _).trans (sA w))
     refine ⟨bdds, F, ?_, fb, hF, sF, sb⟩
     simp only [modeT] at runF rb
-    simp only [pure_bind, bind_assoc, runF, reverse1_list, Lynx.Except.ok_bind]
+    simp only [pure_bind, runF, reverse1_list, Lynx.Except.ok_bind]
     exact rb fun b => pure (.tuple #[b, F])
 
 
@@ -2129,7 +2129,7 @@ theorem keep_static_dnf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (
         Erlang.erlang.«not/1», Erlang.lists.«foldl/3», Erlang.lists.«foldl_1/3», Erlang.erlang.«is_function/2»,
         Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure,
         Elixir.Module.Types.Descr.«-map_update_named_keys/8-fun-0-/9», rb', re, Elixir.Module.Types.Descr.«opt_union/2»,
-        rT, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, Lynx.Except.orElse, append_list]
+        rT, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, Lynx.Except.orElse]
     all_goals rw [show (Term.nil) = Term.list [] from rfl, append_list]; simp
   have nk₂ : ∀ acc, Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 4)) acc (Term.list lines) .nil
       (.tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]], modeT keep])

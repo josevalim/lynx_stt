@@ -1038,7 +1038,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
     by_cases hS : BoxSame den lines ks NK nt nopt md Ds
     · rw [cS h0 hS]
       obtain ⟨rfl, rfl⟩ := same.mp hS
-      simp [ra, boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith]
+      simp [ra, boolAtom, Erlang.erlang.«/=/2»]
     · have ba_f : md = "keep" → ba = Bool.false := fun hk => by
         cases h : ba
         · rfl
@@ -1050,7 +1050,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
         simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rP2
         by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
           simp only [T2, e, ↓reduceIte] at rbo <;>
-          simp [e, rP2, rbo, rbp, Lynx.Except.orElse] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
+          simp [e, rP2, rbo, rbp] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
         all_goals first
           | exact (c1 h0 hS fun hp => by have := present.mpr hp; simp at this).symm
           | (have hp := present.mp (by simp)
@@ -1062,7 +1062,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
                  | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                     simpa [cOp, boolAtom, Erlang.erlang.«/=/2», lenD, hL', rbu] using c2'.symm)
              · have c3' := c3 h0 hS hp hu
-               cases nopt <;> simp [cOp, boolAtom, Erlang.erlang.«/=/2», lenD] at hu ⊢ <;>
+               cases nopt <;> simp [cOp, boolAtom, lenD] at hu ⊢ <;>
                  first | exact c3'.symm | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                                            simp [hL'] at hu) | simp [hu] <;> exact c3'.symm)
         all_goals done
@@ -1073,7 +1073,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
         simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rP2
         by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
           simp only [T2, e, ↓reduceIte] at rbo <;>
-          simp [e, rP2, rbo, rbp, Lynx.Except.orElse] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
+          simp [e, rP2, rbo, rbp] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
         all_goals first
           | exact (c1 h0 hS fun hp => by have := present.mpr hp; simp at this).symm
           | (have hp := present.mp (by simp)
@@ -1085,7 +1085,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
                  | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                     simpa [cOp, boolAtom, Erlang.erlang.«/=/2», lenD, hL', rbu] using c2'.symm)
              · have c3' := c3 h0 hS hp hu
-               cases nopt <;> simp [cOp, boolAtom, Erlang.erlang.«/=/2», lenD] at hu ⊢ <;>
+               cases nopt <;> simp [cOp, boolAtom] at hu ⊢ <;>
                  first | exact c3'.symm | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                                            simp [hL'] at hu) | simp [hu] <;> exact c3'.symm)
         all_goals done
@@ -1099,7 +1099,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
           simp only [boolAtom, ↓reduceIte] at rP2
           by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
             simp only [T2, e, ↓reduceIte] at rbo <;>
-            simp [e, rP2, rbo, rbp, Lynx.Except.orElse] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
+            simp [e, rP2, rbo, rbp] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
           all_goals first
             | exact (c1 h0 hS fun hp => by have := present.mpr hp; simp at this).symm
             | (have hp := present.mp (by simp)
@@ -1111,7 +1111,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
                    | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                       simpa [cOp, boolAtom, Erlang.erlang.«/=/2», lenD, hL', rbu] using c2'.symm)
                · have c3' := c3 h0 hS hp hu
-                 cases nopt <;> simp [cOp, boolAtom, Erlang.erlang.«/=/2», lenD] at hu ⊢ <;>
+                 cases nopt <;> simp [cOp, boolAtom, lenD] at hu ⊢ <;>
                    first | exact c3'.symm | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                                              simp [hL'] at hu) | simp [hu] <;> exact c3'.symm)
           all_goals done
@@ -1123,7 +1123,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
           simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rP2
           by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
             simp only [T2, e, ↓reduceIte] at rbo <;>
-            simp [e, rP2, rbo, rbp, Lynx.Except.orElse] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
+            simp [e, rP2, rbo, rbp] <;> cases bp <;> simp [boolAtom, Erlang.erlang.«=:=/2»]
           all_goals first
             | exact (c1 h0 hS fun hp => by have := present.mpr hp; simp at this).symm
             | (have hp := present.mp (by simp)
@@ -1135,7 +1135,7 @@ theorem box_runG (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
                    | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                       simpa [cOp, boolAtom, Erlang.erlang.«/=/2», lenD, hL', rbu] using c2'.symm)
                · have c3' := c3 h0 hS hp hu
-                 cases nopt <;> simp [cOp, boolAtom, Erlang.erlang.«/=/2», lenD] at hu ⊢ <;>
+                 cases nopt <;> simp [cOp, boolAtom, lenD] at hu ⊢ <;>
                    first | exact c3'.symm | (have hL' : ¬((Ds.length : Int) = 12) := by omega
                                              simp [hL'] at hu) | simp [hu] <;> exact c3'.symm)
           all_goals done

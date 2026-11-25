@@ -138,7 +138,7 @@ theorem named_keep (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : T
           · exact Or.inr ⟨a', Or.inr ma, h⟩
         · rintro (h | ⟨a', rfl | ma, h⟩)
           · exact Or.inl (Or.inl h)
-          · exact Or.inl (Or.inr (by cases o <;> simp_all))
+          · exact Or.inl (Or.inr (by cases o <;> first | rfl | exact absurd (optE.mp rfl) h))
           · exact Or.inr ⟨a', ma, h⟩
       · subst eE
         have e₁ : (if req && o then Term.cons (.tuple #[.atom "badkey", .atom a]) (Term.list Er₀) else Term.list Er₀) =
@@ -1137,7 +1137,7 @@ theorem atoms_compare_eq : ∀ (A B : List String),
 theorem member_true {x : Term} : ∀ {ys : List Term}, x ∈ ys → Erlang.lists.«member/2» x (Term.list ys) = .ok Term.true
   | y :: ys, h => by
     rw [Erlang.lists.«member/2».eq_def]
-    simp only [Term.list]
+    simp only
     by_cases e : Term.compareExact (Term.fuel x y) x y = .eq
     · simp [e]
     · rcases List.mem_cons.mp h with rfl | h
@@ -1147,10 +1147,10 @@ theorem member_true {x : Term} : ∀ {ys : List Term}, x ∈ ys → Erlang.lists
 theorem all_in_true {xs ys : List Term} (h : ∀ x ∈ xs, x ∈ ys) :
     Elixir.STTDescrProofsTest.«all_in?/2» (Term.list xs) (Term.list ys) = .ok (.atom "true") := by
   induction xs with
-  | nil => simp [Elixir.STTDescrProofsTest.«all_in?/2», Term.list]
+  | nil => simp [Elixir.STTDescrProofsTest.«all_in?/2»]
   | cons x xs ih =>
     rw [Elixir.STTDescrProofsTest.«all_in?/2».eq_def]
-    simp [Term.list, member_true (h x List.mem_cons_self), Term.true] at ih ⊢
+    simp [member_true (h x List.mem_cons_self), Term.true] at ih ⊢
     exact ih fun y my => h y (List.mem_cons_of_mem _ my)
 
 /-- Permutations are `permutation?/2`. -/
@@ -1173,7 +1173,7 @@ theorem has_key_run (a : String) (m : Nat) :
     · simp [mapLookup, e, dn_none] at hq
   · rw [mt_open_at hterm a k]; simp [(level t n).ef.den_term]
 
-theorem mt_of_pt {Z : List (Term × Term)} (q : PN t n) (hq : q.1.1 = "map") :
+theorem mt_of_pt (q : PN t n) (hq : q.1.1 = "map") :
     ∃ w, (∀ Z' : List (Term × Term), denD (.map Z') q ↔ MT t n Z' w) := pt_map q hq
 
 /-- `lacking/2` lists the atoms some map of a type lacks. -/
@@ -1206,9 +1206,9 @@ theorem lacking_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (
     simp only [Term.list, List.map] at ih ⊢
     cases h : lk a
     · rw [bp_true.mpr (e.mpr h)] at sub
-      simp [rH, sub, ih, List.filter_cons, h, boolAtom]
+      simp [rH, sub, ih, h, boolAtom]
     · rw [bp_false.mpr fun hs => by rw [e.mp hs] at h; cases h] at sub
-      simp [rH, sub, ih, List.filter_cons, h, boolAtom, Term.list, pure, Except.pure]
+      simp [rH, sub, ih, h, boolAtom, Term.list, pure, Except.pure]
 
 /-- `holding/1` is the type of the maps holding every atom. -/
 theorem holding_run {m : Nat} (hm : (level t n).K + 23 ≤ m) :

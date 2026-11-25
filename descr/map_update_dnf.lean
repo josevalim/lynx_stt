@@ -104,10 +104,10 @@ theorem upd_domains2 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lin
           cases c
           · refine ⟨_, ⟨f, val, .atom "atom" :: mis, T, rfl, hT, semT rfl, by simp, mis',
               vKeep (fun h => by have := heldI.mpr h; cases this), vf⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
           · refine ⟨_, ⟨Bool.true, val, .atom "atom" :: mis, T, rfl, hT, semT rfl, by simp, mis',
               vKeep (fun h => by have := heldI.mpr h; cases this), fun _ => rfl⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
       · have ne : Term.compare (Term.fuel (.atom s) (.atom "atom")) (.atom s) (.atom "atom") ≠ .eq := by
           rw [atoms_cmp]; exact fun e => sa (Std.compare_eq_iff_eq.mp e)
         cases b
@@ -119,7 +119,7 @@ theorem upd_domains2 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lin
           · rcases List.mem_cons.mp md with rfl | md
             · simp
             · simp [mD d md]
-          · simp [boolAtom, Lynx.Term.isMember, Term.list, ne])
+          · simp [boolAtom, Term.list, ne])
     (.tuple #[.atom "false", .nil, .nil, acc]) ⟨Bool.false, [], [], acc, rfl, ha, fun x => by simp, fun _ => rfl, by simp, by simp, fun h => absurd rfl h⟩
   refine ⟨f, val, mis, T, ?_, hT, fun x => by rw [sT]; simp, fun e => fD (by simp [e]), fun d md => ?_, fun d => ?_, vf⟩
   rotate_left 2
@@ -218,7 +218,7 @@ theorem union_Y (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (B : List Ter
 /-- `map_update_static_dnf/6` for `:keep` and `:reject` of a value at a finite set of atoms and some kinds, asking
 for the old values. -/
 theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v)
-    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) (vne : ∃ x, den v x) (keep : Bool) (bdd : Term) (lines : List Term)
+    (_sv : v = .atom "term" ∨ ∃ Z, v = .map Z) (vne : ∃ x, den v x) (keep : Bool) (bdd : Term) (lines : List Term)
     (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (hne : lines ≠ []) (A : List String)
     (Ds : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (hna : "atom" ∉ Ds) :
     ∃ T Y er f, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
@@ -261,10 +261,10 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
   have mv : Erlang.erlang.«++/2» (Term.list val₁) .nil = .ok (Term.list val₁) := by
     simpa using append_list val₁ []
   have a0 : Erlang.erlang.«++/2» (Term.list ([] : List Term)) .nil = .ok .nil := by
-    simp [Erlang.erlang.«++/2», Term.list]
+    simp [Erlang.erlang.«++/2»]
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
   cases keep
-  · simp [splitT, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₂, mm,
+  · simp [splitT, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1»,
       mv, modeT, r₁', r₂', rE', Elixir.Module.Types.Descr.«map_keys_from_negated_set/2», Erlang.erlang.«--/2»,
       Term.properList?, e00, a0]
     have hA1 : ∀ d ∈ val₁, ∃ s ∈ domainKinds, d = .atom s := fun d md => by
@@ -287,7 +287,7 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
         | nil => rfl
         | cons k _ => exact absurd ((mKs k).mp List.mem_cons_self) (by simp)
       subst Ks0
-      simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self]
+      simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Term.compare_self]
       obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail ef hn hv vne Bool.false lines hl hne A [] (by simp) f₁
         hT₁ errs (.atom "true") (Or.inl rfl)
       have sem : ∀ w, ((∃ b ∈ ([] : List Term), denMF E den b w = Bool.true) ∨
@@ -316,7 +316,7 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
         cases val₁ with
         | nil => exact absurd rfl v0
         | cons _ _ => simp [Term.list]
-      simp [vne', boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, rKs, rW]
+      simp [vne', boolAtom, Lynx.Except.orElse, rKs, rW]
       have memKs' : ∀ d, d ∈ Ks ↔ d ∈ Ds ∧ KindHeld (fun u => ∃ L ∈ lines, InMLine den L u) d := fun d => by
         simpa using memKs d
       rcases mapsD_cases mR with ⟨rfl, emp⟩ | ⟨c, neR, lc, fc, sc⟩
@@ -328,7 +328,7 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
             UpdSemKR den (fun u => ∃ L ∈ lines, InMLine den L u) A (.atom "nil") Ks v Bool.false w := by
           intro w
           simp only [UpdSemKR, List.not_mem_nil, false_and, exists_false, false_or, true_and, reduceCtorEq,
-            exists_const, or_false, ← sW]
+            or_false, ← sW]
           exact ⟨Or.inl, fun h => h.elim id fun ⟨_, h'⟩ => absurd h' (emp w)⟩
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (fun w => (sB' w).trans (sem w))
         simp only [Term.list] at rN1
@@ -353,7 +353,7 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
           simp [boolAtom] at rN1 rN2 ⊢; simp [Term.list] at rN1; simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs', Or.inr ⟨r, rfl, fr, sr⟩⟩
           simp [boolAtom] at rN1 rN2 ⊢; simp [Term.list] at rN1; simp [rN1, rN2, rr]
-  · simp [splitT, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», mm, m₃,
+  · simp [splitT, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₃,
       modeT, r₁', r₂', rE', Elixir.Module.Types.Descr.«map_keys_from_negated_set/2», Erlang.erlang.«--/2»,
       Term.properList?, e00, a0]
     obtain ⟨Ks, rKs, mKs, ndKs, subKs, -⟩ := kinds_usort (Ds.map Term.atom) fun d md => by
@@ -377,12 +377,12 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
       obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (fun w => (sB' w).trans (sem w))
       simp only [Term.list] at rN1
       rcases hr with ⟨rfl, emp⟩ | ⟨bot, fr, sr⟩
-      · refine ⟨T', .map [], ⟨Er', boolAtom f', ?_⟩, [], fun d => by simpa using memKs' d, Or.inl ⟨rfl, emp⟩⟩
-        cases f₁ <;> simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self] at rN1 rN2 ⊢ <;>
+      · refine ⟨T', .map [], ⟨Er', boolAtom f', ?_⟩, [], fun d => by simp, Or.inl ⟨rfl, emp⟩⟩
+        cases f₁ <;> simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Term.compare_self] at rN1 rN2 ⊢ <;>
           simp [rN1, rN2, rr]
-      · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, [], fun d => by simpa using memKs' d,
+      · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, [], fun d => by simp,
           Or.inr ⟨r, rfl, fr, sr⟩⟩
-        cases f₁ <;> simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self] at rN1 rN2 ⊢ <;>
+        cases f₁ <;> simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Term.compare_self] at rN1 rN2 ⊢ <;>
           simp [rN1, rN2, rr]
     · have hl' : ∀ L ∈ lines, MLine E L := fun L mL => (hl L mL).1
       have KsNe : Ks ≠ [] := fun e => by
@@ -405,16 +405,16 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
             UpdSemKR den (fun u => ∃ L ∈ lines, InMLine den L u) A (.atom "nil") Ks v Bool.true w := by
           intro w
           simp only [UpdSemKR, List.not_mem_nil, false_and, exists_false, false_or, true_and, reduceCtorEq,
-            exists_const, or_false, ← sW]
+            or_false, ← sW]
           exact ⟨Or.inl, fun h => h.elim id fun ⟨_, h'⟩ => absurd h' (emp w)⟩
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (fun w => (sB' w).trans (sem w))
         simp only [Term.list] at rN1
         rcases hr with ⟨rfl, emp'⟩ | ⟨bot, fr, sr⟩
         · refine ⟨T', .map [], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inl ⟨rfl, emp'⟩⟩
-          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, rKs, rW] at rN1 rN2 ⊢ <;>
+          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW] at rN1 rN2 ⊢ <;>
             simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
-          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, rKs, rW] at rN1 rN2 ⊢ <;>
+          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW] at rN1 rN2 ⊢ <;>
             simp [rN1, rN2, rr]
       · obtain ⟨T', Er', f', B', rN1, rN2, fB', sB'⟩ := named_tail ef hn hv vne Bool.true lines hl hne A [c]
           (by simpa using fc) f₁ hT₁ errs (.atom "true") (Or.inl rfl)
@@ -428,10 +428,10 @@ theorem upd_dnf_nil (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
         obtain ⟨r, rr, hr⟩ := union_Y ef (m := n + 6) (by omega) B' fB' (fun w => (sB' w).trans (sem w))
         rcases hr with ⟨rfl, emp'⟩ | ⟨bot, fr, sr⟩
         · refine ⟨T', .map [], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inl ⟨rfl, emp'⟩⟩
-          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, rKs, rW, neR,
+          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW, neR,
             getMapKeys_single, lc, Option.toList] at rN1 rN2 ⊢ <;> simp [Term.list] at rN1 <;> simp [rN1, rN2, rr]
         · refine ⟨T', .map [(.atom "map", r)], ⟨Er', boolAtom f', ?_⟩, Ks, memKs, Or.inr ⟨r, rfl, fr, sr⟩⟩
-          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, rKs, rW, neR,
+          cases f₁ <;> simp [dne', boolAtom, Lynx.Except.orElse, rKs, rW, neR,
             getMapKeys_single, lc, Option.toList] at rN1 rN2 ⊢ <;> simp [Term.list] at rN1 <;> simp [rN1, rN2, rr]
 
 /-- `map_update_box/6` for a constant update, as the maps `BoxSem` gives. -/
@@ -527,12 +527,12 @@ theorem upd_dnf_neg (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
   have e00 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
       ([] : List Term) L = [] := fun L => by induction L <;> simp_all
   have a0 : Erlang.erlang.«++/2» (Term.list ([] : List Term)) .nil = .ok .nil := by
-    simp [Erlang.erlang.«++/2», Term.list]
+    simp [Erlang.erlang.«++/2»]
   obtain ⟨c, hc⟩ := any_named_ok ef (n := n) (by omega) lines hl ([] ++ ks)
   have hcb : (D (n + 5)).pure (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
       #[Term.list lines, Term.list (ks.map Term.atom), .nil]) #[] = .ok (boolAtom c) := by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
-    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3»]
     simpa [Erlang.erlang.«++/2»] using hc
   obtain ⟨f₁, val₁, mis₁, T₁, r₁, hT₁, sT₁, -, mD₁, vD₁, vf₁⟩ := upd_domains2 ef (n := n + 2) (by omega) lines
     (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Ds ef.none
@@ -555,7 +555,7 @@ theorem upd_dnf_neg (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
   cases keep
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», mv,
-      modeT, r₁', r₂', rE', Erlang.erlang.«--/2», Term.properList?, e00, a0, mk0, Erlang.sets.«to_list/1»,
+      modeT, r₁', r₂', rE', Erlang.erlang.«--/2», Term.properList?, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -592,7 +592,7 @@ theorem upd_dnf_neg (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
       replace rX : Elixir.Module.Types.Descr.«map_update_box/6» (D (n + 6)) bdd (Term.list lines)
           (Term.list (ks.map Term.atom)) .nil (keepOp v Bool.false) (Term.list (AK.map Term.atom)) = .ok (.map X) := by
         rw [rmode]; exact rX
-      simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self,
+      simp [Term.list, boolAtom, Lynx.Except.orElse,
         Erlang.erlang.«element/2», Erlang.erlang.«length/1», Lynx.Term.compare_integers, part, rX]
       have semB : ∀ w, BoxSem den (fun u => ∃ L ∈ lines, InMLine den L u) (setStrs N) v Bool.false (modeS Bool.false)
           [] w ↔ UpdSemKR den (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) [] v Bool.false w := by
@@ -702,7 +702,7 @@ theorem upd_dnf_neg (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
             Bool.false w := fun w => by
           have := semAll Ks [] _ (fun _ => False) (fun w => Iff.rfl) (fun w => by simp) (Or.inl ⟨full, rfl, rfl⟩) w
           simpa using this
-        simp [hL', rZ, Term.list, Lynx.Term.compare_self]
+        simp [hL', rZ, Term.list]
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
         · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_neg ef hn hv vne Bool.false lines hl
             hne ks [] (by simp) Bool.true hT₁ errs
@@ -814,7 +814,7 @@ theorem upd_dnf_neg (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : 
 
 
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₃,
-      modeT, r₁', r₂', rE', Erlang.erlang.«--/2», Term.properList?, e00, a0, mk0, Erlang.sets.«to_list/1»,
+      modeT, r₁', r₂', rE', Erlang.erlang.«--/2», Term.properList?, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>

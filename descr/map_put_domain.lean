@@ -432,7 +432,7 @@ theorem foldr1_rel_at {m : Nat} (f : Term) (R : List Term → Term → Prop) (l 
     obtain ⟨a', ha', run'⟩ := step pre x xs a e ha
     refine ⟨a', ha', ?_⟩
     rw [Erlang.lists.«foldr_1/3».eq_def]
-    simp only [] at run ⊢
+    simp only at run ⊢
     simp [run, run']
 
 /-- Right folds whose steps keep a relation between the elements folded so far and the accumulator. -/
@@ -566,7 +566,7 @@ theorem box_domainsD (ef : EF nd E V den tl K) {n : Nat} (hn : K + 3 ≤ n) (lin
         simp [Elixir.Module.Types.Descr.«-map_update_box/6-fun-7-/5», rold, nm, rT,
           Elixir.Module.Types.Descr.«-map_update_box/6-fun-6-/3», Erlang.program.«Elixir.Module.Types.Descr:-map_update_box/6-fun-6-/1».pure])
     _ ⟨.atom "closed", [], rfl, fun _ _ => Or.inl rfl, fun kind x => by simp [tagType, nn], fun u mu => by simp at mu,
-      by simp []⟩
+      by simp⟩
   refine ⟨T, U, run, low _ fun p mp => ?_, fun kind mk x => (sem kind x).trans ?_, du, ne.trans ?_⟩
   · simp only [domainKinds, List.map, List.mem_cons, List.not_mem_nil, or_false] at mp
     rcases mp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> rfl
@@ -1124,7 +1124,7 @@ theorem replace_domain_any (ef : EF nd E V den tl K) {tag : Term} (g : TagV E ta
         · simp only [pure_bind] at hA ⊢
           simp only [domainKinds, List.map] at hA rT
           rw [hA, Lynx.Except.ok_bind, rT]
-        all_goals simp_all []
+        all_goals simp_all
       · by_cases k : kind = d
         · simp [k]
         · simp only [k, ↓reduceIte, tagType_dom, lookup_term_map mk]
@@ -1592,7 +1592,7 @@ theorem box_runD (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
     have rT2 : Erlang.erlang.«==/2» T allTerm = .ok (boolAtom (Term.compare (Term.fuel T allTerm) T allTerm == .eq)) :=
       eqq_val T allTerm
     simp [rX, rNK, rPQ, rQ', rTU', rKP, rDP, rAp, Lynx.Except.andAlso, Erlang.erlang.«element/2», rP2, uK, rAll,
-      rT2, Erlang.erlang.«==/2»]
+      Erlang.erlang.«==/2»]
     have eQ := eqq_val (Term.list Q') .nil
     have lenD : Erlang.erlang.«length/1» (Term.list (Ds.map Term.atom)) = .ok (.integer (Ds.length : Int)) := by
       simpa using length_list (Ds.map Term.atom)
@@ -1605,8 +1605,8 @@ theorem box_runD (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines :
     have hL' : ¬((Ds.length : Int) = 12) := by omega
     by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
       simp only [T2, e, ↓reduceIte] at rbo <;>
-      simp [eQ, e, boolAtom, rbo, Erlang.erlang.«/=/2», rbp, Lynx.Except.orElse, Erlang.erlang.«=:=/2», rbu, rr]
-    all_goals by_cases q : Term.list Q' = .nil <;> simp [q, lenD, hL', neL]
+      simp [e, boolAtom, rbo, Erlang.erlang.«/=/2», rbp, Erlang.erlang.«=:=/2», rbu, rr]
+    all_goals by_cases q : Term.list Q' = .nil <;> simp [lenD, hL', neL]
   · rcases hr with ⟨rfl, emp⟩ | ⟨c, rfl, fc, sc⟩
     · refine Or.inl ⟨rfl, fun w ⟨hb, hu⟩ => ?_⟩
       have := emp w
@@ -2100,14 +2100,14 @@ theorem named_keys_skip (m : Nat) (lines : List Term) (ks : List Term) {v : Term
     | nil => simp [Erlang.lists.«foldl_1/3»]
     | cons k t ih =>
       rw [Erlang.lists.«foldl_1/3».eq_def]
-      simp only [] at ih ⊢
+      simp only at ih ⊢
       simp [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure,
         Elixir.Module.Types.Descr.«-map_update_named_keys/8-fun-0-/9», Elixir.Module.Types.Descr.«map_update_named_key/5»,
         Erlang.erlang.«++/2», ih]
   simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
     Erlang.erlang.«not/1», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   cases ks with
-  | nil => simp []
+  | nil => simp
   | cons k t => have := loop (k :: t); simp only [Term.list] at this ⊢; rw [Erlang.lists.«foldl_1/3».eq_def] at this; simpa using this
 
 /-- `map_update_named_keys/8` putting a constant at several required atoms, building and without old values: the
@@ -2372,7 +2372,7 @@ theorem widen_fold (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tagL
     rcases widen_step ef hm g0 gL gA hd hnt snt neg with ⟨hn, hs, run⟩ | ⟨hs, A, run, gA', sA'⟩
     · refine Or.inl ⟨⟨hn, d, by simp, hs⟩, ?_⟩
       rw [Erlang.lists.«foldl_1/3».eq_def]
-      simp only [] at run ⊢
+      simp only at run ⊢
       simp [run]
     · have sA'' : ∀ kind ∈ domainKinds, ∀ x, den (tagType A kind) x ↔
           if kind ∈ done ++ [d] then den (tagType tag0 kind) x ∨ den v x else den (tagType tag0 kind) x := by
@@ -2385,14 +2385,14 @@ theorem widen_fold (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tagL
         ⟨⟨hn, d', md', hs'⟩, rr⟩ | ⟨hs', r, rr, gr, sr⟩
       · refine Or.inl ⟨⟨hn, d', by simp [md'], hs'⟩, ?_⟩
         rw [Erlang.lists.«foldl_1/3».eq_def]
-        simp only [] at run rr ⊢
+        simp only at run rr ⊢
         simp [run, rr]
       · refine Or.inr ⟨fun hn d' md' => ?_, r, ?_, gr, fun kind mk x => by simpa using sr kind mk x⟩
         · rcases List.mem_cons.mp md' with rfl | md'
           · exact hs hn
           · exact hs' hn d' md'
         · rw [Erlang.lists.«foldl_1/3».eq_def]
-          simp only [] at run rr ⊢
+          simp only at run rr ⊢
           simp [run, rr]
 
 
@@ -2426,7 +2426,7 @@ theorem widen_tag (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tagL 
     simp [Lynx.Except.tryWith, Lynx.Exception.classTerm, Lynx.Exception.reason]
   · refine ⟨r, ?_, Or.inr ⟨hs, gr, fun kind mk x => by simpa using sr kind mk x⟩⟩
     simp only [Elixir.Module.Types.Descr.«map_widen_domains/3», pure_bind, toFoldl _ rr]
-    simp []
+    simp
 
 
 /-- What a widened tag allows at the keys of a kind: what the tag allows, or, at the updated kinds, a value of the
@@ -2678,11 +2678,11 @@ theorem widen_line (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {v : Term}
   · refine ⟨out, fout, semOut, Or.inl ⟨?_, tag, l, negs, rfl, hr⟩⟩
     rw [pureE]
     simp [Elixir.Module.Types.Descr.«-map_update_widen/3-fun-3-/4», flat, neU, rT, rb0, rout, rWP, rbp,
-      Lynx.Except.andAlso, Lynx.Term.isMember, ra, boolAtom]
+      Lynx.Term.isMember, ra, boolAtom]
   · refine ⟨out, fout, semOut, Or.inr ?_⟩
     rw [pureE]
     simp [Elixir.Module.Types.Descr.«-map_update_widen/3-fun-3-/4», flat, neU, rT, rb0, rout, rWP, rbp,
-      Lynx.Except.andAlso, Lynx.Term.isMember, ra, boolAtom]
+      Lynx.Term.isMember, ra, boolAtom]
 
 
 /-- Types holding only maps, given by entries whose map field holds the maps of a set. -/
@@ -2942,7 +2942,7 @@ theorem widen_run (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) {v : Term} 
     · rintro ⟨h, hn'⟩
       rcases (sU w).mpr h with h' | h'
       · exact Or.inl ⟨h', hn'⟩
-      · exact Or.inr h' 
+      · exact Or.inr h'
 
 
 
@@ -3449,15 +3449,15 @@ theorem box_runAll (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
     have rT2 : Erlang.erlang.«==/2» T allTerm = .ok (boolAtom (Term.compare (Term.fuel T allTerm) T allTerm == .eq)) :=
       eqq_val T allTerm
     simp [rX, rNK, rPQ, rQ', rTU', rKP, rDP, rAp, Lynx.Except.andAlso, Erlang.erlang.«element/2», rP2, uK, rAll,
-      rT2, Erlang.erlang.«==/2»]
+      Erlang.erlang.«==/2»]
     have eQ := eqq_val (Term.list Q') .nil
     have lenD : Erlang.erlang.«length/1» (Term.list (Ds.map Term.atom)) = .ok (.integer (Ds.length : Int)) := by
       simpa using length_list (Ds.map Term.atom)
     have hL' : ((Ds.length : Int) = 12) := by omega
     by_cases e : Term.compare (Term.fuel T allTerm) T allTerm = .eq <;>
       simp only [T2, e, ↓reduceIte] at rbo <;>
-      simp [eQ, e, boolAtom, rbo, Erlang.erlang.«/=/2», rbp, Lynx.Except.orElse, Erlang.erlang.«=:=/2», neL]
-    all_goals by_cases q : Term.list Q' = .nil <;> simp [q, lenD, hL', ra, rR, neL]
+      simp [e, boolAtom, rbo, Erlang.erlang.«/=/2», rbp, Erlang.erlang.«=:=/2», neL]
+    all_goals by_cases q : Term.list Q' = .nil <;> simp [lenD, hL', ra, rR]
 
 theorem partition1_atom (m : Nat) : ∀ (Ds : List String) (A B : List Term),
     Erlang.lists.«partition_1/4» (D (m + 1))
@@ -4131,7 +4131,7 @@ theorem box_run_empty (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (li
   have m9 := keyPair_eval (n + 4) [] (by simp)
   have m8 := domPair_eval (n + 4) [] (by simp)
   simp only [List.map_nil] at m9 m8
-  simp [rX, rNK, rPQ, rQ', rTU', Lynx.Except.andAlso, m9, m8, Erlang.erlang.«++/2», Term.list, Erlang.erlang.«==/2»]
+  simp [rX, rNK, rPQ, rQ', rTU', m9, m8, Erlang.erlang.«++/2», Term.list, Erlang.erlang.«==/2»]
 
 
 /-- `map_update_static_dnf/6` putting an empty value at the atoms outside a negated set: no map. -/

@@ -326,7 +326,7 @@ theorem split_map {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y))
     obtain ⟨⟨pos, S, rfl, -⟩, -⟩ := fieldC_atom ((de_map hY).fields _ _ ha)
     cases pos
     · refine ⟨[], .map S, ds, ?_, ⟨by simp, Or.inr ⟨S, rfl⟩, hds, ?_⟩, fun _ _ => rfl,
-        fun N e => by cases e; simpa using ha, fun s => ?_, dom _ _⟩
+        fun N e => by cases e; simp, fun s => ?_, dom _ _⟩
       · rw [Elixir.Module.Types.Descr.«map_split_keys_and_domains/1».eq_def]
         simp [getMapKeys_single, st, ha, rd, splitT, Term.list]
       · rw [hat, ha]; simp

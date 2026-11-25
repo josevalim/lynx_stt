@@ -21,7 +21,7 @@ theorem sizeT_run (i : Nat) : ∃ k : Int,
   · have ge : (Ord.compare (i : Int) 0).isGE = Bool.true := by
       rw [Ordering.isGE_iff_ne_lt]; intro h; rw [Int.compare_eq_lt] at h; omega
     simp [Elixir.Module.Types.Descr.«tuple_of_size_at_least/1», Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2»,
-      dup_nat, Elixir.Module.Types.Descr.«tuple_new/2», run, Lynx.Except.guard, Lynx.Except.andAlso, ge]
+      dup_nat, Elixir.Module.Types.Descr.«tuple_new/2», run, Lynx.Except.andAlso, ge]
   · rw [denD_map] at hv
     by_cases h : v.1.1 = "tuple"
     · exact h
@@ -41,7 +41,7 @@ theorem ins_any {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
     refine ⟨[], ?_, Or.inr ⟨_, rfl, descrC_nil⟩, fun v hv => by simp [denD_map, mapLookup, dn_none] at hv,
       fun w => ?_⟩
     · unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
-      simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«none/0»]
+      simp [getMapKeys_single, hb]
     · simp only [TT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
       rintro ⟨w₁, y, w₂, -, -, -, b, hb', -⟩
       rw [hb] at hb'; cases hb'
@@ -171,14 +171,14 @@ theorem ins_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
   by_cases to : ∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v
   rotate_left
   · rw [bp_false.mpr to] at run
-    cases kd <;> cases sz <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard] at run <;>
+    cases kd <;> cases sz <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»] at run <;>
       subst run <;> simp
   rw [bp_true.mpr to] at run
   cases sz
-  · cases kd <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard] at run <;>
+  · cases kd <;> simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»] at run <;>
       subst run <;> simp
   cases kd
-  · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard] at run
+  · simp [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2»] at run
     subst run; simp
   have onlyS : ∀ v : PN t n, denD (.map (rmDyn X)) v → v.1.1 = "tuple" := fun v hv =>
     Classical.byContradiction fun h => to v ((sR v).mpr ⟨hv, h⟩)
@@ -202,10 +202,10 @@ theorem ins_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
     simp [getMapKeys_single, (de_map dYA).static]
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard, rS, rZ,
-    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind] at run
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind] at run
   by_cases both : (∀ v : PN t n, ¬denD (.map C) v) ∧ ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
   · rw [bp_true.mpr both.1, bp_true.mpr both.2] at run
-    simp [Lynx.Term.isMember, Term.true, Term.false] at run
+    simp [Lynx.Term.isMember, Term.true] at run
     subst run; simp
   have eR : R' = r := by
     by_cases ec : ∀ v : PN t n, ¬denD (.map C) v <;> by_cases es : ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
@@ -215,7 +215,7 @@ theorem ins_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
       | rw [bp_true.mpr ec, bp_false.mpr es] at run
       | rw [bp_false.mpr ec, bp_true.mpr es] at run
       | rw [bp_false.mpr ec, bp_false.mpr es] at run
-      simp [Lynx.Term.isMember, Term.true, Term.false, getMapKeys_single, (de_map dYA).static] at run
+      simp [Lynx.Term.isMember, Term.true] at run
       exact Except.ok.inj (rR'.symm.trans run)
   subst eR eU
   right; right
@@ -478,8 +478,8 @@ theorem ins_at {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {v
     | ok r₁ =>
     rw [hr1] at run
     rcases ins_shape gX hx₁ i hm hr1 with rfl | rfl | ⟨R₁, rfl⟩
-    · simp [Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse, Lynx.Except.tryWith] at run
-    · simp [Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse, Lynx.Except.tryWith] at run
+    · simp [Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse] at run
+    · simp [Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse] at run
     obtain ⟨gR₁, -, -, -, uR₁⟩ := ins_checked_pts gX hx₁ i hm hr1
     obtain ⟨gW, nW, uW⟩ := wrap_gc gR₁
     have eS := next_empty dlo (m := m) (by rw [level_K] at hm ⊢; omega)
@@ -691,17 +691,17 @@ theorem del_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
   rw [Elixir.Module.Types.Descr.«tuple_delete_at/2».eq_def] at run
   simp [Lynx.Except.andAlso, Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2», Int.isGE_compare,
     Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2»] at run
-  simp only [filter_dyn, filter_t, filter_tdyn, rkd, rto, rsz] at run
+  simp only [filter_dyn, filter_tdyn, rkd, rto, rsz] at run
   by_cases to : ∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v
   rotate_left
   · rw [bp_false.mpr to] at run
-    cases kd <;> cases sz <;> simp [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith] at run <;>
+    cases kd <;> cases sz <;> simp [boolAtom, Erlang.erlang.«/=/2»] at run <;>
       subst run <;> simp
   rw [bp_true.mpr to] at run
   cases kd
-  · simp [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith] at run; subst run; simp
+  · simp [boolAtom, Erlang.erlang.«/=/2»] at run; subst run; simp
   cases sz
-  · simp [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith] at run; subst run; simp
+  · simp [boolAtom, Erlang.erlang.«/=/2»] at run; subst run; simp
   have long := ssz rfl
   -- The static part.
   obtain ⟨YS, rS, dYS, oYS, tYS⟩ := del_any dS i long (m := k + 3) (by omega)
@@ -730,7 +730,7 @@ theorem del_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
     Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind] at run
   by_cases both : (∀ v : PN t n, ¬denD (.map C) v) ∧ ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
   · rw [bp_true.mpr both.1, bp_true.mpr both.2] at run
-    simp [Lynx.Term.isMember, Term.true, Term.false] at run
+    simp [Term.true] at run
     subst run; simp
   have eR : R' = r := by
     by_cases ec : ∀ v : PN t n, ¬denD (.map C) v <;> by_cases es : ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
@@ -740,7 +740,7 @@ theorem del_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
       | rw [bp_true.mpr ec, bp_false.mpr es] at run
       | rw [bp_false.mpr ec, bp_true.mpr es] at run
       | rw [bp_false.mpr ec, bp_false.mpr es] at run
-      simp [Lynx.Term.isMember, Term.true, Term.false, getMapKeys_single, (de_map dYA).static, rR'] at run
+      simp [Term.true] at run
       exact run
   subst eR eU
   right; right
@@ -971,7 +971,7 @@ theorem dyn_el_union {c₁ : Term} (hc₁ : DE (level t d).E c₁) {e : Term} (h
       have cm : Term.compare (Term.fuel (.tuple #[.reference r, .map S, gen]) (.map [])) (.tuple #[.reference r, .map S, gen])
           (.map []) ≠ .eq := by
         rw [Term.compare_step]; simp [Compare.compareStep]
-      simp [getMapKeys_single, Erlang.erlang.«==/2», sY, hA, gN, ex, unfold_map, Erlang.maps.«put/3», alignT, cm]
+      simp [getMapKeys_single, Erlang.erlang.«==/2», sY, hA, ex, unfold_map, Erlang.maps.«put/3», alignT, cm]
     · rw [lo, sem]; exact ⟨fun h => h.resolve_left (noA v), Or.inr⟩
     · rw [up, upA, sem, upper_tc hc]
 
@@ -1253,21 +1253,21 @@ theorem fetch_grad {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)
   rw [Elixir.Module.Types.Descr.«tuple_fetch/2».eq_def] at run
   simp [Erlang.erlang.«</2», Int.compare_eq_lt, Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1»,
     Erlang.maps.«remove/2»] at run
-  simp only [filter_tdyn, filter_dyn, rto, rkd, rdt, rst, reb (k + 3) (by omega)] at run
+  simp only [filter_tdyn, filter_dyn, rto, rkd, rdt, rst] at run
   refine ⟨dt, dO, st, sO, sdt, sst', ?_⟩
   by_cases to : ∀ v : PN t (d + 1), ¬denD (.map (rmT (rmDyn X))) v
   rotate_left
   · rw [bp_false.mpr to] at run
-    cases kd <;> simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+    cases kd <;> simp [boolAtom, Lynx.Except.andAlso] at run
   rw [bp_true.mpr to] at run
   cases kd
-  · simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  · simp [boolAtom, Lynx.Except.andAlso] at run
   have reb' := reb (k + 3) (by omega)
-  simp only [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  simp only [boolAtom, Lynx.Except.andAlso] at run
   simp only [reb', Lynx.Except.ok_bind] at run
   cases eb
   rotate_left
-  · simp [boolAtom, Lynx.Except.andAlso, Lynx.Term.isMember] at run
+  · simp [boolAtom] at run
   have ne : ∃ y, (level t (d + 1)).den dt y :=
     Classical.byContradiction fun h => absurd (seb.mpr fun y hy => h ⟨y, hy⟩) (by simp)
   refine ⟨ne, ?_⟩

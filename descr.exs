@@ -3531,7 +3531,7 @@ defmodule STTDescrProofsTest do
             have : Elixir.STTDescrProofsTest.«key_type/2» (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100))
                 Lynx.Term.nil (Lynx.Term.list [.atom (Nest.domKind k)]) = .ok (.map T) := by
               simp [Elixir.STTDescrProofsTest.«key_type/2», Elixir.STTDescrProofsTest.«kinds_type/2»,
-                Elixir.Module.Types.Descr.«none/0», rT, Nest.union_nil_r, pure, Except.pure, Lynx.Term.list]
+                Elixir.Module.Types.Descr.«none/0», rT, Nest.union_nil_r, pure, Except.pure]
             rw [rKY] at this
             simpa using this
           subst eKY
@@ -5859,7 +5859,7 @@ defmodule STTDescrProofsTest do
         | error e => rw [h] at rG; cases rG
         | ok r =>
           rw [h, Lynx.Except.ok_bind] at rG
-          simp [rG, eq, Lynx.Term.true]
+          simp [rG, eq]
       """
 
     law map_update_force(map, key, value, depth, node),
@@ -6307,8 +6307,7 @@ defmodule STTDescrProofsTest do
             (.tuple #[.tuple #[.atom "constant", .tuple #[.map [], .atom "true"]], .atom (if keep then "keep" else "reject")])
             (.atom "true") := by
         unfold Elixir.Module.Types.Descr.«map_update/5»
-        cases keep <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», rk,
-          Elixir.Module.Types.Descr.«none/0»]
+        cases keep <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», rk]
       have hkL : ∀ k, k + 6 = δ + 100 → ∀ lines : List Lynx.Term,
           (∀ L ∈ lines, Nest.MLine (Nest.level node (d + 1)).E L ∧ ∃ w, Nest.InMLine (Nest.level node (d + 1)).den L w) →
           ∀ (bd : Bool) a, ∃ (ba : List Lynx.Term) (F : Lynx.Term), Elixir.Module.Types.Descr.«map_update_named_key/5»
@@ -6547,8 +6546,7 @@ defmodule STTDescrProofsTest do
             (.map X) (Nest.splitT (rs'.map Lynx.Term.atom) neg (ds'.map Lynx.Term.atom))
             (.tuple #[.tuple #[.atom "constant", .tuple #[.map [], .atom "true"]], .atom md]) (.atom "true") := by
         unfold Elixir.Module.Types.Descr.«map_update/5»
-        rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», rk,
-          Elixir.Module.Types.Descr.«none/0»]
+        rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», rk]
       have hkL : ∀ k, k + 6 = δ + 100 → ∀ lines : List Lynx.Term,
           (∀ L ∈ lines, Nest.MLine (Nest.level node (d + 1)).E L ∧ ∃ w, Nest.InMLine (Nest.level node (d + 1)).den L w) →
           ∀ (bd : Bool) a, ∃ (ba : List Lynx.Term) (F : Lynx.Term), Elixir.Module.Types.Descr.«map_update_named_key/5»
@@ -7411,13 +7409,13 @@ defmodule STTDescrProofsTest do
       · exact absurd only nonly
       · rw [Nest.bp_false.mpr fun h => by have := (subIff.mp h) w hw; omega] at sub
         simp only [Lynx.apply_eq, «tuple_replace_badindex:ensures/5»]
-        simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
+        simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
           Erlang.erlang.«not/1», Lynx.Term.true]
       · obtain ⟨Y, run⟩ := Nest.replace_ok (t := node) (n := d + 1) (Or.inr ⟨X, rfl, sX⟩) i del sx hm only short
         rw [Nest.bp_true.mpr (subIff.mpr fun w hw => Classical.byContradiction fun h => short ⟨w, hw, by omega⟩)] at sub
         simp only [Lynx.apply_eq, «tuple_replace_badindex:ensures/5»]
-        simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
-          Erlang.erlang.«not/1», Lynx.Term.true]
+        simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
+          Lynx.Term.true]
       """
 
     law tuple_replace_idempotent(tuple, index, value, depth, node),
@@ -7962,12 +7960,12 @@ defmodule STTDescrProofsTest do
       · exact absurd only nonly
       · rw [Nest.bp_false.mpr fun h => by have := (subIff.mp h) w hw; omega] at sub
         simp only [Lynx.apply_eq, «tuple_delete_badindex:ensures/4»]
-        simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
+        simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
           Erlang.erlang.«not/1», Lynx.Term.true]
       · rw [Nest.bp_true.mpr (subIff.mpr fun w hw => Classical.byContradiction fun h => short ⟨w, hw, by omega⟩)] at sub
         simp only [Lynx.apply_eq, «tuple_delete_badindex:ensures/4»]
-        simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
-          Erlang.erlang.«not/1», Lynx.Term.true]
+        simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
+          Lynx.Term.true]
       """
 
     law tuple_values_sound(tuple, index, depth, node),
@@ -8160,7 +8158,7 @@ defmodule STTDescrProofsTest do
           rw [Nest.next_empty (t := node) (n := d) Nest.tc_term (m := δ + 100) (by omega),
             Nest.bp_false.mpr (fun h => h Nest.bitPt (Nest.denD_term _))]
           rfl
-        simp [ne, Elixir.Module.Types.Descr.«tuple_values/1», Nest.next_empty (t := node) (n := d) Nest.tc_term (m := δ + 100) (by omega), tup, sT,
+        simp [ne, Elixir.Module.Types.Descr.«tuple_values/1», tup, sT,
           Erlang.erlang.«==/2», Erlang.erlang.«not/1», Lynx.Except.orElse, boolAtom, Lynx.Term.true, pure, Except.pure]
       have ne := Nest.next_empty (Or.inr ⟨X, rfl, sX⟩) (m := δ + 100) (by omega)
       -- The type holds only tuples, and some, exactly when it holds some value and only tuples.
@@ -8419,7 +8417,7 @@ defmodule STTDescrProofsTest do
       obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
       rcases gT.shape with rfl | ⟨X, rfl⟩
       · simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Elixir.Module.Types.Descr.«tuple_delete_at/2»,
-          Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.tryWith, Lynx.Except.orElse, Erlang.erlang.«is_integer/1», Lynx.Except.andAlso] at hmap
+          Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse, Erlang.erlang.«is_integer/1», Lynx.Except.andAlso] at hmap
       -- The insert into the gradual type.
       obtain ⟨R, run⟩ : ∃ R, Elixir.Module.Types.Descr.«tuple_replace_at/3»
           (Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100)) (.map X) (.integer i) value = .ok (.map R) := by
@@ -8445,7 +8443,7 @@ defmodule STTDescrProofsTest do
         rcases dTu with h | ⟨U, h, sU⟩
         · rw [h] at hmapU
           simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Elixir.Module.Types.Descr.«tuple_delete_at/2»,
-            Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.tryWith, Lynx.Except.orElse, Erlang.erlang.«is_integer/1», Lynx.Except.andAlso] at hmapU
+            Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse, Erlang.erlang.«is_integer/1», Lynx.Except.andAlso] at hmapU
         · exact ⟨U, h, Or.inr ⟨U, rfl, sU⟩⟩
       rw [eU] at hmapU
       obtain ⟨R₂, run₂⟩ : ∃ R₂, Elixir.Module.Types.Descr.«tuple_replace_at/3»
@@ -8537,7 +8535,7 @@ defmodule STTDescrProofsTest do
       obtain ⟨i, rfl⟩ : ∃ i : Nat, z = i := ⟨z.toNat, by simp [Erlang.erlang.«>=/2», Int.isGE_compare] at hi0; omega⟩
       rcases gT.shape with rfl | ⟨X, rfl⟩
       · simp [Elixir.Module.Types.Descr.«tuple_replace_at/3», Elixir.Module.Types.Descr.«tuple_delete_at/2»,
-          Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.tryWith, Lynx.Except.orElse,
+          Erlang.erlang.«is_map/1», Erlang.erlang.«==/2», Lynx.Except.orElse,
           Erlang.erlang.«is_integer/1», Lynx.Except.andAlso] at hmap
       -- The insert into the gradual type.
       obtain ⟨R, run⟩ : ∃ R, Elixir.Module.Types.Descr.«tuple_replace_at/3»

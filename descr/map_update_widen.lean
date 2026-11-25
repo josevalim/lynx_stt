@@ -83,7 +83,7 @@ theorem widen_foldP (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tag
     rcases widen_stepP ef hm g0 gL gA hd hnt snt neg with ⟨hn, hs, run⟩ | ⟨hs, A, run, gA', sA'⟩
     · refine Or.inl ⟨⟨hn, d, by simp, hs⟩, ?_⟩
       rw [Erlang.lists.«foldl_1/3».eq_def]
-      simp only [] at run ⊢
+      simp only at run ⊢
       simp [run]
     · have sA'' : ∀ kind ∈ domainKinds, ∀ x, den (tagType A kind) x ↔
           if kind ∈ done ++ [d] then den (tagType tag0 kind) x ∨ P kind x else den (tagType tag0 kind) x := by
@@ -96,14 +96,14 @@ theorem widen_foldP (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tag
         ⟨⟨hn, d', md', hs'⟩, rr⟩ | ⟨hs', r, rr, gr, sr⟩
       · refine Or.inl ⟨⟨hn, d', by simp [md'], hs'⟩, ?_⟩
         rw [Erlang.lists.«foldl_1/3».eq_def]
-        simp only [] at run rr ⊢
+        simp only at run rr ⊢
         simp [run, rr]
       · refine Or.inr ⟨fun hn d' md' => ?_, r, ?_, gr, fun kind mk x => by simpa using sr kind mk x⟩
         · rcases List.mem_cons.mp md' with rfl | md'
           · exact hs hn
           · exact hs' hn d' md'
         · rw [Erlang.lists.«foldl_1/3».eq_def]
-          simp only [] at run rr ⊢
+          simp only at run rr ⊢
           simp [run, rr]
 
 
@@ -137,7 +137,7 @@ theorem widen_tagP (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag0 tagL
     simp [Lynx.Except.tryWith, Lynx.Exception.classTerm, Lynx.Exception.reason]
   · refine ⟨r, ?_, Or.inr ⟨hs, gr, fun kind mk x => by simpa using sr kind mk x⟩⟩
     simp only [Elixir.Module.Types.Descr.«map_widen_domains/3», pure_bind, toFoldl _ rr]
-    simp []
+    simp
 
 
 /-- What a widened tag allows at the keys of a kind: what the tag allows, or, at the updated kinds, a value of the
@@ -292,7 +292,7 @@ theorem widen_update_gen (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {nt 
     have := sF (some x)
     rw [fieldSem_mk, NewF] at this
     simp only [o1, o0, true_and] at this
-    simp only [reduceCtorEq, false_and, Option.some.injEq, exists_eq_left', false_or, or_false] at this
+    simp only [reduceCtorEq, false_and, Option.some.injEq, exists_eq_left', false_or] at this
     rw [this, NewP]
     grind
   have ne : (∃ o', NewF den nt nopt md (FieldSem den (.tuple #[tagType tag d, .atom "true"])) o') ↔
@@ -890,9 +890,9 @@ theorem line_extend (ef : EF nd E V den tl K) {tag : Term} (g : TagV E tag) {l :
     | .atom s => u (.atom s)
     | .dom k i => if h : SK k ∧ (∀ i', u (.dom k i') = none) ∧ i = J then some (hS k h.1).choose else u (.dom k i)
   have uD : ∀ k i, ¬(SK k ∧ (∀ i', u (.dom k i') = none) ∧ i = J) → u' (.dom k i) = u (.dom k i) := fun k i h => by
-    simp only [u']; rw [dif_neg h]
+    simp only [u']; rw [dite_eq_right h]
   have uS : ∀ k i (h : SK k ∧ (∀ i', u (.dom k i') = none) ∧ i = J), u' (.dom k i) = some (hS k h.1).choose :=
-    fun k i h => by simp only [u']; rw [dif_pos h]
+    fun k i h => by simp only [u']; rw [dite_eq_left h]
   obtain ⟨m, nn⟩ := inMLine_iff.mp hu
   refine ⟨u', inMLine_iff.mpr ⟨⟨fun s => m.atoms s, fun k i => ?_⟩, fun N mN hN => ?_⟩, fun s => rfl,
     fun κ mκ => ?_, fun k i nk => uD k i (fun h => nk h.1), fun k sk => ?_⟩

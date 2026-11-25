@@ -137,7 +137,7 @@ theorem foldl_rel4 (d : Dispatcher) {mo nm : String} {c₁ c₂ : Array Term}
     intro c acc r h
     simp only [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»] at h
     rw [Erlang.lists.«foldl_1/3».eq_def]
-    cases l <;> simp_all [Lynx.Except.guard]
+    cases l <;> simp_all
   replace h₁ := conv _ _ _ h₁
   replace h₂ := conv _ _ _ h₂
   exact foldl1_rel4 d _ _ hs l a b hab h₁ h₂
@@ -147,7 +147,7 @@ theorem named_keys_rel (m : Nat) (dnf keys op req rt bo s₁ s₂ : Term) {a b r
     (h₂ : Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) b dnf keys op req s₂ rt bo = .ok r₂) :
     Rel4 r₁ r₂ := by
   simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8», bind, Except.bind, pure, Except.pure] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     refine foldl_rel4 _ (fun x a b a' b' hab e₁ e₂ => ?_) keys a b hab h₁ h₂
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure] at e₁ e₂
@@ -162,7 +162,7 @@ theorem dnf_rel (m : Nat) (bdd dnf split op rt s₁ s₂ : Term) {r₁ r₂ : Te
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h₁ h₂
   simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
     Lynx.Except.tryWith] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     split at h₁
     · simp at h₁
@@ -201,9 +201,9 @@ theorem static_rel_ne (m : Nat) (descr split op rt s₁ s₂ : Term) (hd : descr
     (h₂ : Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) descr split op rt s₂ = .ok r₂) :
     r₁ = r₂ ∨ Rel4 r₁ r₂ := by
   rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def] at h₁ h₂
-  simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.orElse, pure, Except.pure,
+  simp only [bind, Except.bind, Lynx.Except.guard, pure, Except.pure,
     Lynx.Except.tryWith] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals first
     | (simp only [Except.ok.injEq] at h₁ h₂; subst h₁ h₂; exact Or.inl rfl)
     | exact Or.inr (dnf_rel _ _ _ _ _ _ _ _ h₁ h₂)
@@ -226,8 +226,8 @@ theorem static_rel (m : Nat) (descr split op rt s₁ s₂ : Term) {r₁ r₂ : T
 dynamic part. -/
 theorem grad_upd_inv {X : List (Term × Term)} {Dy : Term} (hD : mapLookup X (.atom "dynamic") = some Dy)
     {split op rt : Term} {m : Nat} {T R er : Term}
-    (hdyn : ∀ r, Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") = .ok r →
-      r = .atom "badmap" ∨ ∃ Td Yd ed fd, r = .tuple #[Td, .map Yd, ed, fd] ∧ mapLookup Yd (.atom "dynamic") = none)
+    (hdyn : ∀ Td Yd ed fd, Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") =
+      .ok (.tuple #[Td, Yd, ed, fd]) → ∃ Y', Yd = .map Y' ∧ mapLookup Y' (.atom "dynamic") = none)
     (run : Elixir.Module.Types.Descr.«map_update_unchecked/4» (D (m + 1)) (.map X) split op rt =
       .ok (.tuple #[T, R, er])) :
     ∃ Yd res sd, (∃ Td ed fd, Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") =
@@ -252,8 +252,15 @@ theorem grad_upd_inv {X : List (Term × Term)} {Dy : Term} (hD : mapLookup X (.a
   | error e => rw [hd₀] at run; simp at run
   | ok r =>
     rw [hd₀] at run
-    rcases hdyn r hd₀ with rfl | ⟨Td, Yd, ed, fd, rfl, sYd⟩
-    · exact absurd run (fun1 _)
+    obtain ⟨Td, Yd₀, ed, fd, rfl⟩ : ∃ Td Yd ed fd, r = .tuple #[Td, Yd, ed, fd] := by
+      by_cases h4 : ∃ Td Yd ed fd, r = .tuple #[Td, Yd, ed, fd]
+      · exact h4
+      · exfalso
+        simp only at run
+        split at run
+        · exact h4 ⟨_, _, _, _, rfl⟩
+        · exact fun1 _ run
+    obtain ⟨Yd, rfl, sYd⟩ := hdyn Td Yd₀ ed fd hd₀
     generalize fd.isMember [Term.atom "false", Term.atom "nil"] = fm at run
     simp only at run
     cases hs₀ : Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) (.map (rmDyn X)) split op rt (.atom "true") with
@@ -279,14 +286,14 @@ theorem grad_upd_inv {X : List (Term × Term)} {Dy : Term} (hD : mapLookup X (.a
           first
           | (simp at run; done)
           | (simp_all; done)
-          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> simp_all)
+          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> first | (cases run; done) | simp_all)
       | ok R' =>
         rcases hsd with ⟨rfl, rfl⟩ | ⟨a, e, f, rfl⟩ <;> simp only [gk, hR] at run <;> (repeat' split at run) <;>
           first
-          | (simp at run; done)
-          | (simp only [Except.ok.injEq, Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at run
+          | (simp only at run
              exact congrArg Except.ok run.2.1.symm)
-          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> simp_all)
+          | (simp at run; done)
+          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> first | (cases run; done) | simp_all)
 
 section
 variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
@@ -458,14 +465,13 @@ theorem lower_core {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {rk 
       · cases h
       · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
       · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, trivial⟩
-    have hdyn : ∀ r, Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 1)) Dy
-        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) op (.atom "true") (.atom "false") = .ok r →
-        r = .atom "badmap" ∨ ∃ Td Yd ed fd, r = .tuple #[Td, .map Yd, ed, fd] ∧ mapLookup Yd (.atom "dynamic") = none := by
-      intro r h
-      by_cases nb : r = .atom "badmap"
-      · exact Or.inl nb
-      obtain ⟨Td, Yd, ed, fd, rfl, -, sYd⟩ := updRes_de (type_wf dDy ok nr hNa hop (by omega) _ h) nb
-      exact Or.inr ⟨Td, Yd, ed, fd, rfl, sYd⟩
+    have hdyn : ∀ Td Yd ed fd, Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 1)) Dy
+        (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) op (.atom "true") (.atom "false") =
+          .ok (.tuple #[Td, Yd, ed, fd]) → ∃ Y', Yd = .map Y' ∧ mapLookup Y' (.atom "dynamic") = none := by
+      intro Td Yd ed fd h
+      obtain ⟨_, Y', _, _, e, -, sYd⟩ := updRes_de (type_wf dDy ok nr hNa hop (by omega) _ h) (by simp)
+      simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e
+      exact ⟨Y', e.2.1, sYd⟩
     obtain ⟨Yd, res, sd, ⟨Td, ed, fd, hdy⟩, -, hres, hsd, hR⟩ := grad_upd_inv hD hdyn run
     rw [hL] at hres
     cases hres
@@ -518,8 +524,7 @@ theorem upd5_del {m : Nat} (X : Term) {key s : Term} {md : String}
     Elixir.Module.Types.Descr.«map_update/5» (D m) X key (.atom "delete") (.atom md) (.atom "true") =
       Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) X s (cOp (.map []) Bool.true md) (.atom "true") := by
   unfold Elixir.Module.Types.Descr.«map_update/5»
-  rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk,
-    Elixir.Module.Types.Descr.«none/0»] <;> rfl
+  rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk] <;> rfl
 
 
 /-! Splits of gradual keys: required and optional keys and domains update with the same maps as when all are
@@ -606,7 +611,7 @@ theorem foldl_relP (P : Term → Term → Prop) (d : Dispatcher) {mo nm : String
     intro c acc r h
     simp only [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»] at h
     rw [Erlang.lists.«foldl_1/3».eq_def]
-    cases l <;> simp_all [Lynx.Except.guard]
+    cases l <;> simp_all
   exact foldl1_relP P d _ _ hs l a b hab (conv _ _ _ h₁) (conv _ _ _ h₂)
 
 /-- `map_update_named_keys/8` gives the same maps whatever the keys' requirement and the static flag. -/
@@ -615,7 +620,7 @@ theorem named_keys_relB (m : Nat) (dnf keys op rt bo req₁ req₂ s₁ s₂ : T
     (h₂ : Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) b dnf keys op req₂ s₂ rt bo = .ok r₂) :
     RelB r₁ r₂ := by
   simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8», bind, Except.bind, pure, Except.pure] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     refine foldl_relP RelB _ (fun x a b a' b' hab e₁ e₂ => ?_) keys a b hab h₁ h₂
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure] at e₁ e₂
@@ -628,15 +633,15 @@ theorem named_keys_append (m : Nat) (acc dnf op req st rt bo : Term) (A B : List
         fun r => Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) r dnf (Term.list B) op req st rt bo) := by
   simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8»]
   cases h₁ : Erlang.erlang.«element/2» (.integer 2) op with
-  | error e => simp [h₁]
+  | error e => simp
   | ok o =>
     cases h₂ : Erlang.erlang.«==/2» o (.atom "force") with
-    | error e => simp [h₁, h₂]
+    | error e => simp [h₂]
     | ok fo =>
       cases h₃ : Lynx.Except.orElse (Except.ok rt) (Erlang.erlang.«not/1» fo) true with
-      | error e => simp [h₁, h₂, h₃]
+      | error e => simp [h₂, h₃]
       | ok ov =>
-        simp only [h₁, h₂, h₃, Lynx.Except.ok_bind, pure, Except.pure, foldl_fun]
+        simp only [h₂, h₃, Lynx.Except.ok_bind, pure, Except.pure, foldl_fun]
         rw [foldl1_list_append]
 
 /-- Accumulators of `map_update_get_domains/5`: the fold from a fresh accumulator, and from one with flags and lists,
@@ -660,8 +665,8 @@ theorem gd_step_shift (d : Dispatcher) (dnf rt cb₁ cb₂ key : Term) (hcb : d.
     generalize hc₁ : d.pure cb₁ #[] = c at h₁
     generalize hc₂ : d.pure cb₂ #[] = c₂ at h₂
     obtain rfl : c = c₂ := hc₁ ▸ hc₂ ▸ hcb
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
-    all_goals (repeat' split at h₁) <;> (try (simp at h₁; done))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    all_goals (repeat' split at h₁) <;> (try (cases h₁; done))
     all_goals (repeat' split at h₂) <;> (try (simp at h₂; done))
     all_goals (try (simp only [Except.ok.injEq] at h₁ h₂; subst h₁ h₂))
   all_goals first
@@ -874,9 +879,9 @@ theorem dnf_opt_relB_force (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term) 
     rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
   all_goals
     try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
-    simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
+    simp only [bind, Except.bind,
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     rename_i xX vX hX x96 v96 h96
     have hb : vX.2 = .atom "true" := by
@@ -898,7 +903,7 @@ theorem dnf_opt_relB_force (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term) 
     have R₂ := named_keys_relB (m + 1) (h₁ := N₁') (h₂ := Np') (hab := R₁)
     have e₂ : n₂' = n₂ := by
       simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
-        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse, Erlang.erlang.«not/1»] at N₂'
+        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse] at N₂'
       exact N₂'.symm
     subst e₂
     obtain ⟨u₁, B, e₁, f₁, u₂, e₂, f₂, rfl, rfl⟩ := R₂
@@ -927,7 +932,7 @@ theorem dnf_opt_relB_keep (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term) (
     simp [Elixir.Module.Types.Descr.«map_update_get_domains/5», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h₁ h₂
   simp only [splitT, Elixir.Module.Types.Descr.«map_keys_from_negated_set/2»] at h₁ h₂
-  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember,
     Lynx.Except.andAlso, minus_nil, minus_nil0, app_nil0, app_nil_l, app_nil_r, append_list, gnil] at h₁ h₂
   -- The first run looks up the required domains and then the optional ones.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Dr)
@@ -984,9 +989,9 @@ theorem dnf_opt_relB_keep (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term) (
     rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
   all_goals
     try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
-    simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
+    simp only [bind, Except.bind,
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     rename_i xX vX hX x96 v96 h96
     have hb : vX.2 = .atom "true" := by
@@ -1008,7 +1013,7 @@ theorem dnf_opt_relB_keep (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term) (
     have R₂ := named_keys_relB (m + 1) (h₁ := N₁') (h₂ := Np') (hab := R₁)
     have e₂ : n₂' = n₂ := by
       simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
-        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse, Erlang.erlang.«not/1»] at N₂'
+        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse] at N₂'
       exact N₂'.symm
     subst e₂
     obtain ⟨u₁, B, e₁, f₁, u₂, e₂, f₂, rfl, rfl⟩ := R₂
@@ -1037,8 +1042,8 @@ theorem dnf_opt_relB_reject (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term)
     simp [Elixir.Module.Types.Descr.«map_update_get_domains/5», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h₁ h₂
   simp only [splitT, Elixir.Module.Types.Descr.«map_keys_from_negated_set/2»] at h₁ h₂
-  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
-    Lynx.Except.andAlso, minus_nil, minus_nil0, app_nil0, app_nil_l, app_nil_r, append_list, gnil] at h₁ h₂
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember,
+    Lynx.Except.andAlso, minus_nil, minus_nil0, app_nil0, app_nil_l, gnil] at h₁ h₂
   -- The first run looks up the required domains and then the optional ones.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Dr)
       (.map []) (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
@@ -1097,9 +1102,9 @@ theorem dnf_opt_relB_reject (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term)
       simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
   all_goals
     try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
-    simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
+    simp only [bind, Except.bind, Lynx.Except.orElse,
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     rename_i xX vX hX x96 v96 h96
     have hb : vX.2 = .atom "true" := by
@@ -1121,7 +1126,7 @@ theorem dnf_opt_relB_reject (m : Nat) (bdd dnf : Term) (Rs Os Dr Do : List Term)
     have R₂ := named_keys_relB (m + 1) (h₁ := N₁') (h₂ := Np') (hab := R₁)
     have e₂ : n₂' = n₂ := by
       simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
-        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse, Erlang.erlang.«not/1»] at N₂'
+        Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse] at N₂'
       exact N₂'.symm
     subst e₂
     obtain ⟨u₁, B, e₁, f₁, u₂, e₂, f₂, rfl, rfl⟩ := R₂
@@ -1158,10 +1163,10 @@ theorem dnf_neg_relB_keep (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Term
       .ok (.tuple #[.atom "false", .nil, .nil, a]) := fun a cb => by
     simp [Elixir.Module.Types.Descr.«map_update_get_domains/5», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h₁ h₂
-  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember,
     Lynx.Except.andAlso, app_nil_r, append_list, gnil] at h₁ h₂
   simp only [bind, Except.bind] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   rename_i xo opt2 hopt
   -- The first run looks up the required domains and then the optional ones.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Dr)
@@ -1173,7 +1178,7 @@ theorem dnf_neg_relB_keep (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Term
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁, V₁, M₁, a₁, rfl, hg₁, -⟩ := gd_bool (m + 1) _ _ _ _ _ hG
-  simp only [hG, Lynx.Except.ok_bind] at h₁
+  simp only [hG] at h₁
   obtain ⟨G', hG'⟩ : ∃ G', Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Do) a₁
       (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
         #[dnf, opt2, Rq]) = .ok G' := by
@@ -1183,14 +1188,14 @@ theorem dnf_neg_relB_keep (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Term
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁', V₁', M₁', a₁', rfl, hg₁', -⟩ := gd_bool (m + 1) _ _ _ _ _ hG'
-  simp only [hG', Lynx.Except.ok_bind] at h₁
+  simp only [hG'] at h₁
   obtain ⟨E₁, hE⟩ : ∃ E₁, Erlang.lists.«map/2» (D (m + 2))
       (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) = .ok E₁ := by
     cases h : Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) with
     | error e => simp [h] at h₁
     | ok E => exact ⟨E, rfl⟩
-  simp only [hE, Lynx.Except.ok_bind] at h₁
+  simp only [hE] at h₁
   -- The second run looks up all domains at once.
   obtain ⟨H, hH⟩ : ∃ H, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list (Dr ++ Do))
       (.map []) (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
@@ -1205,7 +1210,7 @@ theorem dnf_neg_relB_keep (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Term
   obtain ⟨rfl, -, -, rfl⟩ := eY
   rcases hx with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
   all_goals
-    simp only [hH, Lynx.Except.ok_bind] at h₂
+    simp only [hH] at h₂
     obtain ⟨E₂, hE'⟩ : ∃ E₂, Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (MM ++ M₁)) =
           .ok E₂ := by
@@ -1213,14 +1218,14 @@ theorem dnf_neg_relB_keep (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Term
           (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (MM ++ M₁)) with
       | error e => simp [h] at h₂
       | ok E => exact ⟨E, rfl⟩
-    simp only [hE', Lynx.Except.ok_bind] at h₂
+    simp only [hE'] at h₂
   all_goals
-    rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
+    rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l] at h₁ h₂
   all_goals
     try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
     try simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     split at h₁ <;> try (simp at h₁; done)
     rename_i n₁ N₁
@@ -1256,7 +1261,7 @@ theorem dnf_neg_relB_force (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Ter
   simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
     Lynx.Except.andAlso, app_nil_r, append_list, gnil] at h₁ h₂
   simp only [bind, Except.bind] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   rename_i xo opt2 hopt
   -- The first run looks up the required domains and then the optional ones.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Dr)
@@ -1268,7 +1273,7 @@ theorem dnf_neg_relB_force (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Ter
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁, V₁, M₁, a₁, rfl, hg₁, -⟩ := gd_bool (m + 1) _ _ _ _ _ hG
-  simp only [hG, Lynx.Except.ok_bind] at h₁
+  simp only [hG] at h₁
   obtain ⟨G', hG'⟩ : ∃ G', Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Do) a₁
       (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
         #[dnf, opt2, Rq]) = .ok G' := by
@@ -1278,14 +1283,14 @@ theorem dnf_neg_relB_force (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Ter
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁', V₁', M₁', a₁', rfl, hg₁', -⟩ := gd_bool (m + 1) _ _ _ _ _ hG'
-  simp only [hG', Lynx.Except.ok_bind] at h₁
+  simp only [hG'] at h₁
   obtain ⟨E₁, hE⟩ : ∃ E₁, Erlang.lists.«map/2» (D (m + 2))
       (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) = .ok E₁ := by
     cases h : Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) with
     | error e => simp [h] at h₁
     | ok E => exact ⟨E, rfl⟩
-  simp only [hE, Lynx.Except.ok_bind] at h₁
+  simp only [hE] at h₁
   -- The second run looks up all domains at once.
   obtain ⟨H, hH⟩ : ∃ H, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list (Dr ++ Do))
       (.map []) (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
@@ -1300,7 +1305,7 @@ theorem dnf_neg_relB_force (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Ter
   obtain ⟨rfl, -, -, rfl⟩ := eY
   rcases hx with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
   all_goals
-    simp only [hH, Lynx.Except.ok_bind] at h₂
+    simp only [hH] at h₂
     obtain ⟨E₂, hE'⟩ : ∃ E₂, Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (MM ++ M₁)) =
           .ok E₂ := by
@@ -1308,14 +1313,14 @@ theorem dnf_neg_relB_force (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Ter
           (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (MM ++ M₁)) with
       | error e => simp [h] at h₂
       | ok E => exact ⟨E, rfl⟩
-    simp only [hE', Lynx.Except.ok_bind] at h₂
+    simp only [hE'] at h₂
   all_goals
-    rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
+    rcases hg₁ with rfl | rfl <;> simp only [orElse_true_l, orElse_false_l] at h₁ h₂
   all_goals
     try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
     try simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     split at h₁ <;> try (simp at h₁; done)
     rename_i n₁ N₁
@@ -1348,10 +1353,10 @@ theorem dnf_neg_relB_reject (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Te
       .ok (.tuple #[.atom "false", .nil, .nil, a]) := fun a cb => by
     simp [Elixir.Module.Types.Descr.«map_update_get_domains/5», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2»]
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h₁ h₂
-  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
-    Lynx.Except.andAlso, app_nil_r, append_list, gnil] at h₁ h₂
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember,
+    Lynx.Except.andAlso, gnil] at h₁ h₂
   simp only [bind, Except.bind] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   rename_i xo opt2 hopt
   -- The first run looks up the required domains and then the optional ones.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Dr)
@@ -1363,7 +1368,7 @@ theorem dnf_neg_relB_reject (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Te
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁, V₁, M₁, a₁, rfl, hg₁, -⟩ := gd_bool (m + 1) _ _ _ _ _ hG
-  simp only [hG, Lynx.Except.ok_bind] at h₁
+  simp only [hG] at h₁
   obtain ⟨G', hG'⟩ : ∃ G', Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list Do) a₁
       (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
         #[dnf, opt2, Rq]) = .ok G' := by
@@ -1373,14 +1378,14 @@ theorem dnf_neg_relB_reject (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Te
     | error e => simp [h] at h₁
     | ok G => exact ⟨G, rfl⟩
   obtain ⟨g₁', V₁', M₁', a₁', rfl, hg₁', -⟩ := gd_bool (m + 1) _ _ _ _ _ hG'
-  simp only [hG', Lynx.Except.ok_bind] at h₁
+  simp only [hG'] at h₁
   obtain ⟨E₁, hE⟩ : ∃ E₁, Erlang.lists.«map/2» (D (m + 2))
       (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) = .ok E₁ := by
     cases h : Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list M₁) with
     | error e => simp [h] at h₁
     | ok E => exact ⟨E, rfl⟩
-  simp only [hE, Lynx.Except.ok_bind] at h₁
+  simp only [hE] at h₁
   -- The second run looks up all domains at once.
   obtain ⟨H, hH⟩ : ∃ H, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf (Term.list (Do ++ Dr))
       (.map []) (.atom "true") (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
@@ -1397,7 +1402,7 @@ theorem dnf_neg_relB_reject (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Te
   rw [← list_inj eV, ← list_inj eM] at hx
   rcases hx with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
   all_goals
-    simp only [hH, Lynx.Except.ok_bind] at h₂
+    simp only [hH] at h₂
     obtain ⟨E₂, hE'⟩ : ∃ E₂, Erlang.lists.«map/2» (D (m + 2))
         (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (M₁ ++ M₁')) =
           .ok E₂ := by
@@ -1405,15 +1410,14 @@ theorem dnf_neg_relB_reject (m : Nat) (bdd dnf : Term) (Rq : Term) (N : List (Te
           (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list (M₁ ++ M₁')) with
       | error e => simp [h] at h₂
       | ok E => exact ⟨E, rfl⟩
-    simp only [hE', Lynx.Except.ok_bind] at h₂
+    simp only [hE'] at h₂
   all_goals
     rcases hg₁' with h | h <;> (try subst h) <;>
-      simp only [orElse_true_l, orElse_false_l, Lynx.Except.ok_bind] at h₁ h₂
+      simp only [orElse_true_l, orElse_false_l] at h₁ h₂
   all_goals
-    try simp only [append_list, app_nil_r, Lynx.Except.ok_bind] at h₁ h₂
-    try simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
-      Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    try simp only [append_list, app_nil_r] at h₁ h₂
+    try simp only [bind, Except.bind, Lynx.Except.orElse] at h₁ h₂
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     split at h₁ <;> try (simp at h₁; done)
     rename_i n₁ N₁
@@ -1538,7 +1542,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
   have e00 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
       ([] : List Term) L = [] := fun L => by induction L <;> simp_all
   have a0 : Erlang.erlang.«++/2» (Term.list ([] : List Term)) .nil = .ok .nil := by
-    simp [Erlang.erlang.«++/2», Term.list]
+    simp [Erlang.erlang.«++/2»]
   have minusKA := minus_disj ks A fun s ms ma => hA s ma (hks s ms)
   have minusK0 : Erlang.erlang.«--/2» (Term.list (ks.map Term.atom)) .nil = .ok (Term.list (ks.map Term.atom)) := by
     simpa using minus_disj ks [] (by simp)
@@ -1546,7 +1550,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
   have hcb : (D (n + 5)).pure (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
       #[Term.list lines, Term.list (ks.map Term.atom), Term.list (A.map Term.atom)]) #[] = .ok (boolAtom c) := by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
-    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3»]
     simpa [append_list] using hc
   obtain ⟨f₁, val₁, mis₁, T₁, r₁, hT₁, sT₁, -, mD₁, vD₁, vf₁⟩ := upd_domains2 ef (n := n + 2) (by omega) lines
     (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Ds ef.none
@@ -1569,7 +1573,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
   cases keep
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», mv,
-      modeT, r₁', r₂', rE', minusKA, minusK0, a0, mk0, Erlang.sets.«to_list/1»,
+      modeT, r₁', r₂', rE', minusKA, minusK0, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -1606,7 +1610,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
       replace rX : Elixir.Module.Types.Descr.«map_update_box/6» (D (n + 6)) bdd (Term.list lines)
           (Term.list (ks.map Term.atom)) .nil (keepOp v Bool.false) (Term.list (AK.map Term.atom)) = .ok (.map X) := by
         rw [rmode]; exact rX
-      simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self,
+      simp [Term.list, boolAtom, Lynx.Except.orElse,
         Erlang.erlang.«element/2», Erlang.erlang.«length/1», Lynx.Term.compare_integers, part, rX]
       have semB : ∀ w, BoxSem den (fun u => ∃ L ∈ lines, InMLine den L u) (setStrs N) v Bool.false (modeS Bool.false)
           [] w ↔ UpdSemKR den (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) [] v Bool.false w := by
@@ -1716,7 +1720,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
             Bool.false w := fun w => by
           have := semAll Ks [] _ (fun _ => False) (fun w => Iff.rfl) (fun w => by simp) (Or.inl ⟨full, rfl, rfl⟩) w
           simpa using this
-        simp [hL', rZ, Term.list, Lynx.Term.compare_self]
+        simp [hL', rZ, Term.list]
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
         · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_negA ef hn hv vne Bool.false lines hl
             hne A ks [] (by simp) Bool.true hT₁ errs
@@ -1828,7 +1832,7 @@ theorem upd_dnf_negreq (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v
 
 
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₃,
-      modeT, r₁', r₂', rE', minusKA, minusK0, a0, mk0, Erlang.sets.«to_list/1»,
+      modeT, r₁', r₂', rE', minusKA, minusK0, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -2043,7 +2047,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
   have e00 : ∀ L : List Term, List.foldl (fun acc y => List.eraseP (fun x => compareExact (x.fuel y) x y == .eq) acc)
       ([] : List Term) L = [] := fun L => by induction L <;> simp_all
   have a0 : Erlang.erlang.«++/2» (Term.list ([] : List Term)) .nil = .ok .nil := by
-    simp [Erlang.erlang.«++/2», Term.list]
+    simp [Erlang.erlang.«++/2»]
   have minusKA := minus_disj ks A fun s ms ma => hA s ma (hks s ms)
   have minusK0 : Erlang.erlang.«--/2» (Term.list (ks.map Term.atom)) .nil = .ok (Term.list (ks.map Term.atom)) := by
     simpa using minus_disj ks [] (by simp)
@@ -2051,7 +2055,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
   have hcb : (D (n + 5)).pure (.function "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
       #[Term.list lines, Term.list (ks.map Term.atom), Term.list (A.map Term.atom)]) #[] = .ok (boolAtom c) := by
     rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
-    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3»]
     simpa [append_list] using hc
   obtain ⟨f₁, val₁, mis₁, T₁, r₁, hT₁, sT₁, -, mD₁, vD₁, vf₁⟩ := upd_domains2 ef (n := n + 2) (by omega) lines
     (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Ds ef.none
@@ -2074,7 +2078,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
   unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
   rcases hmd with rfl | rfl | rfl
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₃,
-      r₁', r₂', rE', minusKA, minusK0, a0, mk0, Erlang.sets.«to_list/1»,
+      r₁', r₂', rE', minusKA, minusK0, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR', Lynx.Except.andAlso]
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -2161,7 +2165,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
           "force" Ks w ↔ UpdSemD den (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "force" w := fun w => by
         have := semAll Ks [] _ (fun _ => False) (fun w => Iff.rfl) (fun w => by simp) (Or.inl ⟨full, rfl, rfl⟩) w
         simpa using this
-      simp [hL', rZ, Term.list, Lynx.Term.compare_self]
+      simp [hL', rZ, Term.list]
       rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
       · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_negA_del ef hn (Or.inl rfl) lines hl
           A ks [] (by simp) Bool.true hT₁ (Term.list errs)
@@ -2270,7 +2274,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
             simp [boolAtom] at rN1 rN2 ⊢; simp [neZ, getMapKeys_single, lc, Option.toList]
             simp [Term.list] at rN1; simp [rN1, rN2, rr]
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», m₃,
-      modeT, r₁', r₂', rE', minusKA, minusK0, a0, mk0, Erlang.sets.«to_list/1»,
+      r₁', r₂', rE', minusKA, minusK0, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -2334,7 +2338,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
       cases f₁ <;> rfl
     have o2 : Lynx.Except.orElse (Except.ok (boolAtom f₁)) (Except.ok (.atom "false")) Bool.true = .ok (boolAtom f₁) := by
       cases f₁ <;> rfl
-    simp [dne', rKs, Erlang.erlang.«element/2», modeT, part, rX, o1, o2]
+    simp [dne', rKs, Erlang.erlang.«element/2», part, rX, o1, o2]
     by_cases wn : Ks.filter (· ≠ "atom") = []
     · have wn' : List.filter (fun x => !decide (x = "atom")) Ks = [] := by simpa using wn
       simp [wn', Term.list]
@@ -2411,7 +2415,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
           cases f₁ <;> simp [boolAtom] at rN1 rN2 ⊢ <;> simp [neZ, getMapKeys_single, lc, Option.toList] <;>
             simp [Term.list] at rN1 <;> simp [rN1, rN2, rr]
   · simp [splitT, hR, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», mv,
-      modeT, r₁', r₂', rE', minusKA, minusK0, a0, mk0, Erlang.sets.«to_list/1»,
+      r₁', r₂', rE', minusKA, minusK0, mk0, Erlang.sets.«to_list/1»,
       Erlang.maps.«keys/1», keysN, append_list, rR']
     have hks' : ∀ s ∈ ks, s ∉ setStrs N := fun s m h => setStrs_mem.mp h (hks s m)
     have lnKS' : ∀ L ∈ lines, ∀ s, LineNames L s → s ∈ setStrs N ∨ s ∈ ks := fun L mL s h =>
@@ -2447,7 +2451,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
       replace rX : Elixir.Module.Types.Descr.«map_update_box/6» (D (n + 6)) bdd (Term.list lines)
           (Term.list (ks.map Term.atom)) .nil (cOp (.map []) Bool.true "reject") (Term.list (AK.map Term.atom)) = .ok (.map X) := by
         exact rX
-      simp [Term.list, boolAtom, Lynx.Except.orElse, Lynx.Except.tryWith, Lynx.Term.compare_self,
+      simp [Term.list, boolAtom, Lynx.Except.orElse,
         Erlang.erlang.«element/2», Erlang.erlang.«length/1», Lynx.Term.compare_integers, part, rX]
       have semB : ∀ w, BoxSem den (fun u => ∃ L ∈ lines, InMLine den L u) (setStrs N) (.map []) Bool.true "reject"
           [] w ↔ UpdSemD den (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) [] "reject" w := by
@@ -2547,7 +2551,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
           (fun d md => subKs d (sub d md)) hAt hlen
         refine ⟨X, ?_, mX⟩
         exact rX
-      simp [vne', boolAtom, Lynx.Except.orElse, rKs, Erlang.erlang.«element/2», modeT, lenK,
+      simp [vne', boolAtom, Lynx.Except.orElse, rKs, Erlang.erlang.«element/2», lenK,
         Lynx.Term.compare_integers]
       by_cases full : FullK Ks
       · have hL' : ((Ks.length : Int) = 12) := by have := fullI.mpr full; omega
@@ -2556,7 +2560,7 @@ theorem upd_dnf_negreq_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n
             "reject" Ks w ↔ UpdSemD den (fun u => ∃ L ∈ lines, InMLine den L u) [] (.map N) Ks "reject" w := fun w => by
           have := semAll Ks [] _ (fun _ => False) (fun w => Iff.rfl) (fun w => by simp) (Or.inl ⟨full, rfl, rfl⟩) w
           simpa using this
-        simp [hL', rZ, Term.list, Lynx.Term.compare_self]
+        simp [hL', rZ, Term.list]
         rcases mapsD_cases MZ with ⟨rfl, emp⟩ | ⟨c, neZ, lc, fc, sc⟩
         · obtain ⟨T₂, Er₂, T', Er', f₂, f', B', rN1, rN2, fB', sB'⟩ := named_tail_negA_del ef hn (Or.inr (Or.inr rfl)) lines hl
             A ks [] (by simp) Bool.true hT₁ (Term.list errs)
@@ -2980,10 +2984,10 @@ theorem named_key_ov (d : Dispatcher) (dnf key op bld ov₁ ov₂ : Term) {t₁ 
     (h₂ : Elixir.Module.Types.Descr.«map_update_named_key/5» d dnf key op bld ov₂ = .ok t₂) :
     ∃ bds o₁ o₂, t₁ = .tuple #[bds, o₁] ∧ t₂ = .tuple #[bds, o₂] := by
   unfold Elixir.Module.Types.Descr.«map_update_named_key/5» at h₁ h₂
-  simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
+  simp only [bind, Except.bind, Lynx.Except.guard, pure, Except.pure,
     Lynx.Except.tryWith] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
-  all_goals (repeat' split at h₁) <;> (try (simp at h₁; done))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  all_goals (repeat' split at h₁) <;> (try (cases h₁; done))
   all_goals (repeat' split at h₂) <;> (try (simp at h₂; done))
   all_goals (try (simp only [Except.ok.injEq] at h₁ h₂; subst h₁ h₂))
   all_goals first
@@ -3013,8 +3017,8 @@ theorem named_keys_relB2 (m : Nat) (dnf keys op bo req₁ req₂ s₁ s₂ rt₁
     (h₂ : Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (m + 1)) b dnf keys op req₂ s₂ rt₂ bo = .ok r₂) :
     RelB r₁ r₂ := by
   simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8», bind, Except.bind, pure, Except.pure] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
-  all_goals (split at h₁ <;> (try (simp at h₁; done)))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  all_goals (split at h₁ <;> (try (cases h₁; done)))
   all_goals (split at h₂ <;> (try (simp at h₂; done)))
   all_goals
     refine foldl_relP RelB _ (fun x a b a' b' hab e₁ e₂ => ?_) keys a b hab h₁ h₂
@@ -3030,7 +3034,7 @@ theorem dnf_rt_relB_force (m : Nat) (bdd dnf Rk Ok neg Rd Od c st₁ st₂ : Ter
   simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Erlang.erlang.«not/1», Lynx.Term.isMember,
     Lynx.Except.andAlso] at h₁ h₂
   simp only [bind, Except.bind] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   rename_i xo opt2 hopt
   -- The first run looks up the domains.
   obtain ⟨G, hG⟩ : ∃ G, Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (m + 2)) dnf Rd (.map [])
@@ -3067,15 +3071,15 @@ theorem dnf_rt_relB_force (m : Nat) (bdd dnf Rk Ok neg Rd Od c st₁ st₂ : Ter
   simp only [hF] at h₁
   have oT : Lynx.Except.orElse (.ok F) (.ok (.atom "true")) true = .ok (.atom "true") := by
     rcases bF with rfl | rfl <;> rfl
-  simp only [oT, orElse_false_l] at h₁ h₂
+  simp only [oT] at h₁ h₂
   all_goals
-    try simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.andAlso, Lynx.Except.orElse, pure, Except.pure,
+    try simp only [
       Lynx.Except.tryWith] at h₁ h₂
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
     -- The found flags differ, but only end in the accumulators.
-    split at h₁ <;> (try (simp at h₁; done))
+    split at h₁ <;> (try (cases h₁; done))
     split at h₂ <;> (try (simp at h₂; done))
-    repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+    repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals
     split at h₁ <;> try (simp at h₁; done)
     rename_i n₁ N₁
@@ -3102,9 +3106,9 @@ theorem static_rt_rel_ne (m : Nat) (descr Rk Ok neg Rd Od c st₁ st₂ : Term) 
       (.tuple #[c, .atom "force"]) (.atom "false") st₂ = .ok r₂) :
     r₁ = r₂ ∨ RelB r₁ r₂ := by
   rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def] at h₁ h₂
-  simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.orElse, pure, Except.pure,
+  simp only [bind, Except.bind, Lynx.Except.guard, pure, Except.pure,
     Lynx.Except.tryWith] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals first
     | (simp only [Except.ok.injEq] at h₁ h₂; subst h₁ h₂; exact Or.inl rfl)
     | exact Or.inr (dnf_rt_relB_force _ _ _ _ _ _ _ _ _ _ _ h₁ h₂)
@@ -3539,8 +3543,8 @@ theorem dnf_gform_relB {s : Term} {KP : MKey → Prop} (hs : GForm s KP) (md : S
     intro m bdd dnf c st₁ st₂ r₁ r₂ h₁ h₂
     refine dnf_opt_relB m bdd dnf Rs Os Ds Ds' c md hmd st₁ st₂ h₁ ?_
     by_cases h : md = "reject"
-    · rw [if_pos h, ← hr h]; exact h₂
-    · rw [if_neg h, ← hn h]; exact h₂
+    · rw [ite_eq_left h, ← hr h]; exact h₂
+    · rw [ite_eq_right h, ← hn h]; exact h₂
   · obtain ⟨L, hL, hr, hn⟩ := sel Ds Ds'
     refine ⟨splitT [] (.map N) L, Or.inr (Or.inl ⟨N, L, rfl, okL hL ok, na, fun κ => (keyL hL κ).trans (sk κ)⟩), ?_⟩
     intro m bdd dnf c st₁ st₂ r₁ r₂ h₁ h₂
@@ -3566,9 +3570,9 @@ theorem static_split_rel_ne (m : Nat) (descr s s' op st₁ st₂ : Term) (hd : d
     (h₂ : Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 2)) descr s' op (.atom "true") st₂ = .ok r₂) :
     r₁ = r₂ ∨ RelB r₁ r₂ := by
   rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def] at h₁ h₂
-  simp only [bind, Except.bind, Lynx.Except.guard, Lynx.Except.orElse, pure, Except.pure,
+  simp only [bind, Except.bind, Lynx.Except.guard, pure, Except.pure,
     Lynx.Except.tryWith] at h₁ h₂
-  repeat' (split at h₁ <;> (try (simp at h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
+  repeat' (split at h₁ <;> (try (cases h₁; done)) <;> (revert h₁; simp only [*] at h₂; intro h₁))
   all_goals first
     | (simp only [Except.ok.injEq] at h₁ h₂; subst h₁ h₂; exact Or.inl rfl)
     | exact Or.inr (HR _ _ h₁ h₂)
@@ -3882,77 +3886,6 @@ end
 
 /-! Upper bounds of updates of gradual map types. -/
 
-theorem grad_upd_inv2 {X : List (Term × Term)} {Dy : Term} (hD : mapLookup X (.atom "dynamic") = some Dy)
-    {split op rt : Term} {m : Nat} {T R er : Term}
-    (hdyn : ∀ Td Yd ed fd, Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") =
-      .ok (.tuple #[Td, Yd, ed, fd]) → ∃ Y', Yd = .map Y' ∧ mapLookup Y' (.atom "dynamic") = none)
-    (run : Elixir.Module.Types.Descr.«map_update_unchecked/4» (D (m + 1)) (.map X) split op rt =
-      .ok (.tuple #[T, R, er])) :
-    ∃ Yd res sd, (∃ Td ed fd, Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") =
-        .ok (.tuple #[Td, .map Yd, ed, fd])) ∧ mapLookup Yd (.atom "dynamic") = none ∧
-      Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) (.map (rmDyn X)) split op rt (.atom "true") = .ok res ∧
-      ((res = .atom "badmap" ∧ sd = .map []) ∨ ∃ a e f, res = .tuple #[a, sd, e, f]) ∧
-      Elixir.Module.Types.Descr.«opt_union/2» (D (m + 1)) sd (.map [(.atom "dynamic", .map Yd)]) = .ok R := by
-  rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def] at run
-  simp only [Erlang.maps.«take/2», hD] at run
-  simp only [filter_dyn, bind, Except.bind, pure, Except.pure] at run
-  have fun1 : ∀ x, (D (m + 1)).pure (.function "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-1-" 1 #[]) #[x] ≠
-      .ok (.tuple #[T, R, er]) := fun x => by
-    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-1-/1».pure]
-    unfold Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»
-    split <;> simp
-  split at run
-  · simp at run
-  split at run
-  rotate_left
-  · exact absurd run (fun1 _)
-  cases hd₀ : Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) Dy split op rt (.atom "false") with
-  | error e => rw [hd₀] at run; simp at run
-  | ok r =>
-    rw [hd₀] at run
-    obtain ⟨Td, Yd₀, ed, fd, rfl⟩ : ∃ Td Yd ed fd, r = .tuple #[Td, Yd, ed, fd] := by
-      by_cases h4 : ∃ Td Yd ed fd, r = .tuple #[Td, Yd, ed, fd]
-      · exact h4
-      · exfalso
-        simp only at run
-        split at run
-        · exact h4 ⟨_, _, _, _, rfl⟩
-        · exact fun1 _ run
-    obtain ⟨Yd, rfl, sYd⟩ := hdyn Td Yd₀ ed fd hd₀
-    generalize fd.isMember [Term.atom "false", Term.atom "nil"] = fm at run
-    simp only at run
-    cases hs₀ : Elixir.Module.Types.Descr.«map_update_static/5» (D (m + 1)) (.map (rmDyn X)) split op rt (.atom "true") with
-    | error e => rw [hs₀] at run; simp at run
-    | ok res =>
-      rw [hs₀] at run
-      have gk : getMapKeys [Term.atom "dynamic"] (.map Yd) = [] := by simp [getMapKeys_single, sYd]
-      obtain ⟨sd, hsd⟩ : ∃ sd, (res = .atom "badmap" ∧ sd = .map []) ∨ ∃ a e f, res = .tuple #[a, sd, e, f] := by
-        by_cases hb : res = .atom "badmap"
-        · exact ⟨_, Or.inl ⟨hb, rfl⟩⟩
-        · by_cases h4 : ∃ a sd e f, res = .tuple #[a, sd, e, f]
-          · obtain ⟨a, sd, e, f, rfl⟩ := h4
-            exact ⟨sd, Or.inr ⟨a, e, f, rfl⟩⟩
-          · exfalso
-            simp only at run
-            repeat' split at run
-            all_goals simp_all
-      refine ⟨Yd, res, sd, ⟨Td, ed, fd, rfl⟩, sYd, rfl, hsd, ?_⟩
-      cases hR : Elixir.Module.Types.Descr.«opt_union/2» (D (m + 1)) sd (.map [(.atom "dynamic", .map Yd)]) with
-      | error err =>
-        exfalso
-        rcases hsd with ⟨rfl, rfl⟩ | ⟨a, e, f, rfl⟩ <;> simp only [gk, hR] at run <;> (repeat' split at run) <;>
-          first
-          | (simp at run; done)
-          | (simp_all; done)
-          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> simp_all)
-      | ok R' =>
-        rcases hsd with ⟨rfl, rfl⟩ | ⟨a, e, f, rfl⟩ <;> simp only [gk, hR] at run <;> (repeat' split at run) <;>
-          first
-          | (simp at run; done)
-          | (simp only [Except.ok.injEq, Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at run
-             exact congrArg Except.ok run.2.1.symm)
-          | (simp only [Lynx.Except.guard, Lynx.Except.tryWith] at run; split at run <;> simp_all)
-
 
 section
 variable {t : Term} {n : Nat}
@@ -3997,7 +3930,7 @@ theorem upd_upper_gen {M : List (Term × Term)} (gM : GC (level t n) (.map M)) {
       · cases h
       · simp only [Term.map.injEq] at e; subst e; rw [sX.static] at hD; cases hD
       · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, trivial⟩
-    obtain ⟨Yd, res, sd, ⟨Td, ed, fd, hdy⟩, sYd, hres, hsd, hR⟩ := grad_upd_inv2 hD (fun Td Yd ed fd h => by
+    obtain ⟨Yd, res, sd, ⟨Td, ed, fd, hdy⟩, sYd, hres, hsd, hR⟩ := grad_upd_inv hD (fun Td Yd ed fd h => by
       obtain ⟨Y', rfl, -, shY, -⟩ := hsem DX dDy _ _ _ _ _ h
       refine ⟨Y', rfl, ?_⟩
       rcases shY with rfl | ⟨r, rfl⟩ <;> simp [mapLookup]) run

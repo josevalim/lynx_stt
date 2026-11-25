@@ -97,10 +97,10 @@ theorem upd_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines 
         · have nh : ¬∃ L ∈ lines, ∃ x, LineTag den L "atom" x := fun h => by have := heldI.mpr h; cases this
           cases c
           · refine ⟨_, ⟨f, val, .atom "atom" :: mis, T, rfl, hT, fSame nh (Or.inr rfl), misAdd nh⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
           · refine ⟨_, ⟨Bool.true, val, .atom "atom" :: mis, T, rfl, hT,
               ⟨fun _ => Or.inr ⟨by simp, rfl⟩, fun _ => rfl⟩, misAdd nh⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
       · have ne : Term.compare (Term.fuel (.atom s) (.atom "atom")) (.atom s) (.atom "atom") ≠ .eq := by
           rw [atoms_cmp]; exact fun e => sa (Std.compare_eq_iff_eq.mp e)
         cases b
@@ -109,7 +109,7 @@ theorem upd_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines 
           simp [boolAtom, Lynx.Term.isMember, Term.list, ne]
         · have nh : ¬∃ L ∈ lines, ∃ x, LineTag den L s x := fun h => by have := heldI.mpr h; cases this
           refine ⟨_, ⟨f, val, .atom s :: mis, T, rfl, hT, fSame nh (Or.inl sa), misAdd nh⟩, ?_⟩
-          simp [boolAtom, Lynx.Term.isMember, Term.list, ne])
+          simp [boolAtom, Term.list, ne])
     (.tuple #[.atom "false", .nil, .nil, acc]) ⟨Bool.false, [], [], acc, rfl, ha, by simp, by simp⟩
   refine ⟨f, val, mis, T, ?_, ?_, fun d => ?_⟩
   · simpa [Elixir.Module.Types.Descr.«map_update_get_domains/5», boolAtom, Term.list] using run
@@ -120,8 +120,8 @@ theorem upd_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines 
 theorem append_any (a : List Term) (b : Term) :
     Erlang.erlang.«++/2» (Term.list a) b = .ok (a.foldr Term.cons b) := by
   induction a with
-  | nil => simp [Erlang.erlang.«++/2», Term.list]
-  | cons h t ih => simp [Term.list, Erlang.erlang.«++/2»] at ih ⊢; simp [ih]
+  | nil => simp [Erlang.erlang.«++/2»]
+  | cons h t ih => simp [Erlang.erlang.«++/2»] at ih ⊢; simp [ih]
 
 /-- `map_update_named_keys/8` for a constant, asking for the old values on a static type: the errors it adds are
 `badkey` errors, and it finds a key when forcing, or when some map holds a value there and no map lacks it. -/
@@ -194,12 +194,12 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
         rw [rb']
         rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;>
           simp [T₁, e₁, f₁, re, Lynx.Term.isMember, Elixir.Module.Types.Descr.«opt_union/2», ru, boolAtom,
-            Lynx.Except.andAlso, Lynx.Except.orElse, Erlang.erlang.«not/1», append_list, append_any, Term.list]
+            Lynx.Except.andAlso, Lynx.Except.orElse, Erlang.erlang.«not/1», append_any, Term.list]
       obtain ⟨T', B', extra, f', r₁, hT', hx, hf⟩ := ih T₁ (ba.foldr Term.cons B) (e₁ ++ Er) f₁ hT₁
       refine ⟨T', B', extra ++ e₁, f', ?_, hT', fun x mx => ?_, ?_⟩
       · rw [Erlang.lists.«foldl_1/3».eq_def]
         simp only [Term.list, List.map] at r₁ ⊢
-        simp [Term.list] at step
+        simp at step
         simp [step, r₁, List.append_assoc]
       · rcases List.mem_append.mp mx with mx | mx
         · exact hx x mx
@@ -211,7 +211,7 @@ theorem named_flag (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines
             ((∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧ ¬∃ L ∈ lines, LongM den L a none) := by
           rw [someE, noneE]
           simp only [f₁]
-          by_cases hf : md = "force" <;> cases e <;> cases o <;> cases f <;> simp [hf]
+          by_cases hf : md = "force" <;> cases e <;> cases o <;> cases f <;> simp
         rw [f₁E]
         constructor
         · rintro ((h | h | h) | ⟨h₁, -⟩ | ⟨a', ma, h⟩)

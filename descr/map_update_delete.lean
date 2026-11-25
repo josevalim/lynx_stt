@@ -89,8 +89,7 @@ theorem general_old (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : 
           "-map_update_named_key/5-fun-0-" 2 #[.atom a, .tuple #[.tuple #[.atom "constant", c], .atom md]])
           (.tuple #[.nil, .tuple #[.map [], .atom "false"]]) (Term.list lines) = .ok q := by
         rcases lines with _ | ⟨L, rest⟩ <;>
-          simp_all [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Term.list, Erlang.lists.«foldl_1/3»,
-            Lynx.Except.guard]
+          simp_all [Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Term.list, Erlang.lists.«foldl_1/3»]
       obtain ⟨pr', F', rfl, hF', sF'⟩ := old_fold1 ef hn a _ lines hl .nil _ q (none_field ef).1 hq'
       obtain ⟨_, _, hp⟩ := bind_ok hp
       cases hp
@@ -177,7 +176,7 @@ theorem named_val (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines 
       Erlang.erlang.«==/2» (.atom md) (.atom "force") = .ok fc := by
     rcases hmd with rfl | rfl | rfl <;> simp [Erlang.erlang.«==/2»]
   obtain ⟨fc, hfc, efc, rfc⟩ := fcE
-  simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», rfc] at h
+  simp only [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2»] at h
   simp [Lynx.Except.orElse, Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», rfc] at h
   rcases ks with _ | ⟨k, t⟩
   · simp [Term.list] at h
@@ -319,7 +318,7 @@ theorem dnf_val_sem (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld 
         (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (boolAtom bd) (.atom "true") = .ok r →
       ∃ bdds F, r = .tuple #[bdds, F] ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o)
     {b : Term} (fb : MField E b) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
-    (hne : lines ≠ []) (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rk Ds : List String}
+    (_hne : lines ≠ []) (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rk Ds : List String}
     {neg : Term} (ok : SplitOk (rk.map Term.atom) neg (Ds.map Term.atom)) (nr : ∀ N, neg = .map N → rk = []) (r : Term)
     (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list lines)
       (splitT (rk.map Term.atom) neg (Ds.map Term.atom)) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
@@ -466,8 +465,7 @@ theorem update_delete_old {X : List (Term × Term)} (hX : DE (level t n).E (.map
         (splitT (rk.map Term.atom) neg (Ds.map Term.atom))
         (.tuple #[.tuple #[.atom "constant", .tuple #[.map [], .atom "true"]], .atom md]) (.atom "true") := by
     unfold Elixir.Module.Types.Descr.«map_update/5»
-    rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk,
-        Elixir.Module.Types.Descr.«none/0»]
+    rcases hmd with rfl | rfl | rfl <;> simp [Lynx.Term.isMember, Erlang.erlang.«is_boolean/1», Erlang.erlang.«=:=/2», hk]
   rw [upd] at run
   have sX := de_map hX
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def] at run

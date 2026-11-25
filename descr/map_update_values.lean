@@ -67,9 +67,9 @@ theorem upd_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (line
             · simp [mD d md]
           cases c
           · refine ⟨_, ⟨f, val, .atom "atom" :: mis, T, rfl, hT, semT rfl, by simp, mis'⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
           · refine ⟨_, ⟨Bool.true, val, .atom "atom" :: mis, T, rfl, hT, semT rfl, by simp, mis'⟩, ?_⟩
-            simp [boolAtom, Lynx.Term.isMember, Term.list, hc, Erlang.erlang.«/=/2», Lynx.Except.guard]
+            simp [boolAtom, Term.list, hc, Erlang.erlang.«/=/2»]
       · have ne : Term.compare (Term.fuel (.atom s) (.atom "atom")) (.atom s) (.atom "atom") ≠ .eq := by
           rw [atoms_cmp]; exact fun e => sa (Std.compare_eq_iff_eq.mp e)
         cases b
@@ -79,7 +79,7 @@ theorem upd_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (line
           · rcases List.mem_cons.mp md with rfl | md
             · simp
             · simp [mD d md]
-          · simp [boolAtom, Lynx.Term.isMember, Term.list, ne])
+          · simp [boolAtom, Term.list, ne])
     (.tuple #[.atom "false", .nil, .nil, acc]) ⟨Bool.false, [], [], acc, rfl, ha, fun x => by simp, fun _ => rfl, by simp⟩
   refine ⟨f, val, mis, T, ?_, hT, fun x => by rw [sT]; simp, fun e => fD (by simp [e]), fun d md => ?_⟩
   · simpa [Elixir.Module.Types.Descr.«map_update_get_domains/5», boolAtom, Term.list] using run
@@ -231,7 +231,7 @@ theorem named_old (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Te
       exact r₀
     | cons k t => simp only [Term.list, List.map] at r₀ ⊢; rw [Erlang.lists.«foldl_1/3».eq_def] at r₀; simpa using r₀
   · simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
-      Erlang.erlang.«not/1», Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse]
+      Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse]
     cases ks with
     | nil =>
       simp [Term.list, Erlang.lists.«foldl_1/3»] at r₁ ⊢
@@ -370,7 +370,7 @@ theorem dnf_old (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term
         cases mis₁ with
         | nil => rfl
         | cons d ds => obtain ⟨s, ms, -⟩ := mD₁ d List.mem_cons_self; simp at ms
-      simp [Erlang.lists.«map/2», Erlang.erlang.«is_function/2», Term.list] at rE'
+      simp [Erlang.lists.«map/2», Erlang.erlang.«is_function/2»] at rE'
       cases errs with
       | nil => rfl
       | cons e es => simp [Term.list] at rE'

@@ -125,13 +125,13 @@ theorem project_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : 
     simp only [pairs₁, List.mem_append] at mq
     rcases mq with mq | mq
     · by_cases h : s₂₇
-      · rw [if_pos h] at mq; rw [List.mem_singleton] at mq; subst mq
+      · rw [ite_eq_left h] at mq; rw [List.mem_singleton] at mq; subst mq
         exact ⟨absF, rest, rfl, Or.inl rfl, hr, orest⟩
-      · rw [if_neg h] at mq; simp at mq
+      · rw [ite_eq_right h] at mq; simp at mq
     · by_cases h : s₁₇
-      · rw [if_pos h] at mq; rw [List.mem_singleton] at mq; subst mq
+      · rw [ite_eq_left h] at mq; rw [List.mem_singleton] at mq; subst mq
         exact ⟨_, rest, rfl, Or.inl rfl, hr, orest⟩
-      · rw [if_neg h] at mq; simp at mq
+      · rw [ite_eq_right h] at mq; simp at mq
   obtain ⟨Qf, rQf, uQf, sAf⟩ := del_fold ef (n := n + 1) (by omega) a Q' qQ' (kQ' _ orest kP) pairs₁ up₁
   have nonx : ∀ x, ¬den (.map []) x := fun x h => (none_field (den := den) ef).2 (some x)
     (by rw [show (Term.atom "false") = boolAtom Bool.false from rfl, fieldSem_mk]; exact Or.inr ⟨x, rfl, h⟩)
@@ -155,7 +155,7 @@ theorem project_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : 
       constructor
       · rintro (⟨rfl, h'⟩ | ⟨x, rfl, hx⟩)
         · exact Or.inr ⟨rfl, h'⟩
-        · exact Or.inl ⟨x, rfl, by simpa using h, hx⟩
+        · exact Or.inl ⟨x, rfl, by simp, hx⟩
       · rintro (⟨x, rfl, -, hx⟩ | ⟨rfl, h'⟩)
         · exact Or.inr ⟨x, rfl, hx⟩
         · exact Or.inl ⟨rfl, h'⟩
@@ -224,10 +224,10 @@ theorem project_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : 
     simp only [s₁₇, s₂₇, t₂, o₂, pairs₁, absF] at rfe rQ' rQf rs₂ rb₀
     clear ss₁ ss₂ sQ' sAf se sfe sb₀ uQf up₁ qQ' kQ' fQ' hP hP' kP sem₁ f₂ short₁ short₂ o₂e toR ofR
     cases fe <;> cases e <;> cases s₁ <;> cases keep <;> cases o <;> cases s₂ <;>
-      simp only [Bool.not_false, Bool.not_true, Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and,
-        Bool.false_eq_true, ↓reduceIte, List.nil_append, List.append_nil, boolAtom, s₁₇, s₂₇, t₂, o₂, pairs₁,
+      simp only [Bool.not_false, Bool.not_true, Bool.and_true, Bool.and_false,
+        Bool.false_eq_true, ↓reduceIte, List.nil_append, List.append_nil, boolAtom, s₁₇, s₂₇, pairs₁,
         List.cons_append, Term.list] at rfe rQ' rQf rs₁ rs₂ ⊢ <;>
-      simp [rb₀, re, rs₁, rs₂, rfe, rQ', rQf, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, absF, Term.list] <;>
+      simp [rb₀, re, rs₁, rs₂, rfe, rQ', rQf, Lynx.Term.isMember, boolAtom, Lynx.Except.andAlso, absF] <;>
       (rw [rb₀] at rfe; simp [boolAtom] at rfe)
   · cases fe
     · exact uQf
@@ -493,7 +493,7 @@ theorem del_lines (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (a : St
     obtain ⟨bdds, rb, fb, sb⟩ := tail pr.reverse F (fun q mq => uQ q (List.mem_reverse.mp mq)) hF sF
       (fun w => (revW _ _).trans (sA w))
     refine ⟨bdds, F, ?_, fb, hF, sF, sb⟩
-    simp only [pure_bind, bind_assoc, runF, reverse1_list, Lynx.Except.ok_bind]
+    simp only [pure_bind, runF, reverse1_list, Lynx.Except.ok_bind]
     exact rb fun b => pure (.tuple #[b, F])
 
 /-- The maps of a deletion at a key, from the maps of a type: those whose key held a value, without the key, and
@@ -611,7 +611,7 @@ theorem named_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : S
       refine ⟨B', f', T', Er', ?_, hT', fun hb => ?_, fun hb fB => ?_⟩
       · rw [Erlang.lists.«foldl_1/3».eq_def]
         simp only [Term.list, List.map] at r₁ ⊢
-        simp [Term.list] at step
+        simp at step
         simp [step, r₁]
       · rw [bF' hb, bF hb]; rfl
       · obtain ⟨fba, sba⟩ := bT hb

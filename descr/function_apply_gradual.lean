@@ -1643,9 +1643,8 @@ theorem strategy_core {H : Nat} (two : 2 ≤ H) {Xs : List (Term × Term)} {fd F
           fun v h => absurd h (denN_nil v)⟩
       cases hc : (fdNil && !args.any isDynB || !cb)
       · -- Compatible arguments of a gradual application.
-        have hA : (fdNil && !args.any isDynB) = Bool.false := by
-          cases h : (fdNil && !args.any isDynB) <;> simp_all
-        have hcb : cb = Bool.true := by cases cb <;> simp_all
+        have hA : (fdNil && !args.any isDynB) = Bool.false := (Bool.or_eq_false_iff.mp hc).1
+        have hcb : cb = Bool.true := by simpa using (Bool.or_eq_false_iff.mp hc).2
         have okH : ok := by
           obtain ⟨hL, w, hU, hP⟩ := cbSem.mp hcb
           exact Or.inr ⟨hA, fun w hw => (coversL w hw).mp (hL w hw), w, hU, (covers w hU).mp hP⟩
