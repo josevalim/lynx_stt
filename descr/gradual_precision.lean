@@ -3267,4 +3267,3735 @@ theorem put_sub {X : List (Term × Term)} {v : Term} (gX : GC (level t (n + 1)) 
 
 end
 
+/-- List difference of atoms keeps atoms of the first list, and all of those not in the second. -/
+theorem minus_atoms (ks B : List String) : ∃ ks' : List String,
+    Erlang.erlang.«--/2» (Term.list (ks.map Term.atom)) (Term.list (B.map Term.atom)) = .ok (Term.list (ks'.map Term.atom)) ∧
+    (∀ s ∈ ks', s ∈ ks) ∧ ∀ s ∈ ks, s ∉ B → s ∈ ks' := by
+  have step : ∀ (B : List String) (L : List String), ∃ L' : List String,
+      List.foldl (fun acc y => List.eraseP (fun x => decide (compareExact (x.fuel y) x y = .eq)) acc)
+        (L.map Term.atom) (B.map Term.atom) = L'.map Term.atom ∧
+      (∀ s ∈ L', s ∈ L) ∧ ∀ s ∈ L, s ∉ B → s ∈ L' := by
+    intro B
+    induction B with
+    | nil => intro L; exact ⟨L, rfl, fun _ h => h, fun _ h _ => h⟩
+    | cons b B ih =>
+      intro L
+      have e : List.eraseP (fun x => decide (compareExact (x.fuel (.atom b)) x (.atom b) = .eq)) (L.map Term.atom) =
+          (L.eraseP (fun s => decide (s = b))).map Term.atom := by
+        rw [List.eraseP_map]
+        congr 1
+      obtain ⟨L', e', s₁, s₂⟩ := ih (L.eraseP (fun s => decide (s = b)))
+      refine ⟨L', ?_, fun s ms => List.mem_of_mem_eraseP (s₁ s ms), fun s ms nb => s₂ s ?_ fun m => nb (List.mem_cons_of_mem _ m)⟩
+      · simp only [List.map_cons, List.foldl_cons]; rw [e]; exact e'
+      · have nb' : ¬decide (s = b) = Bool.true := by simpa using fun h : s = b => nb (h ▸ List.mem_cons_self)
+        exact (List.mem_eraseP_of_neg (p := fun x => decide (x = b)) (a := s) nb').mpr ms
+  obtain ⟨ks', e, s₁, s₂⟩ := step B ks
+  exact ⟨ks', by simp [Erlang.erlang.«--/2», Term.properList?_list, e], s₁, s₂⟩
+
+
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `map_update_static_dnf/6` for a constant, asking for the old values: when it succeeds, the old values are the values
+at the keys. -/
+theorem dnf_val_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) (md : String)
+    (hmd : md = "force" ∨ md = "keep" ∨ md = "reject") (bdd : Term)
+    (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (rk Os : List String)
+    (neg : Term) (Ds Do : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (R : List String)
+    (st : Term) (hR : Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 6)) neg bdd = .ok (Term.list (R.map Term.atom)))
+    (hk : ∀ (bd : Bool) a r, Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 5)) (Term.list lines) (.atom a)
+      (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (boolAtom bd) (.atom "true") = .ok r →
+      ∃ bdds F, r = .tuple #[bdds, F] ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o)
+    (r : Term)
+    (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
+      (.tuple #[Term.list (rk.map Term.atom), Term.list (Os.map Term.atom), neg, Term.list (Ds.map Term.atom),
+        Term.list (Do.map Term.atom)]) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
+      (.atom "true") st = .ok r) :
+    ∃ T Y er f, r = .tuple #[T, Y, er, f] ∧ E T ∧
+      ∀ x, den T x ↔ (∃ s, (s ∈ Ds ∨ s ∈ Do) ∧ ∃ L ∈ lines, LineTag den L s x) ∨
+        ∃ a, (a ∈ rk ∨ a ∈ Os ∨ a ∈ R) ∧ ∃ L ∈ lines, LongM den L a (some x) := by
+  classical
+  obtain ⟨R1, m₀, R1s, R1c⟩ := minus_atoms R Os
+  obtain ⟨R2, m₁, R2s, R2c⟩ := minus_atoms R1 rk
+  have m₂ : Erlang.erlang.«++/2» (Term.list (R2.map Term.atom)) (Term.list (Os.map Term.atom)) =
+      .ok (Term.list (R2.map Term.atom ++ Os.map Term.atom)) := by
+    exact append_list (R2.map Term.atom) (Os.map Term.atom)
+  have m₃ : Erlang.erlang.«++/2» (Term.list (Ds.map Term.atom)) (Term.list (Do.map Term.atom)) =
+      .ok (Term.list (Ds.map Term.atom ++ Do.map Term.atom)) := by
+    exact append_list (Ds.map Term.atom) (Do.map Term.atom)
+  obtain ⟨c, hc⟩ := any_named_ok ef (n := n) (by omega) lines hl (rk ++ (R2 ++ Os))
+  have hcb : (D (n + 5)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
+      #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom), Term.list (rk.map Term.atom)]) #[] = .ok (boolAtom c) := by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
+    simpa [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», append_list] using hc
+  obtain ⟨f₁, val₁, mis₁, T₁, r₁, hT₁, sT₁, -, mD₁⟩ := upd_domains ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Ds ef.none
+  obtain ⟨errs, rE⟩ := domain_errors_ok (n + 5) mis₁ fun d md => by
+    obtain ⟨s, ms, rfl⟩ := mD₁ d md; exact ⟨s, hDs s ms, rfl⟩
+  have r₁' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Ds.map Term.atom)) (.map []) (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₁, Term.list val₁, Term.list mis₁, T₁]) := r₁
+  obtain ⟨f₂, val₂, mis₂, T₂, r₂, hT₂, sT₂, -, -⟩ := upd_domains ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Do hT₁
+  have r₂' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Do.map Term.atom)) T₁ (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₂, Term.list val₂, Term.list mis₂, T₂]) := r₂
+  have rE' : Erlang.lists.«map/2» (D (n + 6))
+      (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list mis₁) =
+      .ok (Term.list errs) := rE
+  have mv : Erlang.erlang.«++/2» (Term.list val₁) (Term.list val₂) = .ok (Term.list (val₁ ++ val₂)) :=
+    append_list val₁ val₂
+  have sem : ∀ T' T'' : Term, (∀ x, den T' x ↔ den T₂ x ∨ ∃ a ∈ rk, ∃ L ∈ lines, LongM den L a (some x)) →
+      (∀ x, den T'' x ↔ den T' x ∨ ∃ a ∈ R2 ++ Os, ∃ L ∈ lines, LongM den L a (some x)) →
+      ∀ x, den T'' x ↔ (∃ s, (s ∈ Ds ∨ s ∈ Do) ∧ ∃ L ∈ lines, LineTag den L s x) ∨
+        ∃ a, (a ∈ rk ∨ a ∈ Os ∨ a ∈ R) ∧ ∃ L ∈ lines, LongM den L a (some x) := fun T' T'' s' s'' x => by
+    rw [s'', s', sT₂, sT₁]
+    simp only [ef.den_none x, false_or, List.mem_append]
+    constructor
+    · rintro (((⟨s, ms, hh⟩ | ⟨s, ms, hh⟩) | ⟨a, ma, hh⟩) | ⟨a, ma | ma, hh⟩)
+      · exact Or.inl ⟨s, Or.inl ms, hh⟩
+      · exact Or.inl ⟨s, Or.inr ms, hh⟩
+      · exact Or.inr ⟨a, Or.inl ma, hh⟩
+      · exact Or.inr ⟨a, Or.inr (Or.inr (R1s a (R2s a ma))), hh⟩
+      · exact Or.inr ⟨a, Or.inr (Or.inl ma), hh⟩
+    · rintro (⟨s, ms | ms, hh⟩ | ⟨a, ma | ma | ma, hh⟩)
+      · exact Or.inl (Or.inl (Or.inl ⟨s, ms, hh⟩))
+      · exact Or.inl (Or.inl (Or.inr ⟨s, ms, hh⟩))
+      · exact Or.inl (Or.inr ⟨a, ma, hh⟩)
+      · exact Or.inr ⟨a, Or.inr ma, hh⟩
+      · by_cases ao : a ∈ Os
+        · exact Or.inr ⟨a, Or.inr ao, hh⟩
+        by_cases ar : a ∈ rk
+        · exact Or.inl (Or.inr ⟨a, ar, hh⟩)
+        · exact Or.inr ⟨a, Or.inl (R2c a (R1c a ma ao) ar), hh⟩
+  unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h
+  rcases hmd with rfl | rfl | rfl <;>
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», hR, m₀, m₁, m₂, m₃, mv,
+      r₁', r₂', rE', Lynx.Except.andAlso] at h
+  all_goals
+    obtain ⟨_, -, h⟩ := bind_ok h
+    obtain ⟨_, -, h⟩ := bind_ok h
+    obtain ⟨X, hX, h⟩ := bind_ok h
+    have hb : X.2 = .atom "false" ∨ X.2 = .atom "true" := by
+      clear h
+      simp only [bind, Except.bind, Except.tryWith] at hX
+      repeat' split at hX
+      all_goals first | (cases hX; done) | (injection hX with hX; subst hX; simp) | skip
+      all_goals done
+    obtain ⟨B96, -, h⟩ := bind_ok h
+    obtain ⟨r97, h97, h⟩ := bind_ok h
+    obtain ⟨T', B', Er', F', rfl, hT', sT'⟩ := named_val ef (n := n + 2) (by omega) lines fld _ (by simp) _ _ _
+      (hk Bool.true) rk _ _ _ _ _ hT₂ h97
+    obtain ⟨bd, ebd⟩ : ∃ bd : Bool, X.2 = boolAtom bd := by
+      rcases hb with hb | hb
+      · exact ⟨Bool.false, hb⟩
+      · exact ⟨Bool.true, hb⟩
+    rw [ebd] at h
+    obtain ⟨r5, h5, h⟩ := bind_ok h
+    obtain ⟨T'', B'', Er'', F'', rfl, hT'', sT''⟩ := named_val ef (n := n + 2) (by omega) lines fld _ (by simp) _ _ _
+      (hk bd) (R2 ++ Os) _ _ _ _ _ hT' (by simpa using h5)
+    obtain ⟨u, -, h⟩ := bind_ok h
+    split at h <;> (simp only [Except.ok.injEq] at h; subst h; exact ⟨T'', _, _, _, rfl, hT'', sem T' T'' sT' sT''⟩)
+
+theorem dnf_flag_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (fld : Term) {md : String} (hmd : Mode md) (st : Bool)
+    (bdd : Term) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (rk Os : List String)
+    (neg : Term) (Ds Do : List String) (hDs : ∀ s ∈ Ds, s ∈ domainKinds) (hDo : ∀ s ∈ Do, s ∈ domainKinds)
+    (R : List String)
+    (hR : Elixir.Module.Types.Descr.«map_keys_from_negated_set/2» (D (n + 6)) neg bdd = .ok (Term.list (R.map Term.atom)))
+    (hk : ∀ (bd : Bool) a, ∃ (ba : List Term) (F : Term), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 5))
+      (Term.list lines) (.atom a) (.tuple #[.tuple #[.atom "constant", fld], .atom md]) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, F]) ∧ FieldValue E F ∧ ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o)
+    (r : Term)
+    (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
+      (.tuple #[Term.list (rk.map Term.atom), Term.list (Os.map Term.atom), neg, Term.list (Ds.map Term.atom),
+        Term.list (Do.map Term.atom)]) (.tuple #[.tuple #[.atom "constant", fld], .atom md])
+      (.atom "true") (boolAtom st) = .ok r) :
+    ∃ (T Y : Term) (el : List Term) (f : Bool), r = .tuple #[T, Y, Term.list el, boolAtom f] ∧
+      (md ≠ "force" → (f = Bool.true ↔ (∃ s, (s ∈ Ds ∨ s ∈ Do) ∧ ∃ L ∈ lines, ∃ x, LineTag den L s x) ∨
+        ("atom" ∈ Ds ++ Do ∧ ∃ a, (a ∈ rk ∨ a ∈ Os ∨ a ∈ R) ∧ ∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∨
+        ∃ a, (a ∈ rk ∨ a ∈ Os ∨ a ∈ R) ∧ (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∧
+          (st = Bool.true → ¬∃ L ∈ lines, LongM den L a none))) ∧
+      (md = "force" → (f = Bool.true ↔ Ds ++ Do ≠ [] ∨ rk ≠ [] ∨ Os ≠ [] ∨ R ≠ [])) := by
+  classical
+  obtain ⟨R1, m₀, R1s, R1c⟩ := minus_atoms R Os
+  obtain ⟨R2, m₁, R2s, R2c⟩ := minus_atoms R1 rk
+  have m₂ : Erlang.erlang.«++/2» (Term.list (R2.map Term.atom)) (Term.list (Os.map Term.atom)) =
+      .ok (Term.list (R2.map Term.atom ++ Os.map Term.atom)) := append_list _ _
+  have m₃ : Erlang.erlang.«++/2» (Term.list (Ds.map Term.atom)) (Term.list (Do.map Term.atom)) =
+      .ok (Term.list (Ds.map Term.atom ++ Do.map Term.atom)) := append_list _ _
+  obtain ⟨c, hc, sc⟩ := any_named_sem ef (n := n) (by omega) lines hl (rk ++ (R2 ++ Os))
+  have hcb : (D (n + 5)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
+      #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom), Term.list (rk.map Term.atom)]) #[] =
+        .ok (boolAtom c) := by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
+    simpa [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», append_list] using hc
+  obtain ⟨f₁, val₁, mis₁, T₁, r₁, fD₁, mD₁⟩ := upd_found ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ c hcb Ds ef.none
+  obtain ⟨f₁', val₁', mis₁', T₁', r₁', hT₁, -, -, -⟩ := upd_domains ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Ds ef.none
+  have eT : T₁' = T₁ := by
+    have := r₁.symm.trans r₁'
+    simp only [Except.ok.injEq, Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at this
+    exact this.2.2.2.1.symm
+  rw [eT] at hT₁
+  clear r₁' eT
+  obtain ⟨f₂, val₂, mis₂, T₂, r₂, fD₂, -⟩ := upd_found ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ c hcb Do hT₁
+  obtain ⟨f₂', val₂', mis₂', T₂', r₂'', hT₂, -, -, -⟩ := upd_domains ef (n := n + 2) (by omega) lines
+    (fun L mL => (hl L mL).1) _ ⟨c, hcb⟩ Do hT₁
+  have eT₂ : T₂' = T₂ := by
+    have := r₂.symm.trans r₂''
+    simp only [Except.ok.injEq, Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at this
+    exact this.2.2.2.1.symm
+  rw [eT₂] at hT₂
+  clear r₂'' eT₂
+  -- The atoms the named keys hold: required, optional and those outside a negated set.
+  have memK : ∀ a, a ∈ rk ++ (R2 ++ Os) ↔ a ∈ rk ∨ a ∈ Os ∨ a ∈ R := fun a => by
+    simp only [List.mem_append]
+    constructor
+    · rintro (h | h | h)
+      · exact Or.inl h
+      · exact Or.inr (Or.inr (R1s a (R2s a h)))
+      · exact Or.inr (Or.inl h)
+    · rintro (h | h | h)
+      · exact Or.inl h
+      · exact Or.inr (Or.inr h)
+      · by_cases ao : a ∈ Os
+        · exact Or.inr (Or.inr ao)
+        by_cases ar : a ∈ rk
+        · exact Or.inl ar
+        · exact Or.inr (Or.inl (R2c a (R1c a h ao) ar))
+  have rE' : Erlang.lists.«map/2» (D (n + 6))
+      (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list mis₁) =
+      .ok (Term.list (mis₁.map bdErr)) := by
+    refine map_list _ _ _ _ bdErr _ fun x mx => ?_
+    obtain ⟨s, ms, rfl, -⟩ := (mD₁ x).mp mx
+    obtain ⟨y, hy⟩ := domain_descr_ok (hDs s ms)
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-1-/1».pure]
+    simp [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-1-/1», hy, bdErr, domDescr]
+  have r₁'' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Ds.map Term.atom)) (.map []) (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₁, Term.list val₁, Term.list mis₁, T₁]) := r₁
+  have r₂' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Do.map Term.atom)) T₁ (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₂, Term.list val₂, Term.list mis₂, T₂]) := r₂
+  have mv : Erlang.erlang.«++/2» (Term.list val₁) (Term.list val₂) = .ok (Term.list (val₁ ++ val₂)) :=
+    append_list val₁ val₂
+  unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6» at h
+  have hmd₀ := hmd
+  obtain ⟨md', hmd'⟩ : ∃ m, m = md := ⟨md, rfl⟩
+  rcases hmd with rfl | rfl | rfl <;>
+  simp [Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», hR, m₀, m₁, m₂, m₃, mv,
+      r₁'', r₂', rE', Lynx.Except.andAlso] at h
+  all_goals
+    obtain ⟨v44, h44, h⟩ := bind_ok h
+    obtain ⟨v51, h51, h⟩ := bind_ok h
+    -- The found flag the named keys start with.
+    obtain ⟨f₀, rfl, ef₀, ff₀⟩ : ∃ f₀ : Bool, v51 = boolAtom f₀ ∧
+        (md' ≠ "force" → (f₀ = Bool.true ↔ (f₁ || f₂) = Bool.true)) ∧
+        (md' = "force" → (f₀ = Bool.true ↔ Ds ++ Do ≠ [] ∨ (f₁ || f₂) = Bool.true)) := by
+      subst hmd'
+      clear h hk hcb hc r₁'' r₂' rE' r₁ r₂
+      have hl : (Term.list (List.map Term.atom Ds ++ List.map Term.atom Do) = Term.nil) ↔ Ds ++ Do = [] := by
+        rcases Ds with _ | ⟨_, _⟩ <;> rcases Do with _ | ⟨_, _⟩ <;> simp [Term.list]
+      generalize (f₁ || f₂) = b at h44 h51 ⊢
+      by_cases hE : Ds ++ Do = []
+      all_goals
+        cases b <;> (try simp only [hl, hE] at h44) <;> (try (split at h44 <;> rename_i hq <;> simp at hq)) <;>
+          simp [Lynx.Except.orElse, boolAtom] at h44 <;> subst h44 <;>
+          simp [Lynx.Except.orElse, boolAtom] at h51 <;> subst h51 <;>
+          first
+          | exact ⟨Bool.true, rfl, by simp, by simp [hE]⟩
+          | exact ⟨Bool.false, rfl, by simp, by simp [hE]⟩
+    obtain ⟨X, hX, h⟩ := bind_ok h
+    have hb : X.2 = .atom "false" ∨ X.2 = .atom "true" := by
+      clear h
+      simp only [bind, Except.bind, Except.tryWith] at hX
+      repeat' split at hX
+      all_goals first | (cases hX; done) | (injection hX with hX; subst hX; simp) | skip
+      all_goals done
+    obtain ⟨B96, -, h⟩ := bind_ok h
+    obtain ⟨r97, h97, h⟩ := bind_ok h
+    obtain ⟨T', B', extra, f₃, e97, hT', hx₁, hf₃⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.true st
+      (.atom "true") (fun a => hk Bool.true a) rk T₂ B96 (mis₁.map bdErr) f₀ hT₂
+    have e₁ := h97.symm.trans e97
+    cases e₁
+    obtain ⟨bd, ebd⟩ : ∃ bd : Bool, X.2 = boolAtom bd := by
+      rcases hb with hb | hb
+      · exact ⟨Bool.false, hb⟩
+      · exact ⟨Bool.true, hb⟩
+    rw [ebd] at h
+    obtain ⟨r5, h5, h⟩ := bind_ok h
+    obtain ⟨T'', B'', extra', f₄, e5, -, -, hf₄⟩ := named_flag ef (n := n + 2) (by omega) lines fld hmd₀ Bool.false st
+      (boolAtom bd) (fun a => hk bd a) (R2 ++ Os) T' B' (extra ++ mis₁.map bdErr) f₃ hT'
+    have e₂ := h5.symm.trans (by simpa using e5)
+    cases e₂
+    obtain ⟨u, -, h⟩ := bind_ok h
+    subst hmd'
+    split at h <;> (simp only [Except.ok.injEq] at h; subst h)
+    all_goals
+      refine ⟨T'', _, _, f₄, rfl, ?_, ?_⟩
+      all_goals first | (intro nf; exact absurd rfl nf) | (intro hf; simp at hf; done) | skip
+    all_goals
+      first
+      | (intro hf
+         have fD : (f₁ || f₂) = Bool.true → Ds ++ Do ≠ [] := fun h1 => by
+           rcases Bool.or_eq_true _ _ ▸ h1 with h1 | h1
+           · rcases fD₁.mp h1 with ⟨s, ms, -⟩ | ⟨ms, -⟩ <;> exact List.ne_nil_of_mem (List.mem_append_left _ ms)
+           · rcases fD₂.mp h1 with ⟨s, ms, -⟩ | ⟨ms, -⟩ <;> exact List.ne_nil_of_mem (List.mem_append_right _ ms)
+         have r2os : R2 ++ Os ≠ [] → Os ≠ [] ∨ R ≠ [] := fun h => by
+           obtain ⟨a, ma⟩ := List.exists_mem_of_ne_nil _ h
+           rcases List.mem_append.mp ma with m | m
+           · exact Or.inr (List.ne_nil_of_mem (R1s a (R2s a m)))
+           · exact Or.inl (List.ne_nil_of_mem m)
+         rw [hf₄, hf₃, ff₀ hf]
+         simp only [true_and]
+         constructor
+         · rintro (((h0 | h1) | h2 | ⟨a, ma, -⟩) | h3 | ⟨a, ma, -⟩)
+           · exact Or.inl h0
+           · exact Or.inl (fD h1)
+           · exact Or.inr (Or.inl h2)
+           · exact Or.inr (Or.inl (List.ne_nil_of_mem ma))
+           · exact Or.inr (Or.inr (r2os h3))
+           · exact Or.inr (Or.inr (r2os (List.ne_nil_of_mem ma)))
+         · rintro (h0 | h2 | h3 | h4)
+           · exact Or.inl (Or.inl (Or.inl h0))
+           · exact Or.inl (Or.inr (Or.inl h2))
+           · exact Or.inr (Or.inl fun e => h3 (List.append_eq_nil_iff.mp e).2)
+           · obtain ⟨a, ma⟩ := List.exists_mem_of_ne_nil _ h4
+             rcases List.mem_append.mp ((memK a).mpr (Or.inr (Or.inr ma))) with m | m
+             · exact Or.inl (Or.inr (Or.inl (List.ne_nil_of_mem m)))
+             · exact Or.inr (Or.inl (List.ne_nil_of_mem m)))
+      | (intro nf
+         rw [hf₄, hf₃, ef₀ nf, Bool.or_eq_true, fD₁, fD₂, sc]
+         simp only [nf, false_and, false_or]
+         constructor
+         · rintro (((((h | ⟨ha, hc'⟩) | (h | ⟨ha, hc'⟩)) | ⟨a, ma, hh⟩) | ⟨a, ma, hh⟩))
+           · obtain ⟨s, ms, h⟩ := h; exact Or.inl ⟨s, Or.inl ms, h⟩
+           · obtain ⟨a, ma, h⟩ := hc'; exact Or.inr (Or.inl ⟨List.mem_append_left _ ha, a, (memK a).mp ma, h⟩)
+           · obtain ⟨s, ms, h⟩ := h; exact Or.inl ⟨s, Or.inr ms, h⟩
+           · obtain ⟨a, ma, h⟩ := hc'; exact Or.inr (Or.inl ⟨List.mem_append_right _ ha, a, (memK a).mp ma, h⟩)
+           · exact Or.inr (Or.inr ⟨a, (memK a).mp (List.mem_append_left _ ma), hh⟩)
+           · exact Or.inr (Or.inr ⟨a, (memK a).mp (List.mem_append_right _ ma), hh⟩)
+         · rintro (⟨s, ms | ms, h⟩ | ⟨ha, a, ma, h⟩ | ⟨a, ma, hh⟩)
+           · exact Or.inl (Or.inl (Or.inl (Or.inl ⟨s, ms, h⟩)))
+           · exact Or.inl (Or.inl (Or.inr (Or.inl ⟨s, ms, h⟩)))
+           · rcases List.mem_append.mp ha with ha | ha
+             · exact Or.inl (Or.inl (Or.inl (Or.inr ⟨ha, a, (memK a).mpr ma, h⟩)))
+             · exact Or.inl (Or.inl (Or.inr (Or.inr ⟨ha, a, (memK a).mpr ma, h⟩)))
+           · rcases List.mem_append.mp ((memK a).mpr ma) with m | m
+             · exact Or.inl (Or.inr ⟨a, m, hh⟩)
+             · exact Or.inr ⟨a, m, hh⟩)
+
+end
+
+
+
+/-- The split of a key type of the laws as `map_split_keys_and_domains/1` returns it. -/
+def gsT (rk Os : List String) (neg : Term) (Ds Do : List String) : Term :=
+  .tuple #[Term.list (rk.map Term.atom), Term.list (Os.map Term.atom), neg, Term.list (Ds.map Term.atom),
+    Term.list (Do.map Term.atom)]
+
+/-- Splits of gradual key types: atoms it requires and those it may hold, the negated set, and the required and
+optional kinds, with atoms either named or outside the negated set, which holds the required ones. -/
+structure GSplit (rk Os : List String) (neg : Term) (Ds Do : List String) : Prop where
+  ok : SplitOk [] neg ((Ds ++ Do).map Term.atom)
+  os : ∀ N, neg = .map N → Os = []
+  na : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s
+  rk : ∀ N, neg = .map N → ∀ a ∈ rk, mapLookup N (.atom a) ≠ none
+
+/-- The keys of a split. -/
+def GKey (rk Os : List String) (neg : Term) (Ds Do : List String) (κ : MKey) : Prop :=
+  (∃ a, (a ∈ rk ∨ a ∈ Os) ∧ κ = .atom a) ∨ SplitKey [] neg ((Ds ++ Do).map Term.atom) κ
+
+theorem atoms_strs : ∀ {rs : List Term}, (∀ r ∈ rs, ∃ s, r = .atom s) → ∃ A : List String, rs = A.map Term.atom
+  | [], _ => ⟨[], rfl⟩
+  | r :: rs, h => by
+    obtain ⟨s, rfl⟩ := h r List.mem_cons_self
+    obtain ⟨A, rfl⟩ := atoms_strs fun x m => h x (List.mem_cons_of_mem _ m)
+    exact ⟨s :: A, rfl⟩
+
+theorem gform_strs {s : Term} {KP : MKey → Prop} (hs : GForm s KP) :
+    ∃ rk Os neg Ds Do, s = gsT rk Os neg Ds Do ∧ GSplit rk Os neg Ds Do ∧ ∀ κ, GKey rk Os neg Ds Do κ ↔ KP κ := by
+  rcases hs with ⟨Rs, Os, Ds, Ds', rfl, ok, sk⟩ | ⟨N, Ds, Ds', rfl, ok, na, sk⟩ | ⟨A, N, Ds, Ds', rfl, ok, na, hA, sk⟩
+  · obtain ⟨rk, rfl⟩ := atoms_strs fun r m => ok.hrs r (List.mem_append_left _ m)
+    obtain ⟨os, rfl⟩ := atoms_strs fun r m => ok.hrs r (List.mem_append_right _ m)
+    obtain ⟨D₁, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_left _ m); ⟨s, e⟩
+    obtain ⟨D₂, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_right _ m); ⟨s, e⟩
+    refine ⟨rk, os, _, D₁, D₂, rfl, ⟨⟨by simp, ok.hneg, fun d m => ok.hds d (by simpa using m),
+      by simpa using ok.hatom⟩, fun N e => (by cases e), fun N e => (by cases e), fun N e => (by cases e)⟩,
+      fun κ => (Iff.trans ?_ (sk κ))⟩
+    cases κ with
+    | atom a => simp [GKey, SplitKey]
+    | dom k i => simp [GKey, SplitKey]
+  · obtain ⟨D₁, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_left _ m); ⟨s, e⟩
+    obtain ⟨D₂, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_right _ m); ⟨s, e⟩
+    refine ⟨[], [], _, D₁, D₂, rfl, ⟨by simpa using ok, fun _ _ => rfl, fun N' e => (by cases e; exact na),
+      fun _ _ a m => (by simp at m)⟩, fun κ => (Iff.trans ?_ (sk κ))⟩
+    cases κ with
+    | atom a => simp [GKey, SplitKey]
+    | dom k i => simp [GKey, SplitKey]
+  · obtain ⟨D₁, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_left _ m); ⟨s, e⟩
+    obtain ⟨D₂, rfl⟩ := atoms_strs fun r m => let ⟨s, _, e⟩ := ok.hds r (List.mem_append_right _ m); ⟨s, e⟩
+    refine ⟨A, [], _, D₁, D₂, rfl, ⟨by simpa using ok, fun _ _ => rfl, fun N' e => (by cases e; exact na),
+      fun N' e => (by cases e; exact hA)⟩, fun κ => (Iff.trans ?_ (sk κ))⟩
+    cases κ with
+    | atom a => simp [GKey, SplitKey]
+    | dom k i => simp [GKey, SplitKey]
+
+/-- Whether an update finds a key, from the maps of a type: when forcing, whether the split has a key; otherwise,
+whether some map holds a value at a key outside the named atoms, or at a named atom when the split has all atoms
+outside a set, or at a named atom every map holds on static types. -/
+def FoundG {V : Type} (M : MW V → Prop) (rk Os : List String) (neg : Term) (Ds Do : List String) (md : String)
+    (st : Bool) : Prop :=
+  (md = "force" ∧ (Ds ++ Do ≠ [] ∨ rk ≠ [] ∨ Os ≠ [])) ∨
+  (md ≠ "force" ∧ ((∃ x w, M w ∧ ∃ κ, SplitKey [] neg ((Ds ++ Do).map Term.atom) κ ∧ w κ = some x) ∨
+    ("atom" ∈ Ds ++ Do ∧ ∃ a, (a ∈ rk ∨ a ∈ Os) ∧ ∃ w x, M w ∧ w (.atom a) = some x) ∨
+    ∃ a, (a ∈ rk ∨ a ∈ Os) ∧ (∃ w x, M w ∧ w (.atom a) = some x) ∧
+      (st = Bool.true → ∀ w, M w → w (.atom a) ≠ none)))
+
+
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `map_update_static_dnf/6` updating a non-empty static value at the split of a gradual key, asking for the old
+values: the old values are those the maps hold at the keys, and the found flag is `FoundG` of the maps. -/
+theorem dnf_gvf (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v) (vne : ∃ x, den v x)
+    {b : Term} (fb : MField E b) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sl : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) {rk Os : List String} {neg : Term}
+    {Ds Do : List String} (gs : GSplit rk Os neg Ds Do) {md : String} (hmd : Mode md) (st : Bool) {r : Term}
+    (h : Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list lines) (gsT rk Os neg Ds Do)
+      (cOp v Bool.false md) (.atom "true") (boolAtom st) = .ok r) :
+    ∃ T Y el f, r = .tuple #[T, Y, Term.list el, boolAtom f] ∧ E T ∧
+      (∀ x, den T x ↔ ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, GKey rk Os neg Ds Do κ ∧ w κ = some x) ∧
+      (f = Bool.true ↔ FoundG (fun u => denMF E den b u = Bool.true) rk Os neg Ds Do md st) := by
+  have hD : ∀ s ∈ Ds ++ Do, s ∈ domainKinds := fun s ms => by
+    obtain ⟨s', ms', e⟩ := gs.ok.hds _ (List.mem_map_of_mem ms); cases e; exact ms'
+  have hk : ∀ (bd : Bool) a, ∃ (ba : List Term) (F : Term), Elixir.Module.Types.Descr.«map_update_named_key/5»
+      (D (n + 5)) (Term.list lines) (.atom a) (.tuple #[.tuple #[.atom "constant", .tuple #[v, boolAtom Bool.false]],
+        .atom md]) (boolAtom bd) (.atom "true") = .ok (.tuple #[Term.list ba, F]) ∧ FieldValue E F ∧
+      ∀ o, FieldSem den F o ↔ ∃ L ∈ lines, LongM den L a o := fun bd a => by
+    rcases hmd with rfl | rfl | rfl
+    · exact hk_force ef (n := n + 2) (by omega) hv lines hl bd a
+    · exact hk_val ef (n := n + 2) (by omega) hv vne Bool.true lines hl bd a
+    · exact hk_val ef (n := n + 2) (by omega) hv vne Bool.false lines hl bd a
+  obtain ⟨R, rR, hR, swR⟩ := neg_keys_split ef fb (n + 5) gs.ok
+  obtain ⟨R', rfl⟩ := atoms_strs fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩
+  obtain ⟨T, Y, er, f, rfl, hT, sT⟩ := dnf_val_g ef hn (.tuple #[v, boolAtom Bool.false]) md hmd b lines hl rk Os neg
+    Ds Do (fun s ms => hD s (List.mem_append_left _ ms)) R' (boolAtom st) rR
+    (fun bd a r hr => by
+      obtain ⟨ba, F, e, hF, sF⟩ := hk bd a
+      rw [e] at hr; cases hr; exact ⟨_, F, rfl, hF, sF⟩) r h
+  obtain ⟨T', Y', el, f', e, nf, ff⟩ := dnf_flag_g ef hn (.tuple #[v, boolAtom Bool.false]) hmd st b lines hl rk Os
+    neg Ds Do (fun s ms => hD s (List.mem_append_left _ ms)) (fun s ms => hD s (List.mem_append_right _ ms)) R' rR
+    hk _ h
+  simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at e
+  obtain ⟨rfl, rfl, rfl, rfl⟩ := e
+  have pe := fun x => pieces_sem ef lines hl sl gs.ok hR swR x
+  have lm := fun a o => longM_iff (E := E) (den := den) sl a o
+  -- An atom outside the negated set means the split holds the atom kind.
+  have rAt : ∀ a ∈ R', "atom" ∈ Ds ++ Do := fun a ma => by
+    obtain ⟨s, e, N, eN, -⟩ := hR _ (List.mem_map_of_mem ma)
+    obtain ⟨s', ms', e'⟩ := List.mem_map.mp (gs.ok.hatom.mpr ⟨N, eN⟩)
+    cases e'; exact ms'
+  have gk : ∀ x, (∃ w, denMF E den b w = Bool.true ∧ ∃ κ, GKey rk Os neg Ds Do κ ∧ w κ = some x) ↔
+      (∃ a, (a ∈ rk ∨ a ∈ Os) ∧ ∃ L ∈ lines, LongM den L a (some x)) ∨
+        ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey [] neg ((Ds ++ Do).map Term.atom) κ ∧ w κ = some x := by
+    intro x
+    constructor
+    · rintro ⟨w, hw, κ, ⟨a, ma, rfl⟩ | hκ, e⟩
+      · exact Or.inl ⟨a, ma, (lm a _).mpr ⟨w, hw, e⟩⟩
+      · exact Or.inr ⟨w, hw, κ, hκ, e⟩
+    · rintro (⟨a, ma, h⟩ | ⟨w, hw, κ, hκ, e⟩)
+      · obtain ⟨w, hw, e⟩ := (lm a _).mp h
+        exact ⟨w, hw, _, Or.inl ⟨a, ma, rfl⟩, e⟩
+      · exact ⟨w, hw, κ, Or.inr hκ, e⟩
+  have pe' : ∀ x, ((∃ s ∈ R', ∃ L ∈ lines, LongM den L s (some x)) ∨
+      ∃ kind, (kind ∈ Ds ∨ kind ∈ Do) ∧ ∃ L ∈ lines, LineTag den L kind x) ↔
+      ∃ w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey [] neg ((Ds ++ Do).map Term.atom) κ ∧ w κ = some x := by
+    intro x
+    rw [← pe x]
+    simp only [List.mem_map, Term.atom.injEq, exists_eq_right, List.not_mem_nil, false_and, exists_false, false_or,
+      List.mem_append]
+  refine ⟨T, Y, el, f', rfl, hT, fun x => (sT x).trans ?_, ?_⟩
+  · rw [gk, ← pe']
+    constructor
+    · rintro (⟨s, ms, hh⟩ | ⟨a, (ma | ma | ma), hh⟩)
+      · exact Or.inr (Or.inr ⟨s, ms, hh⟩)
+      · exact Or.inl ⟨a, Or.inl ma, hh⟩
+      · exact Or.inl ⟨a, Or.inr ma, hh⟩
+      · exact Or.inr (Or.inl ⟨a, ma, hh⟩)
+    · rintro (⟨a, ma, hh⟩ | ⟨a, ma, hh⟩ | ⟨s, ms, hh⟩)
+      · exact Or.inr ⟨a, ma.imp_right Or.inl, hh⟩
+      · exact Or.inr ⟨a, Or.inr (Or.inr ma), hh⟩
+      · exact Or.inl ⟨s, ms, hh⟩
+  · by_cases hf : md = "force"
+    · subst hf
+      rw [ff rfl]
+      simp only [FoundG, true_and, ne_eq, not_true_eq_false, false_and, or_false]
+      constructor
+      · rintro (h | h | h | h)
+        · exact Or.inl h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr h)
+        · obtain ⟨a, ma⟩ := List.exists_mem_of_ne_nil _ h
+          exact Or.inl (List.ne_nil_of_mem (rAt a ma))
+      · rintro (h | h | h)
+        · exact Or.inl h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr (Or.inl h))
+    · rw [nf hf]
+      simp only [FoundG, hf, false_and, false_or, ne_eq, not_false_eq_true, true_and]
+      have none_iff : ∀ a, (¬∃ L ∈ lines, LongM den L a none) ↔
+          ∀ w, denMF E den b w = Bool.true → w (.atom a) ≠ none := fun a => by
+        rw [lm a none]; simp
+      have some_iff : ∀ a, (∃ L ∈ lines, ∃ x, LongM den L a (some x)) ↔
+          ∃ w x, denMF E den b w = Bool.true ∧ w (.atom a) = some x := fun a => by
+        constructor
+        · rintro ⟨L, mL, x, h⟩
+          obtain ⟨w, hw, e⟩ := (lm a _).mp ⟨L, mL, h⟩; exact ⟨w, x, hw, e⟩
+        · rintro ⟨w, x, hw, e⟩
+          obtain ⟨L, mL, h⟩ := (lm a _).mpr ⟨w, hw, e⟩; exact ⟨L, mL, x, h⟩
+      have s1 : (∃ x w, denMF E den b w = Bool.true ∧ ∃ κ, SplitKey [] neg ((Ds ++ Do).map Term.atom) κ ∧
+          w κ = some x) ↔ (∃ a ∈ R', ∃ L ∈ lines, ∃ x, LongM den L a (some x)) ∨
+          ∃ s, (s ∈ Ds ∨ s ∈ Do) ∧ ∃ L ∈ lines, ∃ x, LineTag den L s x := by
+        constructor
+        · rintro ⟨x, hx⟩
+          rcases (pe' x).mpr hx with ⟨a, ma, L, mL, h⟩ | ⟨s, ms, L, mL, h⟩
+          · exact Or.inl ⟨a, ma, L, mL, x, h⟩
+          · exact Or.inr ⟨s, ms, L, mL, x, h⟩
+        · rintro (⟨a, ma, L, mL, x, h⟩ | ⟨s, ms, L, mL, x, h⟩)
+          · exact ⟨x, (pe' x).mp (Or.inl ⟨a, ma, L, mL, h⟩)⟩
+          · exact ⟨x, (pe' x).mp (Or.inr ⟨s, ms, L, mL, h⟩)⟩
+      rw [s1]
+      constructor
+      · rintro (h | ⟨hat, a, (ma | ma | ma), h⟩ | ⟨a, (ma | ma | ma), h, hn⟩)
+        · exact Or.inl (Or.inr h)
+        · exact Or.inr (Or.inl ⟨hat, a, Or.inl ma, (some_iff a).mp h⟩)
+        · exact Or.inr (Or.inl ⟨hat, a, Or.inr ma, (some_iff a).mp h⟩)
+        · exact Or.inl (Or.inl ⟨a, ma, h⟩)
+        · exact Or.inr (Or.inr ⟨a, Or.inl ma, (some_iff a).mp h, fun e => (none_iff a).mp (hn e)⟩)
+        · exact Or.inr (Or.inr ⟨a, Or.inr ma, (some_iff a).mp h, fun e => (none_iff a).mp (hn e)⟩)
+        · exact Or.inl (Or.inl ⟨a, ma, h⟩)
+      · rintro ((⟨a, ma, h⟩ | h) | ⟨hat, a, ma, h⟩ | ⟨a, ma, h, hn⟩)
+        · exact Or.inr (Or.inl ⟨rAt a ma, a, Or.inr (Or.inr ma), h⟩)
+        · exact Or.inl h
+        · exact Or.inr (Or.inl ⟨hat, a, ma.imp_right Or.inl, (some_iff a).mpr h⟩)
+        · exact Or.inr (Or.inr ⟨a, ma.imp_right Or.inl, (some_iff a).mpr h, fun e => (none_iff a).mpr (hn e)⟩)
+
+end
+
+
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `map_update_named_keys/8` asking for the old values succeeds when each key gives maps of fields and an old field. -/
+theorem named_fold_ok (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines : List Term) {nt : Term}
+    {nopt : Bool} {md : String} (hmd : Mode md) (req st bd : Bool)
+    (pk : ∀ a, ∃ (ba : List Term) (t : Term) (o : Bool), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3))
+      (Term.list lines) (.atom a) (cOp nt nopt md) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, .tuple #[t, boolAtom o]]) ∧ E t ∧ ∀ b ∈ ba, MField E b) :
+    ∀ (ks : List String) (B : List Term) (f : Bool) (T Er : Term), E T → (∀ b ∈ B, MField E b) →
+      ∃ (B' : List Term) (f' : Bool) (T' Er' : Term),
+        Elixir.Module.Types.Descr.«map_update_named_keys/8» (D (n + 4)) (.tuple #[T, Term.list B, Er, boolAtom f])
+          (Term.list lines) (Term.list (ks.map Term.atom)) (cOp nt nopt md) (boolAtom req) (boolAtom st)
+          (.atom "true") (boolAtom bd) = .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧ E T' ∧
+        ∀ b ∈ B', MField E b := by
+  have loop : ∀ (ks : List String) (B : List Term) (f : Bool) (T Er : Term), E T → (∀ b ∈ B, MField E b) →
+      ∃ (B' : List Term) (f' : Bool) (T' Er' : Term),
+        Erlang.lists.«foldl_1/3» (D (n + 4))
+          (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+            #[Term.list lines, cOp nt nopt md, boolAtom req, boolAtom st, boolAtom bd, .atom "true",
+              boolAtom (decide (md = "force"))])
+          (.tuple #[T, Term.list B, Er, boolAtom f]) (Term.list (ks.map Term.atom)) =
+          .ok (.tuple #[T', Term.list B', Er', boolAtom f']) ∧ E T' ∧ ∀ b ∈ B', MField E b := by
+    intro ks
+    induction ks with
+    | nil =>
+      intro B f T Er hT fB
+      exact ⟨B, f, T, Er, by simp [Erlang.lists.«foldl_1/3», Term.list], hT, fB⟩
+    | cons a rest ih =>
+      intro B f T Er hT fB
+      obtain ⟨ba, t, o, rb, ht, fba⟩ := pk a
+      obtain ⟨e, re, se⟩ := ef.empty1 (m := n + 3) (by omega) ht
+      obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] ht hT (m := n + 3) (by omega)
+      obtain ⟨f₁, T₁, Er₁, step, hT₁⟩ : ∃ (f₁ : Bool) (T₁ Er₁ : Term),
+          (D (n + 4)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_named_keys/8-fun-0-" 2
+            #[Term.list lines, cOp nt nopt md, boolAtom req, boolAtom st, boolAtom bd, .atom "true",
+              boolAtom (decide (md = "force"))]) #[.atom a, .tuple #[T, Term.list B, Er, boolAtom f]] =
+            .ok (.tuple #[T₁, Term.list (ba ++ B), Er₁, boolAtom f₁]) ∧ E T₁ := by
+        simp only [Erlang.program.«Elixir.Module.Types.Descr:-map_update_named_keys/8-fun-0-/2».pure,
+          Elixir.Module.Types.Descr.«-map_update_named_keys/8-fun-0-/9»]
+        rw [rb]
+        rcases hmd with rfl | rfl | rfl <;> cases e <;> cases o <;> cases req <;> cases f <;> cases st <;>
+          simp [re, Lynx.Term.isMember, Elixir.Module.Types.Descr.«opt_union/2», ru, boolAtom, Lynx.Except.andAlso,
+            Lynx.Except.orElse, Erlang.erlang.«not/1», append_list] <;>
+          first
+          | exact ⟨_, _, _, ⟨rfl, rfl, rfl, rfl⟩, hu⟩
+          | exact ⟨_, _, _, ⟨rfl, rfl, rfl, rfl⟩, hT⟩
+          | exact ⟨_, _, _, rfl, hu⟩
+          | exact ⟨_, _, _, rfl, hT⟩
+          | exact hu
+          | exact hT
+      obtain ⟨B', f', T', Er', r₁, hT', fB'⟩ := ih (ba ++ B) f₁ T₁ Er₁ hT₁ fun b mb => by
+        rcases List.mem_append.mp mb with mb | mb
+        · exact fba b mb
+        · exact fB b mb
+      refine ⟨B', f', T', Er', ?_, hT', fB'⟩
+      rw [Erlang.lists.«foldl_1/3».eq_def]
+      simp only [Term.list, List.map] at r₁ ⊢
+      simp at step
+      simp [step, r₁]
+  intro ks B f T Er hT fB
+  obtain ⟨B', f', T', Er', r₁, hT', fB'⟩ := loop ks B f T Er hT fB
+  refine ⟨B', f', T', Er', ?_, hT', fB'⟩
+  rcases hmd with rfl | rfl | rfl
+  all_goals
+    simp [Elixir.Module.Types.Descr.«map_update_named_keys/8», Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
+      Erlang.lists.«foldl/3», Erlang.erlang.«is_function/2», Lynx.Except.orElse, boolAtom]
+    rcases ks with _ | ⟨k, t⟩
+    · simp [Term.list, Erlang.lists.«foldl_1/3»] at r₁ ⊢
+      simpa [boolAtom] using r₁
+    · simp only [Term.list, List.map] at r₁ ⊢; rw [Erlang.lists.«foldl_1/3».eq_def] at r₁; simpa [boolAtom] using r₁
+
+/-- Each key of a constant update gives maps of fields and an old field. -/
+theorem pk_val (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {v : Term} (hv : E v) (vne : ∃ x, den v x)
+    {md : String} (hmd : Mode md) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (bd : Bool)
+    (a : String) : ∃ (ba : List Term) (t : Term) (o : Bool), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3))
+      (Term.list lines) (.atom a) (cOp v Bool.false md) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, .tuple #[t, boolAtom o]]) ∧ E t ∧ ∀ b ∈ ba, MField E b := by
+  obtain ⟨F, rF, hF, -⟩ := mdnf_fetch ef hn a lines hl
+  cases bd
+  · obtain ⟨t, o, rfl, ht⟩ := hF
+    exact ⟨[], t, o, by simp [Elixir.Module.Types.Descr.«map_update_named_key/5», boolAtom, Lynx.Term.isMember,
+      Term.list, rF], ht, by simp⟩
+  · rcases hmd with rfl | rfl | rfl
+    · obtain ⟨ba, rba, fba, -⟩ := put_lines ef hn a (leafPut_put ef a hv) lines hl
+      obtain ⟨t, o, rfl, ht⟩ := hF
+      exact ⟨ba, t, o, by simpa [boolAtom, cOp] using rba Bool.true _ fun _ => rF, ht, fba⟩
+    · obtain ⟨ba, F', rb, fba, hF', -⟩ := keep_lines ef hn a hv vne Bool.true lines hl (.atom "true")
+      obtain ⟨t, o, rfl, ht⟩ := hF'
+      exact ⟨ba, t, o, by simpa [modeT, cOp, boolAtom] using rb, ht, fba⟩
+    · obtain ⟨ba, F', rb, fba, hF', -⟩ := keep_lines ef hn a hv vne Bool.false lines hl (.atom "true")
+      obtain ⟨t, o, rfl, ht⟩ := hF'
+      exact ⟨ba, t, o, by simpa [modeT, cOp, boolAtom] using rb, ht, fba⟩
+
+/-- Each key of a delete gives maps of fields and an old field. -/
+theorem pk_del (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {md : String} (hmd : Mode md)
+    (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) (bd : Bool)
+    (a : String) : ∃ (ba : List Term) (t : Term) (o : Bool), Elixir.Module.Types.Descr.«map_update_named_key/5» (D (n + 3))
+      (Term.list lines) (.atom a) (cOp (.map []) Bool.true md) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, .tuple #[t, boolAtom o]]) ∧ E t ∧ ∀ b ∈ ba, MField E b := by
+  obtain ⟨ba, F, rb, hF, b0, b1⟩ := del_key_sem ef hn lines hl hmd a bd
+  obtain ⟨t, o, rfl, ht⟩ := hF
+  refine ⟨ba, t, o, rb, ht, fun b mb => ?_⟩
+  cases bd
+  · rw [b0 rfl] at mb; simp at mb
+  · exact (b1 rfl).1 b mb
+
+
+theorem ex_bind {ε α β : Type} {x : Except ε α} {f : α → Except ε β} (a : α) (hx : x = .ok a)
+    (hf : ∃ r, f a = .ok r) : ∃ r, (x >>= f) = .ok r := by
+  obtain ⟨r, hr⟩ := hf; exact ⟨r, by rw [hx]; exact hr⟩
+
+theorem atom_ite_bool (b : Bool) : Term.atom (if b = Bool.true then "true" else "false") = boolAtom b := by
+  cases b <;> rfl
+
+theorem cmp_list_nil (l : List Term) :
+    Term.compare ((Term.list l).fuel .nil) (Term.list l) .nil = .eq ↔ l = [] := by
+  cases l with
+  | nil => simp [Term.list, Term.compare_self]
+  | cons a l => rw [Lynx.Term.compare_step]; simp [Lynx.Term.Compare.compareStep]
+
+set_option maxHeartbeats 4000000 in
+set_option linter.unusedSimpArgs false in
+/-- `map_update_static_dnf/6` of a constant at the split of a gradual key, asking for the old values, succeeds on the
+non-empty lines of a map field, given that each key gives maps of fields and an old field. -/
+theorem dnf_ok_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {nt : Term} (hnt : E nt)
+    (snt : nt = .atom "term" ∨ ∃ Z, nt = .map Z) (nopt : Bool) {md : String} (hmd : Mode md)
+    {bdd : Term} (fbd : MField E bdd) (lines : List Term) (hl : ∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w)
+    (sbd : ∀ w, denMF E den bdd w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w)
+    {rk Os : List String} {neg : Term} {Ds Do : List String} (ok : SplitOk [] neg ((Ds ++ Do).map Term.atom))
+    (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) (st : Bool)
+    (pk : ∀ (bd : Bool) a, ∃ (ba : List Term) (t : Term) (o : Bool), Elixir.Module.Types.Descr.«map_update_named_key/5»
+      (D (n + 5)) (Term.list lines) (.atom a) (cOp nt nopt md) (boolAtom bd) (.atom "true") =
+        .ok (.tuple #[Term.list ba, .tuple #[t, boolAtom o]]) ∧ E t ∧ ∀ b ∈ ba, MField E b) :
+    ∃ r, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) bdd (Term.list lines)
+      (gsT rk Os neg Ds Do) (cOp nt nopt md) (.atom "true") (boolAtom st) = .ok r := by
+  have hD : ∀ s ∈ Ds ++ Do, s ∈ domainKinds := fun s ms => by
+    obtain ⟨s', ms', e⟩ := ok.hds _ (List.mem_map_of_mem ms); cases e; exact ms'
+  have hDs : ∀ s ∈ Ds, s ∈ domainKinds := fun s ms => hD s (List.mem_append_left _ ms)
+  have hDo : ∀ s ∈ Do, s ∈ domainKinds := fun s ms => hD s (List.mem_append_right _ ms)
+  have hl' : ∀ L ∈ lines, MLine E L := fun L mL => (hl L mL).1
+  obtain ⟨R, rR, hR, -⟩ := neg_keys_split ef fbd (n + 5) ok
+  obtain ⟨R', rfl⟩ := atoms_strs fun r mr => let ⟨s, e, _⟩ := hR r mr; ⟨s, e⟩
+  obtain ⟨R1, m₀, -, -⟩ := minus_atoms R' Os
+  obtain ⟨R2, m₁, -, -⟩ := minus_atoms R1 rk
+  have m₂ : Erlang.erlang.«++/2» (Term.list (R2.map Term.atom)) (Term.list (Os.map Term.atom)) =
+      .ok (Term.list (R2.map Term.atom ++ Os.map Term.atom)) := append_list _ _
+  have m₃ : Erlang.erlang.«++/2» (Term.list (Ds.map Term.atom)) (Term.list (Do.map Term.atom)) =
+      .ok (Term.list (Ds.map Term.atom ++ Do.map Term.atom)) := append_list _ _
+  obtain ⟨c, hc⟩ := any_named_ok ef (n := n) (by omega) lines hl (rk ++ (R2 ++ Os))
+  have hcb : (D (n + 5)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-0-" 0
+      #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom), Term.list (rk.map Term.atom)]) #[] =
+        .ok (boolAtom c) := by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-0-/0».pure]
+    simpa [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-0-/3», append_list] using hc
+  obtain ⟨f₁, val₁, mis₁, T₁, r₁, hT₁, -, -, mD₁, vD₁, vf₁⟩ := upd_domains2 ef (n := n + 2) (by omega) lines hl' _
+    ⟨c, hcb⟩ Ds ef.none
+  obtain ⟨f₂, val₂, mis₂, T₂, r₂, hT₂, -, -, -, vD₂, vf₂⟩ := upd_domains2 ef (n := n + 2) (by omega) lines hl' _
+    ⟨c, hcb⟩ Do hT₁
+  have rE' : Erlang.lists.«map/2» (D (n + 6))
+      (.function false "Elixir.Module.Types.Descr" "-map_update_static_dnf/6-fun-1-" 1 #[]) (Term.list mis₁) =
+      .ok (Term.list (mis₁.map bdErr)) := by
+    refine map_list _ _ _ _ bdErr _ fun x mx => ?_
+    obtain ⟨s, ms, rfl⟩ := mD₁ x mx
+    obtain ⟨y, hy⟩ := domain_descr_ok (hDs s ms)
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_static_dnf/6-fun-1-/1».pure]
+    simp [Elixir.Module.Types.Descr.«-map_update_static_dnf/6-fun-1-/1», hy, bdErr, domDescr]
+  have r₁' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Ds.map Term.atom)) (.map []) (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₁, Term.list val₁, Term.list mis₁, T₁]) := r₁
+  have r₂' : Elixir.Module.Types.Descr.«map_update_get_domains/5» (D (n + 6)) (Term.list lines)
+      (Term.list (Do.map Term.atom)) T₁ (.atom "true") (.function false "Elixir.Module.Types.Descr"
+        "-map_update_static_dnf/6-fun-0-" 0 #[Term.list lines, Term.list (R2.map Term.atom ++ Os.map Term.atom),
+          Term.list (rk.map Term.atom)]) =
+      .ok (.tuple #[boolAtom f₂, Term.list val₂, Term.list mis₂, T₂]) := r₂
+  have mv : Erlang.erlang.«++/2» (Term.list val₁) (Term.list val₂) = .ok (Term.list (val₁ ++ val₂)) :=
+    append_list val₁ val₂
+  -- The kinds updated: all of them unless rejecting, then those found.
+  obtain ⟨Dm, eDm, hDm⟩ : ∃ Dm : List String, ((md ≠ "reject" → Dm = Ds ++ Do) ∧
+      (md = "reject" → Dm.map Term.atom = val₁ ++ val₂)) ∧ ∀ s ∈ Dm, s ∈ Ds ++ Do := by
+    by_cases hr : md = "reject"
+    · obtain ⟨A, eA⟩ := atoms_strs (rs := val₁ ++ val₂) fun d md' => by
+        rcases List.mem_append.mp md' with m | m
+        · obtain ⟨s, -, rfl, -⟩ := (vD₁ d).mp m; exact ⟨s, rfl⟩
+        · obtain ⟨s, -, rfl, -⟩ := (vD₂ d).mp m; exact ⟨s, rfl⟩
+      refine ⟨A, ⟨fun h => absurd hr h, fun _ => eA.symm⟩, fun s ms => ?_⟩
+      have : Term.atom s ∈ val₁ ++ val₂ := eA ▸ List.mem_map_of_mem ms
+      rcases List.mem_append.mp this with m | m
+      · obtain ⟨s', ms', e, -⟩ := (vD₁ _).mp m; cases e; exact List.mem_append_left _ ms'
+      · obtain ⟨s', ms', e, -⟩ := (vD₂ _).mp m; cases e; exact List.mem_append_right _ ms'
+    · exact ⟨Ds ++ Do, ⟨fun _ => rfl, fun h => absurd h hr⟩, fun s m => m⟩
+  have fDm : md = "reject" → Dm ≠ [] → (f₁ || f₂) = Bool.true := fun hr ne => by
+    have e := eDm.2 hr
+    cases hv : val₁ with
+    | cons _ _ => simp [vf₁ (by simp [hv])]
+    | nil =>
+      cases hv2 : val₂ with
+      | cons _ _ => simp [vf₂ (by simp [hv2])]
+      | nil => rw [hv, hv2] at e; cases Dm with
+        | nil => exact absurd rfl ne
+        | cons _ _ => simp at e
+  unfold Elixir.Module.Types.Descr.«map_update_static_dnf/6»
+  rcases hmd with rfl | rfl | rfl <;>
+  simp [gsT, cOp, Erlang.erlang.«==/2», Erlang.erlang.«/=/2», Lynx.Term.isMember, Erlang.erlang.«not/1», rR, m₀, m₁,
+      m₂, m₃, mv, r₁', r₂', rE', Lynx.Except.andAlso, Erlang.erlang.«element/2»]
+  · rw [show List.map Term.atom Ds ++ List.map Term.atom Do = Dm.map Term.atom by rw [eDm.1 (by decide)]; simp]
+    refine ex_bind (boolAtom (decide (Dm ≠ []))) (by
+      by_cases e0 : Dm = []
+      · subst e0; simp [Term.list, boolAtom]
+      · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
+        simp only [cmp_list_nil, e0', ↓reduceIte]
+        first
+        | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
+        | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
+    rcases ok.hneg with rfl | ⟨N, rfl⟩
+    · generalize (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g <;> simp [e0, boolAtom, Lynx.Except.orElse]
+      all_goals simp only [atom_ite_bool]
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      all_goals
+        have na : "atom" ∉ Dm := fun m => by
+          have := ok.hatom.mp (List.mem_map_of_mem (hDm _ m)); obtain ⟨N, e⟩ := this; cases e
+        obtain ⟨Ks, rKs, mKs, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have naK : "atom" ∉ Ks := fun m => na (by simpa using (mKs _).mp m)
+        obtain ⟨R, rW, mR⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "force") (by simp [Mode]) Ks naK subKs lines hl'
+        simp only [cOp] at rW
+        simp only [rKs, rW, Lynx.Except.ok_bind]
+        rcases mapsD_cases mR with ⟨rfl, -⟩ | ⟨c, neR, lc, fc, -⟩
+        · simp [Term.compare_self]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+        · simp [neR, getMapKeys_single, lc, Option.toList]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+    · have keysN := setStrs_keys (hNa N rfl)
+      obtain ⟨AKt, rR', -, mR'⟩ := usort_atoms (R2.map Term.atom ++ (Os.map Term.atom ++ (setStrs N).map Term.atom))
+        (fun k mk => by simp only [List.mem_append, List.mem_map] at mk; rcases mk with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩)
+      obtain ⟨AK, rfl⟩ := atoms_strs fun r mr => by
+        have := (mR' r).mp mr
+        simp only [List.mem_append, List.mem_map] at this
+        rcases this with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩
+      have dne : Dm ≠ [] := by
+        rw [eDm.1 (by decide)]
+        intro e
+        have := ok.hatom.mpr ⟨N, rfl⟩
+        rw [e] at this; simp at this
+      generalize (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g <;> simp [e0, boolAtom, Lynx.Except.orElse, Erlang.sets.«to_list/1»,
+        Erlang.maps.«keys/1», keysN, append_list, rR']
+      all_goals simp only [atom_ite_bool]
+      all_goals first | exact absurd e0 dne | skip
+      all_goals
+        obtain ⟨Ks, rKs, -, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have lenK : Erlang.erlang.«length/1» (Term.list (Ks.map Term.atom)) = .ok (.integer (Ks.length : Int)) := by
+          simpa using length_list (Ks.map Term.atom)
+        have part := partition_atom (n + 5) Ks
+        simp only [rKs, Lynx.Except.ok_bind]
+        try simp only [lenK, Lynx.Except.ok_bind]
+        by_cases full : (Ks.length : Int) = 12
+        · simp [Lynx.Term.compare_integers, full]
+          obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+            snt nopt (md := "force") (by simp [Mode]) (R2 ++ Os) AK Ks subKs
+          subst eX
+          simp only [cOp, List.map_append] at rb
+          simp [rb, Term.list]
+          rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+          · simp [Term.compare_self]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+          · simp [neU, getMapKeys_single, lc, Option.toList]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+        · simp [Lynx.Term.compare_integers, full, part]
+          obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+            snt nopt (md := "force") (by simp [Mode]) (R2 ++ Os) AK (Ks.filter (· = "atom"))
+            (fun d m => subKs d (List.mem_filter.mp m).1)
+          subst eX
+          simp only [cOp, List.map_append] at rb
+          simp only [rb, Lynx.Except.ok_bind]
+          by_cases wn : Ks.filter (· ≠ "atom") = []
+          · have wn' : List.filter (fun x => !decide (x = "atom")) Ks = [] := by simpa using wn
+            simp [wn', Term.list]
+            rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+            · simp [Term.compare_self]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+            · simp [neU, getMapKeys_single, lc, Option.toList]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+          · obtain ⟨W, rW, mW⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "force") (by simp [Mode])
+              (Ks.filter (· ≠ "atom")) (fun m => by simpa using (List.mem_filter.mp m).2)
+              (fun d m => subKs d (List.mem_filter.mp m).1) lines hl'
+            obtain ⟨U, rU, mU⟩ := mapsD_union (den := den) ef (m := n + 5) (by omega) mX mW
+            have wsCmp : ¬(Term.list ((Ks.filter (· ≠ "atom")).map Term.atom) = .nil) := by
+              cases h : Ks.filter (· ≠ "atom") with
+              | nil => exact absurd h wn
+              | cons d ds => simp [Term.list]
+            simp only [cOp] at rW
+            simp at wsCmp rW
+            simp [wsCmp, rW, rU]
+            rcases mapsD_cases mU with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+            · simp [Term.compare_self]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+            · simp [neU, getMapKeys_single, lc, Option.toList]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+  · rw [show List.map Term.atom Ds ++ List.map Term.atom Do = Dm.map Term.atom by rw [eDm.1 (by decide)]; simp]
+    refine ex_bind (boolAtom (decide (Dm ≠ []))) (by
+      by_cases e0 : Dm = []
+      · subst e0; simp [Term.list, boolAtom]
+      · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
+        simp only [cmp_list_nil, e0', ↓reduceIte]
+        first
+        | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
+        | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
+    rcases ok.hneg with rfl | ⟨N, rfl⟩
+    · generalize (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g <;> simp [e0, boolAtom, Lynx.Except.orElse]
+      all_goals simp only [atom_ite_bool]
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      all_goals
+        have na : "atom" ∉ Dm := fun m => by
+          have := ok.hatom.mp (List.mem_map_of_mem (hDm _ m)); obtain ⟨N, e⟩ := this; cases e
+        obtain ⟨Ks, rKs, mKs, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have naK : "atom" ∉ Ks := fun m => na (by simpa using (mKs _).mp m)
+        obtain ⟨R, rW, mR⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "keep") (by simp [Mode]) Ks naK subKs lines hl'
+        simp only [cOp] at rW
+        simp only [rKs, rW, Lynx.Except.ok_bind]
+        rcases mapsD_cases mR with ⟨rfl, -⟩ | ⟨c, neR, lc, fc, -⟩
+        · simp [Term.compare_self]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+        · simp [neR, getMapKeys_single, lc, Option.toList]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+    · have keysN := setStrs_keys (hNa N rfl)
+      obtain ⟨AKt, rR', -, mR'⟩ := usort_atoms (R2.map Term.atom ++ (Os.map Term.atom ++ (setStrs N).map Term.atom))
+        (fun k mk => by simp only [List.mem_append, List.mem_map] at mk; rcases mk with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩)
+      obtain ⟨AK, rfl⟩ := atoms_strs fun r mr => by
+        have := (mR' r).mp mr
+        simp only [List.mem_append, List.mem_map] at this
+        rcases this with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩
+      have dne : Dm ≠ [] := by
+        rw [eDm.1 (by decide)]
+        intro e
+        have := ok.hatom.mpr ⟨N, rfl⟩
+        rw [e] at this; simp at this
+      generalize (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g <;> simp [e0, boolAtom, Lynx.Except.orElse, Erlang.sets.«to_list/1»,
+        Erlang.maps.«keys/1», keysN, append_list, rR']
+      all_goals simp only [atom_ite_bool]
+      all_goals first | exact absurd e0 dne | skip
+      all_goals
+        obtain ⟨Ks, rKs, -, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have lenK : Erlang.erlang.«length/1» (Term.list (Ks.map Term.atom)) = .ok (.integer (Ks.length : Int)) := by
+          simpa using length_list (Ks.map Term.atom)
+        have part := partition_atom (n + 5) Ks
+        simp only [rKs, Lynx.Except.ok_bind]
+        try simp only [lenK, Lynx.Except.ok_bind]
+        simp [part]
+        obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+          snt nopt (md := "keep") (by simp [Mode]) (R2 ++ Os) AK (Ks.filter (· = "atom"))
+          (fun d m => subKs d (List.mem_filter.mp m).1)
+        subst eX
+        simp only [cOp, List.map_append] at rb
+        simp only [rb, Lynx.Except.ok_bind]
+        by_cases wn : Ks.filter (· ≠ "atom") = []
+        · have wn' : List.filter (fun x => !decide (x = "atom")) Ks = [] := by simpa using wn
+          simp [wn', Term.list]
+          rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+          · simp [Term.compare_self]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+          · simp [neU, getMapKeys_single, lc, Option.toList]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+        · obtain ⟨W, rW, mW⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "keep") (by simp [Mode])
+            (Ks.filter (· ≠ "atom")) (fun m => by simpa using (List.mem_filter.mp m).2)
+            (fun d m => subKs d (List.mem_filter.mp m).1) lines hl'
+          obtain ⟨U, rU, mU⟩ := mapsD_union (den := den) ef (m := n + 5) (by omega) mX mW
+          have wsCmp : ¬(Term.list ((Ks.filter (· ≠ "atom")).map Term.atom) = .nil) := by
+            cases h : Ks.filter (· ≠ "atom") with
+            | nil => exact absurd h wn
+            | cons d ds => simp [Term.list]
+          simp only [cOp] at rW
+          simp at wsCmp rW
+          simp [wsCmp, rW, rU]
+          rcases mapsD_cases mU with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+          · simp [Term.compare_self]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+          · simp [neU, getMapKeys_single, lc, Option.toList]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+  · rw [show val₁ ++ val₂ = Dm.map Term.atom from (eDm.2 rfl).symm]
+    refine ex_bind (boolAtom (decide (Dm ≠ []))) (by
+      by_cases e0 : Dm = []
+      · subst e0; simp [Term.list, boolAtom]
+      · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
+        simp only [cmp_list_nil, e0', ↓reduceIte]
+        first
+        | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
+        | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
+    rcases ok.hneg with rfl | ⟨N, rfl⟩
+    · generalize hg : (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g
+      rotate_left 2
+      · exact absurd (hg ▸ fDm rfl e0) (by simp)
+      rotate_left 1
+      all_goals simp [e0, boolAtom, Lynx.Except.orElse]
+      all_goals simp only [atom_ite_bool]
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      · first
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+        | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+            obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+              (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+            simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+              show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+            simp [Term.list] at n₁;
+            simp [n₁, n₂];
+            obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+              fun w => Iff.rfl;
+            rw [ru];
+            simp only [Lynx.Except.ok_bind];
+            split <;> exact ⟨_, rfl⟩)
+      all_goals
+        have na : "atom" ∉ Dm := fun m => by
+          have := ok.hatom.mp (List.mem_map_of_mem (hDm _ m)); obtain ⟨N, e⟩ := this; cases e
+        obtain ⟨Ks, rKs, mKs, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have naK : "atom" ∉ Ks := fun m => na (by simpa using (mKs _).mp m)
+        obtain ⟨R, rW, mR⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "reject") (by simp [Mode]) Ks naK subKs lines hl'
+        simp only [cOp] at rW
+        simp only [rKs, rW, Lynx.Except.ok_bind]
+        rcases mapsD_cases mR with ⟨rfl, -⟩ | ⟨c, neR, lc, fc, -⟩
+        · simp [Term.compare_self]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+        · simp [neR, getMapKeys_single, lc, Option.toList]
+          first
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+          | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+              obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+              simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+              simp [Term.list] at n₁;
+              simp [n₁, n₂];
+              obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                fun w => Iff.rfl;
+              rw [ru];
+              simp only [Lynx.Except.ok_bind];
+              split <;> exact ⟨_, rfl⟩)
+    · have keysN := setStrs_keys (hNa N rfl)
+      obtain ⟨AKt, rR', -, mR'⟩ := usort_atoms (R2.map Term.atom ++ (Os.map Term.atom ++ (setStrs N).map Term.atom))
+        (fun k mk => by simp only [List.mem_append, List.mem_map] at mk; rcases mk with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩)
+      obtain ⟨AK, rfl⟩ := atoms_strs fun r mr => by
+        have := (mR' r).mp mr
+        simp only [List.mem_append, List.mem_map] at this
+        rcases this with (⟨s, -, rfl⟩ | ⟨s, -, rfl⟩ | ⟨s, -, rfl⟩) <;> exact ⟨s, rfl⟩
+      generalize hg : (f₁ || f₂) = g
+      by_cases e0 : Dm = [] <;> cases g
+      rotate_left 2
+      · exact absurd (hg ▸ fDm rfl e0) (by simp)
+      rotate_left 1
+      all_goals simp [e0, boolAtom, Lynx.Except.orElse, Erlang.sets.«to_list/1», Erlang.maps.«keys/1», keysN,
+        append_list, rR']
+      all_goals simp only [atom_ite_bool]
+      · obtain rfl : Dm = [] := e0
+        have l0 := length_list ([] : List Term)
+        have p0 := partition_atom (n + 5) []
+        simp only [List.map_nil, List.filter_nil, List.length_nil] at l0 p0
+        simp only [Term.list] at l0 p0
+        simp only [l0, Lynx.Except.ok_bind]
+        have c12 : Term.compare ((Term.integer ((0 : Nat) : Int)).fuel (.integer 12)) (.integer ((0 : Nat) : Int))
+            (.integer 12) ≠ .eq := by simp [Lynx.Term.compare_integers]
+        simp only [c12, ↓reduceIte]
+        rw [show n + 5 + 1 = n + 6 from rfl] at p0
+        simp only [p0, Lynx.Except.ok_bind]
+        obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+          snt nopt (md := "reject") (by simp [Mode]) (R2 ++ Os) AK [] (by simp)
+        subst eX
+        simp only [cOp, List.map_append, List.map_nil, Term.list] at rb
+        simp only [rb, Lynx.Except.ok_bind, Term.compare_self, ↓reduceIte]
+        rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+        · simp [Term.compare_self]
+          first
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+        · simp [neU, getMapKeys_single, lc, Option.toList]
+          first
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+      · obtain rfl : Dm = [] := e0
+        have l0 := length_list ([] : List Term)
+        have p0 := partition_atom (n + 5) []
+        simp only [List.map_nil, List.filter_nil, List.length_nil] at l0 p0
+        simp only [Term.list] at l0 p0
+        simp only [l0, Lynx.Except.ok_bind]
+        have c12 : Term.compare ((Term.integer ((0 : Nat) : Int)).fuel (.integer 12)) (.integer ((0 : Nat) : Int))
+            (.integer 12) ≠ .eq := by simp [Lynx.Term.compare_integers]
+        simp only [c12, ↓reduceIte]
+        rw [show n + 5 + 1 = n + 6 from rfl] at p0
+        simp only [p0, Lynx.Except.ok_bind]
+        obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+          snt nopt (md := "reject") (by simp [Mode]) (R2 ++ Os) AK [] (by simp)
+        subst eX
+        simp only [cOp, List.map_append, List.map_nil, Term.list] at rb
+        simp only [rb, Lynx.Except.ok_bind, Term.compare_self, ↓reduceIte]
+        rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+        · simp [Term.compare_self]
+          first
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+        · simp [neU, getMapKeys_single, lc, Option.toList]
+          first
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+            | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                  (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                  show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                simp [Term.list] at n₁;
+                simp [n₁, n₂];
+                obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                  fun w => Iff.rfl;
+                rw [ru];
+                simp only [Lynx.Except.ok_bind];
+                split <;> exact ⟨_, rfl⟩)
+      all_goals
+        obtain ⟨Ks, rKs, -, -, subKs, -⟩ := kinds_usort (Dm.map Term.atom) fun d md' => by
+          obtain ⟨s, ms, rfl⟩ := List.mem_map.mp md'; exact ⟨s, hD s (hDm s ms), rfl⟩
+        have lenK : Erlang.erlang.«length/1» (Term.list (Ks.map Term.atom)) = .ok (.integer (Ks.length : Int)) := by
+          simpa using length_list (Ks.map Term.atom)
+        have part := partition_atom (n + 5) Ks
+        simp only [rKs, Lynx.Except.ok_bind]
+        try simp only [lenK, Lynx.Except.ok_bind]
+        by_cases full : (Ks.length : Int) = 12
+        · simp [Lynx.Term.compare_integers, full]
+          obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+            snt nopt (md := "reject") (by simp [Mode]) (R2 ++ Os) AK Ks subKs
+          subst eX
+          simp only [cOp, List.map_append] at rb
+          simp [rb, Term.list]
+          rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+          · simp [Term.compare_self]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+          · simp [neU, getMapKeys_single, lc, Option.toList]
+            first
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+              | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                  obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                    (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                  simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                    show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                  simp [Term.list] at n₁;
+                  simp [n₁, n₂];
+                  obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                    fun w => Iff.rfl;
+                  rw [ru];
+                  simp only [Lynx.Except.ok_bind];
+                  split <;> exact ⟨_, rfl⟩)
+        · simp [Lynx.Term.compare_integers, full, part]
+          obtain ⟨_, _, res, rb, _, _, _, _, X, eX, mX⟩ := box_runG ef (n := n + 2) (by omega) lines bdd hl fbd sbd hnt
+            snt nopt (md := "reject") (by simp [Mode]) (R2 ++ Os) AK (Ks.filter (· = "atom"))
+            (fun d m => subKs d (List.mem_filter.mp m).1)
+          subst eX
+          simp only [cOp, List.map_append] at rb
+          simp only [rb, Lynx.Except.ok_bind]
+          by_cases wn : Ks.filter (· ≠ "atom") = []
+          · have wn' : List.filter (fun x => !decide (x = "atom")) Ks = [] := by simpa using wn
+            simp [wn', Term.list]
+            rcases mapsD_cases mX with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+            · simp [Term.compare_self]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+            · simp [neU, getMapKeys_single, lc, Option.toList]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+          · obtain ⟨W, rW, mW⟩ := widen_run_gen ef (n := n + 1) (by omega) hnt nopt (md := "reject") (by simp [Mode])
+              (Ks.filter (· ≠ "atom")) (fun m => by simpa using (List.mem_filter.mp m).2)
+              (fun d m => subKs d (List.mem_filter.mp m).1) lines hl'
+            obtain ⟨U, rU, mU⟩ := mapsD_union (den := den) ef (m := n + 5) (by omega) mX mW
+            have wsCmp : ¬(Term.list ((Ks.filter (· ≠ "atom")).map Term.atom) = .nil) := by
+              cases h : Ks.filter (· ≠ "atom") with
+              | nil => exact absurd h wn
+              | cons d ds => simp [Term.list]
+            simp only [cOp] at rW
+            simp at wsCmp rW
+            simp [wsCmp, rW, rU]
+            rcases mapsD_cases mU with ⟨rfl, -⟩ | ⟨c, neU, lc, fc, -⟩
+            · simp [Term.compare_self]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simp);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+            · simp [neU, getMapKeys_single, lc, Option.toList]
+              first
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.false T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.true (pk Bool.true) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+                | (obtain ⟨B₁, f₁', T₁', Er₁', n₁, hT₁', fB₁⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.true st Bool.true (pk Bool.true) rk [c] Bool.true T₂ (Term.list (mis₁.map bdErr)) hT₂ (by simpa using fc);
+                    obtain ⟨B₂, f₂', T₂', Er₂', n₂, hT₂', fB₂⟩ := named_fold_ok ef (n := n + 2) (by omega) lines
+                      (by simp [Mode]) Bool.false st Bool.false (pk Bool.false) (R2 ++ Os) B₁ f₁' T₁' Er₁' hT₁' fB₁;
+                    simp only [List.map_append, cOp, show boolAtom Bool.true = .atom "true" from rfl,
+                      show boolAtom Bool.false = .atom "false" from rfl] at n₁ n₂;
+                    simp [Term.list] at n₁;
+                    simp [n₁, n₂];
+                    obtain ⟨u, ru, -⟩ := union_Y ef (m := n + 6) (by omega) B₂ fB₂ (S := fun w => ∃ b ∈ B₂, denMF E den b w = Bool.true)
+                      fun w => Iff.rfl;
+                    rw [ru];
+                    simp only [Lynx.Except.ok_bind];
+                    split <;> exact ⟨_, rfl⟩)
+
+end
+
+
+
+section
+variable {t : Term} {d : Nat}
+
+/-- Static-level semantics of an update at a split, on the static map types of a level: without maps `:badmap` or no
+result, otherwise the old values `OV`, the maps `S` and the found flag `F` of the maps of the type. -/
+def SUpd (t : Term) (n : Nat) (s op : Term) (OV : (MW (level t n).V → Prop) → (level t n).V → Prop)
+    (S : (MW (level t n).V → Prop) → MW (level t n).V → Prop) (F : (MW (level t n).V → Prop) → Bool → Prop) : Prop :=
+  ∀ Z, DE (level t n).E (.map Z) → ∀ (st : Bool) (m : Nat), (level t n).K + 30 ≤ m → ∃ res,
+    Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map Z) s op (.atom "true") (boolAtom st) = .ok res ∧
+      (((res = .atom "badmap" ∨ res = .tuple #[.map [], .map [], .nil, .atom "false"]) ∧ ∀ w, ¬MT t n Z w) ∨
+        (∃ w, MT t n Z w) ∧ ∃ (T : Term) (Y : List (Term × Term)) (er : List Term) (f : Bool),
+          res = .tuple #[T, .map Y, Term.list er, boolAtom f] ∧ (level t n).E T ∧
+          (∀ x, (level t n).den T x ↔ OV (MT t n Z) x) ∧
+          DE (level t n).E (.map Y) ∧ (∀ q : PN t n, denD (.map Y) q → q.1.1 = "map") ∧
+          (∀ w, MT t n Y w ↔ S (MT t n Z) w) ∧ (f = Bool.true ↔ F (MT t n Z) st))
+
+/-- An update of a gradual map type of the next level at a split with static-level semantics: it gives a type exactly
+when the static part holds only maps and the dynamic part some map, and the update of the dynamic part finds a key;
+then the updates of the static maps, with those of the dynamic maps in the upper bound, and the same for old values. -/
+theorem gupd_gen {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy : Term}
+    (hD : mapLookup X (.atom "dynamic") = some Dy) {s op : Term}
+    {OV : (MW (level t (d + 1)).V → Prop) → (level t (d + 1)).V → Prop}
+    {S : (MW (level t (d + 1)).V → Prop) → MW (level t (d + 1)).V → Prop}
+    {F : (MW (level t (d + 1)).V → Prop) → Bool → Prop} (hS : SUpd t (d + 1) s op OV S F)
+    (ovE : ∀ M x, OV M x → ∃ w, M w) {m : Nat} (hm : (level t (d + 1)).K + 30 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) s op (.atom "true") = .ok r ∧
+      ((∃ T R er, r = .tuple #[T, R, er]) ↔ (∀ q : PN t (d + 1), denD (.map (rmDyn X)) q → q.1.1 = "map") ∧
+        (∃ w, MT t (d + 1) (dynL Dy) w) ∧ F (MT t (d + 1) (dynL Dy)) Bool.false) ∧
+      ∀ T R er, r = .tuple #[T, R, er] → GC (level t (d + 1)) R ∧
+        (∀ q : PN t (d + 1), denD (upper R) q → q.1.1 = "map") ∧
+        (∀ w, denD R (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S (MT t (d + 1) (rmDyn X)) w) ∧
+        (∀ w, denD (upper R) (mpt (t := t) (n := d + 1) w) ↔ ((∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S (MT t (d + 1) (rmDyn X)) w) ∨ S (MT t (d + 1) (dynL Dy)) w) ∧
+        ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+          Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+          (∀ x : PN t d, denD lt x ↔ OV (MT t (d + 1) (rmDyn X)) x) ∧
+          ∀ x : PN t d, denD ut x ↔ OV (MT t (d + 1) (rmDyn X)) x ∨ OV (MT t (d + 1) (dynL Dy)) x := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
+  have hK := level_K t d
+  have hK' := level_K t (d + 1)
+  rcases gX with tX | ⟨X', Dy', e, hD', tD, dS, incl⟩
+  · rcases tX with h | ⟨X', e, sX'⟩
+    · cases h
+    · simp only [Term.map.injEq] at e; subst e; rw [sX'.static] at hD; cases hD
+  simp only [Term.map.injEq] at e; subst e
+  rw [hD] at hD'; cases hD'
+  rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
+  simp only [Erlang.maps.«take/2», hD]
+  have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq)) = rmDyn X := rfl
+  rw [eS]
+  simp only [Lynx.Except.ok_bind]
+  have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
+      (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-1-" 1 #[]) #[r] =
+        Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1» r := fun r => by
+    rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-1-/1».pure]
+  have dSt : DE (level t (d + 1)).E (.map (rmDyn X)) := Or.inr ⟨_, rfl, dS⟩
+  obtain ⟨dR, sRm⟩ := rest_map dSt
+  have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
+      .ok (boolAtom (bp (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    exact next_empty dR (by omega)
+  have dDy : DE (level t (d + 1)).E (.map (dynL Dy)) := by
+    rcases tD with rfl | ⟨Y, rfl, sY⟩
+    · exact mapTop_de
+    · exact Or.inr ⟨Y, rfl, sY⟩
+  have stD : ∀ st, Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) Dy
+      s op (.atom "true") st =
+      Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) (.map (dynL Dy))
+      s op (.atom "true") st := by
+    intro st
+    rcases tD with rfl | ⟨Y, rfl, -⟩
+    · conv => lhs; rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def]
+      simp [Lynx.Term.getMapKeys, dynL, topM]
+    · rfl
+  have keyD : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "map") =
+      .ok (boolAtom (mapLookup (dynL Dy) (.atom "map")).isSome) := by
+    rcases tD with rfl | ⟨Y, rfl, -⟩
+    · simp [Elixir.Module.Types.Descr.«descr_key?/2», dynL, topM, mapLookup, boolAtom, pure, Except.pure]
+    · cases h : mapLookup Y (.atom "map") <;>
+        simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, dynL, h, boolAtom]
+  rw [stD]
+  have onlyIff : (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q) ↔
+      ∀ q : PN t (d + 1), denD (.map (rmDyn X)) q → q.1.1 = "map" :=
+    ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sRm q).mpr ⟨hq, nq⟩),
+      fun h q hq => ((sRm q).mp hq).2 (h q ((sRm q).mp hq).1)⟩
+  rcases Classical.em (¬∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q) with hmo | hmo
+  · rw [bp_false.mpr hmo] at mo
+    refine ⟨.atom "badmap", ?_, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨h, _⟩ => absurd (onlyIff.mpr h) hmo⟩,
+      fun _ _ _ h => by cases h⟩
+    cases hk : (mapLookup (dynL Dy) (.atom "map")).isSome <;>
+      simp [keyD, hk, mo, Lynx.Except.andAlso, boolAtom, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»]
+  rw [bp_true.mpr (Classical.not_not.mp hmo)] at mo
+  have onlyS := onlyIff.mp (Classical.not_not.mp hmo)
+  rcases Classical.em ((mapLookup (dynL Dy) (.atom "map")).isSome = Bool.false) with hbm | hbm
+  · refine ⟨.atom "badmap", ?_, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, b, hb, _⟩, _⟩ => (by simp [hb] at hbm)⟩,
+      fun _ _ _ h => by cases h⟩
+    simp [keyD, hbm, Lynx.Except.andAlso, boolAtom, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»]
+  have kt : Elixir.Module.Types.Descr.«descr_key?/2» Dy (.atom "map") = .ok (.atom "true") := by
+    simp only [Bool.not_eq_false] at hbm
+    simp [keyD, hbm, boolAtom]
+  -- The static part, as the gradual update sees it.
+  obtain ⟨rS, rrS, hS'⟩ := hS (rmDyn X) dSt Bool.true (k + 8) (by omega)
+  simp only [boolAtom, ↓reduceIte] at rrS
+  obtain ⟨sv, Sd, se, eS', hsv, ssv, dSd, oSd, sSd⟩ : ∃ (sv : Term) (Sd : List (Term × Term)) (se : List Term),
+      ((rS = .atom "badmap" ∧ sv = .map [] ∧ Sd = [] ∧ se = []) ∨
+        ∃ fs, rS = .tuple #[sv, .map Sd, Term.list se, fs]) ∧
+      (level t (d + 1)).E sv ∧ (∀ x, (level t (d + 1)).den sv x ↔ OV (MT t (d + 1) (rmDyn X)) x) ∧
+      DE (level t (d + 1)).E (.map Sd) ∧ (∀ q : PN t (d + 1), denD (.map Sd) q → q.1.1 = "map") ∧
+      ∀ w, denD (.map Sd) (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+        S (MT t (d + 1) (rmDyn X)) w := by
+    have ef := (level t (d + 1)).ef
+    have emp : ∀ (hno : ∀ w, ¬MT t (d + 1) (rmDyn X) w), (level t (d + 1)).E (.map []) ∧
+        (∀ x, (level t (d + 1)).den (.map []) x ↔ OV (MT t (d + 1) (rmDyn X)) x) ∧
+        DE (level t (d + 1)).E (.map []) ∧ (∀ q : PN t (d + 1), denD (.map []) q → q.1.1 = "map") ∧
+        ∀ w, denD (.map []) (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S (MT t (d + 1) (rmDyn X)) w := fun hno =>
+      ⟨ef.none, fun x => ⟨fun h => absurd h (ef.den_none x), fun h => let ⟨w, hw⟩ := ovE _ x h; absurd hw (hno w)⟩,
+        Or.inr ⟨_, rfl, descrC_nil⟩, fun q h => by simp [denD_map, mapLookup, dn_none] at h,
+        fun w => ⟨fun h => by simp [denD_map, mapLookup, dn_none] at h, fun ⟨⟨u, hu⟩, _⟩ => absurd hu (hno u)⟩⟩
+    rcases hS' with ⟨hrS | hrS, hno⟩ | ⟨exS, TS, YS, erS, fS, rfl, hTS, sTS, dYS, oYS, sYS, -⟩
+    · exact ⟨.map [], [], [], Or.inl ⟨hrS, rfl, rfl, rfl⟩, emp hno⟩
+    · exact ⟨.map [], [], [], Or.inr ⟨_, by rw [hrS]⟩, emp hno⟩
+    · refine ⟨TS, YS, erS, Or.inr ⟨_, rfl⟩, hTS, fun x => (sTS x).trans Iff.rfl, dYS, oYS, fun w => ?_⟩
+      rw [denD_mpt, sYS]
+      exact ⟨fun h => ⟨exS, h⟩, fun ⟨_, h⟩ => h⟩
+  -- The static block of the gradual branch.
+  -- The dynamic part.
+  obtain ⟨rd, rrd, hd⟩ := hS (dynL Dy) dDy Bool.false (k + 8) (by omega)
+  simp only [boolAtom, Bool.false_eq_true, ↓reduceIte] at rrd
+  simp only [kt, mo, boolAtom, ↓reduceIte, Lynx.Except.andAlso, rrd, Lynx.Except.ok_bind]
+  rcases hd with ⟨hrd | hrd, noD⟩ | ⟨exD, Td, Yd, erd, fd, rfl, hTd, sTd, dYd, oYd, sYd, hfd⟩
+  · subst hrd
+    exact ⟨.atom "badmap", by simp [bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-1-/1»],
+      ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noD w)⟩, fun _ _ _ h => by cases h⟩
+  · subst hrd
+    refine ⟨.tuple #[.atom "error", Term.list se], ?_,
+      ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noD w)⟩, fun _ _ _ h => by cases h⟩
+    rcases eS' with ⟨rfl, rfl, rfl, rfl⟩ | ⟨fs, rfl⟩ <;>
+      simp [rrS, Lynx.Term.isMember, app_nil_r, app_nil0, Term.list]
+  cases fd
+  · have nf : ¬F (MT t (d + 1) (dynL Dy)) Bool.false := fun h => by
+      have := hfd.mpr h; cases this
+    refine ⟨.tuple #[.atom "error", Term.list (se ++ erd)], ?_,
+      ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, _, h⟩ => absurd h nf⟩, fun _ _ _ h => by cases h⟩
+    rcases eS' with ⟨rfl, rfl, rfl, rfl⟩ | ⟨fs, rfl⟩ <;>
+      simp [rrS, Lynx.Term.isMember, append_list, app_nil_l, boolAtom]
+  have fd' : F (MT t (d + 1) (dynL Dy)) Bool.false := hfd.mp rfl
+  -- The union of the static deletions and the dynamic ones.
+  have fin : ∃ c, Elixir.Module.Types.Descr.«opt_union/2» (D (k + 8)) (.map Sd) (.map [(.atom "dynamic", .map Yd)]) =
+        .ok c ∧ GC (level t (d + 1)) c ∧ (∀ q : PN t (d + 1), denD (upper c) q → q.1.1 = "map") ∧
+      (∀ q : PN t (d + 1), denD c q ↔ denD (.map Sd) q) ∧
+      ∀ q : PN t (d + 1), denD (upper c) q ↔ denD (.map Sd) q ∨ denD (.map Yd) q := by
+    have noP : ∀ q : PN t (d + 1), ¬denD (.map [(.atom "dynamic", .map Yd)]) q := fun q h => by
+      have := (denD_rmDyn [(.atom "dynamic", .map Yd)] q).mpr h
+      rw [rmDyn_cons_dyn] at this
+      simp [rmDyn, denD_map, mapLookup, dn_none] at this
+    have gY : GC (level t (d + 1)) (.map [(.atom "dynamic", .map Yd)]) :=
+      Or.inr ⟨_, .map Yd, rfl, by simp [mapLookup], dYd, by rw [rmDyn_cons_dyn]; exact descrC_nil,
+        fun q h => absurd h (noP q)⟩
+    obtain ⟨c, gc, rc, sc₁, sc₂⟩ := gc_opt_union (GC.tc dSd) gY [] (m := k + 8) (by omega)
+    have uS : upper (.map Sd) = .map Sd := upper_tc dSd
+    have uY : upper (.map [(.atom "dynamic", .map Yd)]) = .map Yd := upper_dyn (by simp [mapLookup])
+    refine ⟨c, by simpa [Elixir.Module.Types.Descr.«opt_union/2»] using rc, gc, fun q h => ?_, fun q => ?_,
+      fun q => ?_⟩
+    · rw [sc₂, uS, uY] at h
+      rcases h with h | h
+      · exact oSd q h
+      · exact oYd q h
+    · rw [sc₁]; simp [noP q]
+    · rw [sc₂, uS, uY]
+  obtain ⟨c, rc, gc, oc, sc₁, sc₂⟩ := fin
+  -- The union of the static old values and the dynamic ones.
+  obtain ⟨c₁, hc₁, sc₁', cases₁⟩ := el_canon hTd
+  obtain ⟨RT, rRT, gRT, lRT, uRT⟩ := el_dyn_union hc₁ hsv (m := k + 8) (by omega)
+  refine ⟨.tuple #[RT, c, Term.list (se ++ erd)], ?_, ⟨fun _ => ⟨onlyS, exD, fd'⟩, fun _ => ⟨_, _, _, rfl⟩⟩,
+    fun T R er e => ?_⟩
+  · have sYd : mapLookup Yd (.atom "dynamic") = none := (de_map dYd).static
+    have fY : (Yd.find? fun entry => decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic")
+        entry.fst = Ordering.eq)) = none := by
+      simpa [mapLookup] using sYd
+    rcases cases₁ with ⟨de, rfl⟩ | ⟨hn, rfl⟩
+    · rcases de with rfl | ⟨Z, rfl, sZ⟩
+      · rcases eS' with ⟨rfl, rfl, rfl, rfl⟩ | ⟨fs, rfl⟩ <;>
+          simp [rrS, boolAtom, Lynx.Term.isMember, getMapKeys, fY, rRT, rc, append_list, app_nil_l]
+      · rcases eS' with ⟨rfl, rfl, rfl, rfl⟩ | ⟨fs, rfl⟩ <;>
+          simp [rrS, boolAtom, Lynx.Term.isMember, getMapKeys_single, sZ.static, sYd, rRT, rc, append_list, app_nil_l]
+    · obtain ⟨q, SS, rfl⟩ := node_tuple hn
+      have ex := expand_isT hn (k + 7)
+      obtain ⟨Y, eY, sY⟩ := expN_map (.tuple #[.reference q, .map SS, gen]) (keyOf (level t d).nd)
+      rw [eY] at ex rRT
+      have dY : Elixir.Module.Types.Descr.«dynamic/1» (D (k + 8)) (.map Y) =
+          .ok (.map [(.atom "dynamic", .map Y)]) := by
+        unfold Elixir.Module.Types.Descr.«dynamic/1»; simp [getMapKeys_single, sY]
+      have gt : getMapKeys [Term.atom "dynamic"] (.tuple #[.reference q, .map SS, gen]) = [] := by simp [getMapKeys]
+      rcases eS' with ⟨rfl, rfl, rfl, rfl⟩ | ⟨fs, rfl⟩ <;>
+        simp [rrS, boolAtom, Lynx.Term.isMember, gt, ex, unfold_map, dY, getMapKeys_single, sYd, rRT, rc, append_list,
+          app_nil_l]
+  simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at e
+  obtain ⟨rfl, rfl, rfl⟩ := e
+  refine ⟨gc, oc, fun w => (sc₁ _).trans (sSd w), fun w => ?_, lower RT, upper RT, lower_bound_run gRT.shape,
+    upper_bound_run gRT.ub, gRT.low_tc, gRT.up_tc, fun x => (denD_lower RT x).trans ((lRT x).trans (ssv x)),
+    fun x => (uRT x).trans (or_congr (ssv x) ((sc₁' x).symm.trans (sTd x)))⟩
+  rw [sc₂, sSd, denD_mpt, sYd]
+
+
+/-- An update at a split with static-level semantics of a map type of the next level: it gives a type exactly when
+the lower bound holds only maps and the upper bound some, and the update of the upper bound finds a key (as a static
+update when the type is static); then the updates of the maps of the lower bound, with those of the upper bound in its
+upper bound, and the same for the old values. -/
+theorem gupd_un {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {s op : Term}
+    {OV : (MW (level t (d + 1)).V → Prop) → (level t (d + 1)).V → Prop}
+    {S : (MW (level t (d + 1)).V → Prop) → MW (level t (d + 1)).V → Prop}
+    {F : (MW (level t (d + 1)).V → Prop) → Bool → Prop} (hS : SUpd t (d + 1) s op OV S F)
+    (ovE : ∀ M x, OV M x → ∃ w, M w) {m : Nat} (hm : (level t (d + 1)).K + 30 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«map_update_unchecked/4» (D m) (.map X) s op (.atom "true") = .ok r ∧
+      ((∃ T R er, r = .tuple #[T, R, er]) ↔ (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+        (∃ w, MT t (d + 1) (dynL (upper (.map X))) w) ∧
+        F (MT t (d + 1) (dynL (upper (.map X)))) (mapLookup X (.atom "dynamic")).isNone) ∧
+      ∀ T R er, r = .tuple #[T, R, er] → GC (level t (d + 1)) R ∧
+        (∀ q : PN t (d + 1), denD (upper R) q → q.1.1 = "map") ∧
+        (∀ w, denD R (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S (MT t (d + 1) (rmDyn X)) w) ∧
+        (∀ w, denD (upper R) (mpt (t := t) (n := d + 1) w) ↔ ((∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S (MT t (d + 1) (rmDyn X)) w) ∨ S (MT t (d + 1) (dynL (upper (.map X)))) w) ∧
+        ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+          Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+          (∀ x : PN t d, denD lt x ↔ OV (MT t (d + 1) (rmDyn X)) x) ∧
+          ∀ x : PN t d, denD ut x ↔ OV (MT t (d + 1) (rmDyn X)) x ∨ OV (MT t (d + 1) (dynL (upper (.map X)))) x := by
+  cases hD : mapLookup X (.atom "dynamic") with
+  | some Dy =>
+    have lX : lower (.map X) = .map (rmDyn X) := by simp [lower]
+    rw [lX, upper_dyn hD]
+    simpa using gupd_gen gX hD hS ovE hm
+  | none =>
+    have hX := GC.static gX hD
+    have sX := de_map hX
+    have eX : rmDyn X = X := rmDyn_static hD
+    have lX : lower (.map X) = .map X := by simp [lower, eX]
+    have uX : upper (.map X) = .map X := by simp [upper, hD]
+    rw [lX, uX, eX]
+    simp only [dynL, Option.isNone_none]
+    obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
+    rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
+    simp only [Erlang.maps.«take/2», sX.static, Lynx.Except.ok_bind]
+    have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
+        (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-0-" 1 #[]) #[r] =
+          Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1» r := fun r => by
+      rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_unchecked/4-fun-0-/1».pure]
+    cases hb : mapLookup X (.atom "map") with
+    | none =>
+      refine ⟨.atom "badmap", ?_, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, b, e, _⟩, _⟩ => by rw [hb] at e; cases e⟩,
+        fun _ _ _ h => by cases h⟩
+      simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Lynx.Except.andAlso,
+        bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1»]
+    | some b =>
+      obtain ⟨dR, sR⟩ := rest_map hX
+      have key : Elixir.Module.Types.Descr.«descr_key?/2» (.map X) (.atom "map") = .ok (.atom "true") := by
+        simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
+      have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map X) =
+          .ok (boolAtom (bp (∀ v : PN t (d + 1), ¬denD (.map (rmM X)) v))) := by
+        simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+        exact next_empty dR (by omega)
+      have onlyIff : (∀ q : PN t (d + 1), ¬denD (.map (rmM X)) q) ↔
+          ∀ q : PN t (d + 1), denD (.map X) q → q.1.1 = "map" :=
+        ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sR q).mpr ⟨hq, nq⟩),
+          fun h q hq => ((sR q).mp hq).2 (h q ((sR q).mp hq).1)⟩
+      by_cases restE : ∀ v : PN t (d + 1), ¬denD (.map (rmM X)) v
+      rotate_left
+      · rw [bp_false.mpr restE] at mo
+        refine ⟨.atom "badmap", ?_, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨h, _⟩ => absurd (onlyIff.mpr h) restE⟩,
+          fun _ _ _ h => by cases h⟩
+        simp [key, mo, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1», boolAtom]
+      rw [bp_true.mpr restE] at mo
+      obtain ⟨rS, rrS, hS'⟩ := hS X hX Bool.true (k + 8) (by omega)
+      simp only [boolAtom, ↓reduceIte] at rrS
+      rcases hS' with ⟨hrS | hrS, noS⟩ | ⟨exS, T, Y, er, f, rfl, hT, sT, dY, oY, sY, hf⟩
+      · subst hrS
+        refine ⟨.atom "badmap", ?_, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noS w)⟩,
+          fun _ _ _ h => by cases h⟩
+        simp [key, mo, rrS, Lynx.Except.andAlso, bad, Elixir.Module.Types.Descr.«-map_update_unchecked/4-fun-0-/1»]
+      · subst hrS
+        refine ⟨.tuple #[.atom "error", .nil], ?_,
+          ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, ⟨w, hw⟩, _⟩ => absurd hw (noS w)⟩, fun _ _ _ h => by cases h⟩
+        simp [key, mo, rrS, Lynx.Except.andAlso, Lynx.Term.isMember]
+      cases f
+      · have nf : ¬F (MT t (d + 1) X) Bool.true := fun h => by
+          have := hf.mpr h; cases this
+        refine ⟨.tuple #[.atom "error", Term.list er], ?_,
+          ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨_, _, h⟩ => absurd h nf⟩, fun _ _ _ h => by cases h⟩
+        simp [key, mo, rrS, Lynx.Except.andAlso, Lynx.Term.isMember, boolAtom]
+      refine ⟨.tuple #[T, .map Y, Term.list er], ?_,
+        ⟨fun _ => ⟨(onlyIff.mp restE), exS, hf.mp rfl⟩, fun _ => ⟨_, _, _, rfl⟩⟩, fun T' R er' e => ?_⟩
+      · simp [key, mo, rrS, Lynx.Except.andAlso, Lynx.Term.isMember, boolAtom]
+      simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq, and_true] at e
+      obtain ⟨rfl, rfl, rfl⟩ := e
+      obtain ⟨c, hc, sc, ub, lb, -, -⟩ := el_ops hT (k + 7)
+      have uY : upper (.map Y) = .map Y := upper_tc dY
+      have sem : ∀ w, denD (.map Y) (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) X u) ∧
+          S (MT t (d + 1) X) w := fun w => by
+        rw [denD_mpt, sY]; exact ⟨fun h => ⟨exS, h⟩, fun h => h.2⟩
+      refine ⟨GC.tc dY, fun q h => oY q (by rwa [uY] at h), sem, fun w => ?_, c, c, lb, ub, hc, hc,
+        fun x => (sc x).symm.trans (sT x), fun x => ((sc x).symm.trans (sT x)).trans (or_self_iff).symm⟩
+      rw [uY, sem]
+      exact ⟨Or.inl, fun h => h.elim id fun h => ⟨exS, h⟩⟩
+
+end
+
+
+section
+variable {t : Term} {n : Nat}
+
+/-- The maps of `:keep` and `:reject` at a static split, with required atoms `A` inside a negated set: the updates at
+the split, at the kinds of `Ds` held unless rejecting, and at each atom of `A`. -/
+def KRS {V : Type} (den : Term → V → Prop) (M : MW V → Prop) (rs : List String) (neg : Term) (Ds A : List String)
+    (v : Term) (keep : Bool) (w : MW V) : Prop :=
+  ∃ Dm : List String, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (keep = Bool.true ∨ KindHeld M d)) ∧
+    (UpdSemKR den M rs neg Dm v keep w ∨ ∃ a ∈ A, KeepSemM den M v keep a w)
+
+/-- Splits of static keys, with required atoms `A` inside a negated set, and their keys. -/
+def KSplit (rs : List String) (neg : Term) (Ds A : List String) (KP : MKey → Prop) : Prop :=
+  SplitOk (rs.map Term.atom) neg (Ds.map Term.atom) ∧ (∀ N, neg = .map N → rs = []) ∧
+    (∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s) ∧ (neg = .atom "nil" → A = []) ∧
+    (∀ N, neg = .map N → ∀ a ∈ A, mapLookup N (.atom a) ≠ none) ∧
+    ∀ κ, ((∃ a ∈ A, κ = .atom a) ∨ SplitKey (rs.map Term.atom) neg (Ds.map Term.atom) κ) ↔ KP κ
+
+/-- `:keep` and `:reject` of a static value at a gradual split, on a static map type, for either flag: the maps of a
+static split of the same keys, fixed by the split. -/
+theorem kr_gx {s : Term} {KP : MKey → Prop} (hs : GForm s KP) (keep : Bool) :
+    ∃ (rs : List String) (neg : Term) (Ds A : List String), KSplit rs neg Ds A KP ∧
+      ∀ {X : List (Term × Term)}, DE (level t n).E (.map X) → ∀ {v : Term}, (level t n).E v →
+        (v = .atom "term" ∨ ∃ Z, v = .map Z) → (∃ x, (level t n).den v x) → ∀ (st : Term) {m : Nat},
+        (level t n).K + 30 ≤ m → ∀ {T Y er f : Term},
+        Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) s (keepOp v keep) (.atom "true") st =
+          .ok (.tuple #[T, Y, er, f]) →
+        ∃ Y', Y = .map Y' ∧ DE (level t n).E (.map Y') ∧ (Y' = [] ∨ ∃ r, Y' = [(.atom "map", r)]) ∧
+          ((∃ u, MT t n X u) → ∀ w, MT t n Y' w ↔ KRS (level t n).den (MT t n X) rs neg Ds A v keep w) := by
+  have hmd : Mode (if keep then "keep" else "reject") := by cases keep <;> simp [Mode]
+  obtain ⟨s', hs', HR⟩ := dnf_gform_relB hs _ hmd
+  -- The static split and its shape.
+  obtain ⟨rs, neg, Ds, A, ks, es⟩ : ∃ (rs : List String) (neg : Term) (Ds A : List String), KSplit rs neg Ds A KP ∧
+      s' = splitT ((rs ++ A).map Term.atom) neg (Ds.map Term.atom) := by
+    rcases hs' with ⟨rs, Ds, rfl, ok, sk⟩ | ⟨N, Ds, rfl, ok, na, sk⟩ | ⟨A, N, Ds, rfl, ok, na, hA, sk⟩
+    · obtain ⟨rs', rfl⟩ := strs_of ok.hrs
+      obtain ⟨Ds', rfl, -⟩ := ds_of ok.hds
+      refine ⟨rs', _, Ds', [], ⟨ok, ?_, ?_, fun _ => rfl, ?_, fun κ => by simpa using sk κ⟩, by simp⟩
+      · intro N e; cases e
+      · intro N e; cases e
+      · intro N e; cases e
+    · obtain ⟨Ds', rfl, -⟩ := ds_of ok.hds
+      refine ⟨[], _, Ds', [], ⟨by simpa using ok, fun _ _ => rfl, ?_, ?_, ?_, fun κ => by simpa using sk κ⟩, by simp⟩
+      · intro N' e; cases e; exact na
+      · intro e; cases e
+      · intro _ _ a m; simp at m
+    · obtain ⟨Ds', rfl, -⟩ := ds_of ok.hds
+      refine ⟨[], _, Ds', A, ⟨by simpa using ok, fun _ _ => rfl, ?_, ?_, ?_, fun κ => by simpa using sk κ⟩, by simp⟩
+      · intro N' e; cases e; exact na
+      · intro e; cases e
+      · intro N' e; cases e; exact hA
+  refine ⟨rs, neg, Ds, A, ks, ?_⟩
+  obtain ⟨ok, nr, na, hA0, hA, -⟩ := ks
+  subst es
+  intro X hX v hv sv vne st m hm T Y er f run
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
+  have ef := (level t n).ef
+  have sX := de_map hX
+  have eop : keepOp v keep = .tuple #[.tuple #[.atom "constant", .tuple #[v, .atom "false"]],
+      .atom (if keep then "keep" else "reject")] := rfl
+  have conv : ∀ {b : Term}, mapLookup X (.atom "map") = some b →
+      (fun u => denMF (level t n).E (level t n).den b u = Bool.true) = MT t n X := fun hb =>
+    funext fun u => propext (by simp [MT, hb])
+  have hDs : ∀ s ∈ Ds, s ∈ domainKinds := fun s ms => by
+    obtain ⟨s', ms', e⟩ := ok.hds _ (List.mem_map_of_mem ms); cases e; exact ms'
+  -- The updates for a list of kinds with the same members agree.
+  have dmEq : ∀ {Dm Dm' : List String}, (∀ d, d ∈ Dm ↔ d ∈ Ds ∧ (keep = Bool.true ∨ KindHeld (MT t n X) d)) →
+      (∀ d, d ∈ Dm' ↔ d ∈ Ds ∧ (keep = Bool.true ∨ KindHeld (MT t n X) d)) → ∀ w,
+      UpdSemKR (level t n).den (MT t n X) rs neg Dm' v keep w → UpdSemKR (level t n).den (MT t n X) rs neg Dm v keep w :=
+    fun mDm mDm' w h => upd_mono (fun u h => h) (fun x h => h) vne ok ok nr (fun κ h => h) mDm' mDm h
+  cases hb : mapLookup X (.atom "map") with
+  | none =>
+    rw [Elixir.Module.Types.Descr.«map_update_static/5».eq_def] at run
+    simp [getMapKeys_single, hb] at run
+    obtain ⟨-, rfl, -⟩ := run
+    exact ⟨[], rfl, Or.inr ⟨_, rfl, descrC_nil⟩, Or.inl rfl, fun ⟨u, hu⟩ => by simp [MT, hb] at hu⟩
+  | some b =>
+  have fb : MField (level t n).E b := fieldC_map (sX.fields "map" b hb)
+  have rel := fun {r} (h : Elixir.Module.Types.Descr.«map_update_static/5» (D (k + 8)) (.map X)
+      (splitT ((rs ++ A).map Term.atom) neg (Ds.map Term.atom)) (keepOp v keep)
+      (.atom "true") (.atom "true") = .ok r) => static_split_rel (k + 6) (.map X) s _ (keepOp v keep) st (.atom "true")
+        (fun bdd dnf r₁ r₂ h₁ h₂ => HR (k + 6) bdd dnf _ st (.atom "true") (by rw [eop] at h₁; exact h₁)
+          (by rw [eop] at h₂; exact h₂)) run h
+  have toY : ∀ {r Yr : Term} {S : MW (level t n).V → Prop}, (.tuple #[T, Y, er, f] = r ∨ RelB (.tuple #[T, Y, er, f]) r) →
+      (∃ T' er' f', r = .tuple #[T', Yr, er', f']) → MapsY (level t n).E (level t n).den Yr S →
+      (∀ w, S w ↔ KRS (level t n).den (MT t n X) rs neg Ds A v keep w) →
+      ∃ Y', Y = .map Y' ∧ DE (level t n).E (.map Y') ∧ (Y' = [] ∨ ∃ r, Y' = [(.atom "map", r)]) ∧
+        ((∃ u, MT t n X u) → ∀ w, MT t n Y' w ↔ KRS (level t n).den (MT t n X) rs neg Ds A v keep w) := by
+    rintro r Yr S hr ⟨T', er', f', rfl⟩ hY hS
+    have eY : Yr = Y := by
+      rcases hr with e | ⟨_, bd, _, _, _, _, _, e₁, e₂⟩
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e; exact e.2.1.symm
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e₁ e₂; rw [e₂.2.1, ← e₁.2.1]
+    subst eY
+    rcases hY with ⟨rfl, emp⟩ | ⟨r', rfl, fr, sr⟩
+    · exact ⟨[], rfl, Or.inr ⟨_, rfl, descrC_nil⟩, Or.inl rfl, fun _ w =>
+        ⟨fun h => by simp [MT, mapLookup] at h, fun h => absurd ((hS w).mpr h) (emp w)⟩⟩
+    · refine ⟨_, rfl, Or.inr ⟨_, rfl, descrC_map fr⟩, Or.inr ⟨_, rfl⟩, fun _ w => ?_⟩
+      rw [← hS w, ← sr w]
+      simp [MT, mapLookup]
+  rcases ok.hneg with rfl | ⟨N, rfl⟩
+  · obtain rfl := hA0 rfl
+    obtain ⟨res, rr, ⟨rfl, -⟩ | ⟨T', Y', er', f', rfl, -, Dm, mDm, hY⟩⟩ :=
+      kr_update_static ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hv sv vne keep ok nr na hb fb
+    · rcases rel (by simpa [show k + 2 + 6 = k + 8 by omega] using rr) with e | ⟨_, _, _, _, _, _, _, -, e⟩ <;> cases e
+    · rw [conv hb] at hY mDm
+      exact toY (rel (by simpa [show k + 2 + 6 = k + 8 by omega] using rr)) ⟨_, _, _, rfl⟩ hY fun w =>
+        ⟨fun h => ⟨Dm, mDm, Or.inl h⟩, fun ⟨Dm', mDm', h⟩ => h.elim (dmEq mDm mDm' w) fun ⟨a, ma, _⟩ => by simp at ma⟩
+  · have hat : "atom" ∈ Ds := by
+      obtain ⟨s, ms, e⟩ := List.mem_map.mp (ok.hatom.mpr ⟨N, rfl⟩); cases e; exact ms
+    obtain rfl := nr N rfl
+    obtain ⟨res, rr, ⟨rfl, -⟩ | ⟨T', Y', er', f', rfl, -, Dm, mDm, hY⟩⟩ :=
+      kr_update_static_req ef (n := k + 2) (by rw [level_K] at hm ⊢; omega) hv sv vne keep (A := A) rfl hDs hat
+        (hA N rfl) na hb fb
+    · rcases rel (by simpa [show k + 2 + 6 = k + 8 by omega] using rr) with e | ⟨_, _, _, _, _, _, _, -, e⟩ <;> cases e
+    · rw [conv hb] at hY mDm
+      exact toY (rel (by simpa [show k + 2 + 6 = k + 8 by omega] using rr)) ⟨_, _, _, rfl⟩ hY fun w =>
+        ⟨fun h => ⟨Dm, mDm, h⟩, fun ⟨Dm', mDm', h⟩ => h.imp_left (dmEq mDm mDm' w)⟩
+
+end
+
+
+section
+variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} {tl : V → Prop} {K : Nat}
+
+/-- `map_update_static/5` on a map field: `:badmap` when it holds no map, otherwise a run of
+`map_update_static_dnf/6` on its non-empty lines. -/
+theorem static_lift (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {s op rt st : Term}
+    {X : List (Term × Term)} {b : Term} (hb : mapLookup X (.atom "map") = some b) (fb : MField E b) (Q : Term → Prop)
+    (hQ : ∀ lines : List Term, (∀ L ∈ lines, MLine E L ∧ ∃ w, InMLine den L w) → lines ≠ [] →
+      (∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w) →
+      ∃ r, Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list lines) s op rt st = .ok r ∧
+        Q r) :
+    ∃ res, Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) s op rt st = .ok res ∧
+      ((res = .atom "badmap" ∧ ∀ w, denMF E den b w = Bool.false) ∨ ((∃ w, denMF E den b w = Bool.true) ∧ Q res)) := by
+  by_cases three : ∃ k x y, b = .tuple #[k, x, y]
+  · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
+    obtain ⟨k, tag, l, rfl, g, sl⟩ := mfield_three fb e₀
+    have sem : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔ MSem den tag l w :=
+      fun w => denMF_leaf ef sl g w
+    obtain ⟨e, ri⟩ := init_total ef.mopsE ef.mdopsE ef.jopsU [] g.plain (fun e me => (sl.1 e me).2) (negs := []) (by simp)
+    have ri : Elixir.Module.Types.Descr.«init_map_line_empty?/4» (D (n + 6)) tag (fieldsTerm l) .nil (.map []) =
+        .ok (boolAtom e) := ri (n + 6) (by omega)
+    cases e
+    · have ne : ∃ w, MSem den tag l w := Classical.byContradiction fun none => by
+        have := ri.symm.trans (init_val ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ (m := n + 6) (by omega) rfl g sl
+          (negs := []) (by simp) fun w hw => absurd ⟨w, hw⟩ none)
+        simp [boolAtom] at this
+      obtain ⟨w₀, h₀⟩ := ne
+      have hl : ∀ L ∈ [Term.tuple #[tag, fieldsTerm l, Term.list []]], MLine E L ∧ ∃ w, InMLine den L w := by
+        intro L mL
+        rw [List.mem_singleton] at mL; subst mL
+        exact ⟨⟨tag, l, [], rfl, g, sl, by simp⟩, w₀, inMLine_iff.mpr ⟨h₀, fun N mN => by simp at mN⟩⟩
+      have inB : ∀ w, denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w = Bool.true ↔
+          ∃ L ∈ [Term.tuple #[tag, fieldsTerm l, Term.list []]], InMLine den L w := fun w => by
+        rw [sem]
+        simp only [List.mem_singleton, exists_eq_left]
+        exact ⟨fun h => inMLine_iff.mpr ⟨h, fun N mN => by simp at mN⟩, fun h => (inMLine_iff.mp h).1⟩
+      have unf : Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) s op rt st =
+          Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) (.tuple #[.integer k, tag, fieldsTerm l])
+            (Term.list [Term.tuple #[tag, fieldsTerm l, Term.list []]]) s op rt st := by
+        unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+          Elixir.Module.Types.Descr.«init_map_line_empty?/3», ri, Lynx.Term.isMember, boolAtom, Term.list]
+      obtain ⟨r, rr, qr⟩ := hQ _ hl (by simp) inB
+      exact ⟨r, by rw [unf]; exact rr, Or.inr ⟨⟨w₀, (sem w₀).mpr h₀⟩, qr⟩⟩
+    · refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun w => ?_⟩⟩
+      · unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        simp [getMapKeys_single, hb, Elixir.Module.Types.Descr.«map_leaf_empty?/1»,
+          Elixir.Module.Types.Descr.«init_map_line_empty?/3», ri, Lynx.Term.isMember, boolAtom]
+      · cases hw : denMF E den (.tuple #[.integer k, tag, fieldsTerm l]) w
+        · rfl
+        · obtain ⟨N', mN, -⟩ := init_sound ef.mopsE ef.mdopsE ef.msemZ ef.jopsU (m := n + 6) (by omega) rfl g sl
+            (negs := []) (by simp) ri w ((sem w).mp hw)
+          simp at mN
+  · have wb : Bdd (MLit E) b := by
+      rcases fb with ⟨k, rfl⟩ | wb
+      · exact absurd ⟨_, _, _, rfl⟩ three
+      · exact wb
+    obtain ⟨lines, rl, hl, sl⟩ := dnf_neg_map (den := den) ef.mopsE ef.mdopsE ef.msemZ ef.jopsU ef.jsemZ rfl
+      (m := n + 6) (by omega) wb
+    have inB : ∀ w, denMF E den b w = Bool.true ↔ ∃ L ∈ lines, InMLine den L w := fun w => by
+      rw [denMF_bdd wb]; exact sl w
+    cases lines with
+    | nil =>
+      refine ⟨.atom "badmap", ?_, Or.inl ⟨rfl, fun w => ?_⟩⟩
+      · unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · exact absurd ⟨_, _, _, rfl⟩ three
+        · simp [getMapKeys_single, hb, rl, Term.list]
+      · cases hw : denMF E den b w
+        · rfl
+        · obtain ⟨L, mL, -⟩ := (inB w).mp hw; simp at mL
+    | cons L rest =>
+      have unf : Elixir.Module.Types.Descr.«map_update_static/5» (D (n + 6)) (.map X) s op rt st =
+          Elixir.Module.Types.Descr.«map_update_static_dnf/6» (D (n + 6)) b (Term.list (L :: rest)) s op rt st := by
+        unfold Elixir.Module.Types.Descr.«map_update_static/5»
+        rcases wb.shape with rfl | rfl | ⟨k, x, y, rfl⟩ | ⟨h', lit, c, u, d, rfl⟩
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · simp [getMapKeys_single, hb, rl, Term.list]
+        · exact absurd ⟨_, _, _, rfl⟩ three
+        · simp [getMapKeys_single, hb, rl, Term.list]
+      obtain ⟨w₀, h₀⟩ := (hl L List.mem_cons_self).2
+      obtain ⟨r, rr, qr⟩ := hQ _ hl (by simp) inB
+      exact ⟨r, by rw [unf]; exact rr, Or.inr ⟨⟨w₀, (inB w₀).mpr ⟨L, List.mem_cons_self, h₀⟩⟩, qr⟩⟩
+
+end
+
+
+
+section
+variable {t : Term} {n : Nat}
+
+/-- An update of a static value at the split of a gradual key, on the static map types of a level: the old values at
+the keys, the found flag `FoundG`, and the maps a hypothesis gives. -/
+theorem supd_val {rk Os : List String} {ng : Term} {Ds Do : List String} (gs : GSplit rk Os ng Ds Do)
+    {KP : MKey → Prop} (hk : ∀ κ, GKey rk Os ng Ds Do κ ↔ KP κ) {v : Term} (hv : (level t n).E v)
+    (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) (vne : ∃ x, (level t n).den v x) {md : String} (hmd : Mode md)
+    {S : (MW (level t n).V → Prop) → MW (level t n).V → Prop}
+    (hY : ∀ X : List (Term × Term), DE (level t n).E (.map X) → ∀ (st : Bool) (m : Nat), (level t n).K + 30 ≤ m →
+      ∀ T Y er f, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) (gsT rk Os ng Ds Do)
+        (cOp v Bool.false md) (.atom "true") (boolAtom st) = .ok (.tuple #[T, Y, er, f]) →
+      ∃ Y', Y = .map Y' ∧ DE (level t n).E (.map Y') ∧ (∀ q : PN t n, denD (.map Y') q → q.1.1 = "map") ∧
+        ((∃ u, MT t n X u) → ∀ w, MT t n Y' w ↔ S (MT t n X) w)) :
+    SUpd t n (gsT rk Os ng Ds Do) (cOp v Bool.false md) (fun M x => Vals M KP x) S
+      (fun M st => FoundG M rk Os ng Ds Do md st) := by
+  intro Z hZ st m hm
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 8 := ⟨m - 8, by omega⟩
+  have ef := (level t n).ef
+  have sZ := de_map hZ
+  cases hb : mapLookup Z (.atom "map") with
+  | none =>
+    refine ⟨_, ?_, Or.inl ⟨Or.inr rfl, fun w h => by simp [MT, hb] at h⟩⟩
+    unfold Elixir.Module.Types.Descr.«map_update_static/5»
+    simp [getMapKeys_single, hb]
+  | some b =>
+  have fb : MField (level t n).E b := fieldC_map (sZ.fields "map" b hb)
+  have conv : (fun u => denMF (level t n).E (level t n).den b u = Bool.true) = MT t n Z :=
+    funext fun u => propext (by simp [MT, hb])
+  obtain ⟨res, run, hres⟩ := static_lift ef (n := k + 2) (by omega) (s := gsT rk Os ng Ds Do)
+    (op := cOp v Bool.false md) (rt := .atom "true") (st := boolAtom st) hb fb
+    (fun r => ∃ T Y el f, r = .tuple #[T, Y, Term.list el, boolAtom f] ∧ (level t n).E T ∧
+      (∀ x, (level t n).den T x ↔ ∃ w, denMF (level t n).E (level t n).den b w = Bool.true ∧
+        ∃ κ, GKey rk Os ng Ds Do κ ∧ w κ = some x) ∧
+      (f = Bool.true ↔ FoundG (fun u => denMF (level t n).E (level t n).den b u = Bool.true) rk Os ng Ds Do md st))
+    fun lines hl hne sl => by
+      obtain ⟨r, rr⟩ := dnf_ok_g ef (n := k + 2) (by omega) hv sv Bool.false hmd fb lines hl sl gs.ok gs.na st
+        fun bd a => pk_val ef (n := k + 4) (by omega) hv vne hmd lines hl bd a
+      exact ⟨r, rr, dnf_gvf ef (n := k + 2) (by omega) hv vne fb lines hl sl gs hmd st rr⟩
+  refine ⟨res, run, ?_⟩
+  rcases hres with ⟨rfl, emp⟩ | ⟨ex, T, Y, el, f, rfl, hT, sT, sf⟩
+  · exact Or.inl ⟨Or.inl rfl, fun w h => by simp [MT, hb, emp w] at h⟩
+  obtain ⟨Y', rfl, dY, shY, sY⟩ := hY Z hZ _ _ hm _ _ _ _ run
+  rw [conv] at sf
+  have mt : ∀ w, MT t n Z w ↔ denMF (level t n).E (level t n).den b w = Bool.true := fun w => by simp [MT, hb]
+  have ex' : ∃ w, MT t n Z w := let ⟨w, hw⟩ := ex; ⟨w, (mt w).mpr hw⟩
+  refine Or.inr ⟨ex', T, Y', el, f, rfl, hT, fun x => (sT x).trans ?_, dY, shY, sY ex', sf⟩
+  exact ⟨fun ⟨w, hw, κ, hκ, e⟩ => ⟨w, (mt w).mpr hw, κ, (hk κ).mp hκ, e⟩,
+    fun ⟨w, hw, κ, hκ, e⟩ => ⟨w, (mt w).mp hw, κ, (hk κ).mpr hκ, e⟩⟩
+
+
+/-- The maps of `:keep` and `:reject` at a gradual split, as `supd_val` takes them. -/
+theorem kr_hY {s : Term} {KP : MKey → Prop} (hs : GForm s KP) (keep : Bool) :
+    ∃ (rs : List String) (neg : Term) (Ds A : List String), KSplit rs neg Ds A KP ∧
+      ∀ {v : Term}, (level t n).E v → (v = .atom "term" ∨ ∃ Z, v = .map Z) → (∃ x, (level t n).den v x) →
+      ∀ X : List (Term × Term), DE (level t n).E (.map X) → ∀ (st : Bool) (m : Nat), (level t n).K + 30 ≤ m →
+      ∀ T Y er f, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) s
+        (cOp v Bool.false (modeS keep)) (.atom "true") (boolAtom st) = .ok (.tuple #[T, Y, er, f]) →
+      ∃ Y', Y = .map Y' ∧ DE (level t n).E (.map Y') ∧ (∀ q : PN t n, denD (.map Y') q → q.1.1 = "map") ∧
+        ((∃ u, MT t n X u) → ∀ w, MT t n Y' w ↔ KRS (level t n).den (MT t n X) rs neg Ds A v keep w) := by
+  obtain ⟨rs, neg, Ds, A, ks, h⟩ := kr_gx (t := t) (n := n) hs keep
+  refine ⟨rs, neg, Ds, A, ks, fun hv sv vne X hX st m hm T Y er f run => ?_⟩
+  rw [← keepOp_cOp] at run
+  obtain ⟨Y', e, dY, shY, sY⟩ := h hX hv sv vne _ hm run
+  exact ⟨Y', e, dY, single_map_only shY, sY⟩
+
+/-- The maps of forcing at a split putting with `P`, as `supd_val` takes them. -/
+theorem force_hY {Rk Ok neg' Rd Od neg : Term} {P : ∀ {V : Type}, (Term → V → Prop) → (MW V → Prop) → Term → MW V → Prop}
+    (hP : DnfPuts (.tuple #[Rk, Ok, neg', Rd, Od]) neg P) (hNa : ∀ N, neg = .map N → ∀ e ∈ mapEntries N, ∃ s, e.1 = .atom s)
+    {v : Term} (hv : (level t n).E v) (sv : v = .atom "term" ∨ ∃ Z, v = .map Z) :
+    ∀ X : List (Term × Term), DE (level t n).E (.map X) → ∀ (st : Bool) (m : Nat), (level t n).K + 30 ≤ m →
+      ∀ T Y er f, Elixir.Module.Types.Descr.«map_update_static/5» (D m) (.map X) (.tuple #[Rk, Ok, neg', Rd, Od])
+        (cOp v Bool.false "force") (.atom "true") (boolAtom st) = .ok (.tuple #[T, Y, er, f]) →
+      ∃ Y', Y = .map Y' ∧ DE (level t n).E (.map Y') ∧ (∀ q : PN t n, denD (.map Y') q → q.1.1 = "map") ∧
+        ((∃ u, MT t n X u) → ∀ w, MT t n Y' w ↔ P (level t n).den (MT t n X) v w) := by
+  intro X hX st m hm T Y er f run
+  obtain ⟨k, rfl⟩ : ∃ k, m = k + 2 := ⟨m - 2, by omega⟩
+  obtain ⟨res, run₂, h₂⟩ := upd_static_g' hX hv sv hP hNa (m := k + 2) (by omega) st
+  have rel := static_rt_rel k (.map X) Rk Ok neg' Rd Od _ (boolAtom st) (boolAtom st) run run₂
+  rcases h₂ with ⟨(rfl | ⟨rfl, -⟩), no⟩ | ⟨ex, Y₂, f₂, rfl, dY, oY, sY, -⟩
+  · rcases rel with e | ⟨_, _, _, _, _, _, _, -, e⟩ <;> cases e
+  · have eY : Y = .map [] := by
+      rcases rel with e | ⟨_, bd, _, _, _, _, _, e₁, e₂⟩
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e; exact e.2.1
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e₁ e₂; rw [e₁.2.1, e₂.2.1]
+    subst eY
+    exact ⟨[], rfl, Or.inr ⟨_, rfl, descrC_nil⟩, fun q h => by simp [denD_map, mapLookup, dn_none] at h,
+      fun ⟨u, hu⟩ => absurd hu (no u)⟩
+  · have eY : Y = .map Y₂ := by
+      rcases rel with e | ⟨_, bd, _, _, _, _, _, e₁, e₂⟩
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e; exact e.2.1
+      · simp only [Term.tuple.injEq, Array.mk.injEq, List.cons.injEq] at e₁ e₂; rw [e₁.2.1, e₂.2.1]
+    exact ⟨Y₂, eY, dY, oY, fun _ => sY⟩
+
+
+/-- `map_only?/1` of the static part of a gradual map type, as whether it holds only maps. -/
+theorem mo_cases {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {m : Nat} (hm : (level t n).K + 23 ≤ m) :
+    (Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "true") ∧
+      ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") ∨
+    (Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) = .ok (.atom "false") ∧
+      ¬∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map") := by
+  obtain ⟨dR, sR⟩ := rest_map (t := t) (n := n) gX.low_tc
+  have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
+      .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    exact next_empty dR hm
+  have iff : (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) ↔ ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map" :=
+    ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sR q).mpr ⟨hq, nq⟩),
+      fun h q hq => ((sR q).mp hq).2 (h q ((sR q).mp hq).1)⟩
+  by_cases h : ∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q
+  · rw [bp_true.mpr h] at mo
+    exact Or.inl ⟨by simpa [boolAtom] using mo, iff.mp h⟩
+  · rw [bp_false.mpr h] at mo
+    exact Or.inr ⟨by simpa [boolAtom] using mo, fun h' => h (iff.mpr h')⟩
+
+end
+
+
+section
+variable {V : Type} {den : Term → V → Prop}
+
+theorem krs_mono {M₁ M₂ : MW V → Prop} (hM : ∀ u, M₁ u → M₂ u) {v₁ v₂ : Term}
+    (hv : ∀ x, den v₁ x → den v₂ x) (vne : ∃ x, den v₁ x) {keep : Bool}
+    {rs₁ rs₂ Ds₁ Ds₂ A₁ A₂ : List String} {neg₁ neg₂ : Term}
+    (ok₁ : SplitOk (rs₁.map Term.atom) neg₁ (Ds₁.map Term.atom)) (ok₂ : SplitOk (rs₂.map Term.atom) neg₂ (Ds₂.map Term.atom))
+    (nr₂ : ∀ N, neg₂ = .map N → rs₂ = [])
+    (hK : ∀ κ, SplitKey (rs₁.map Term.atom) neg₁ (Ds₁.map Term.atom) κ →
+      SplitKey (rs₂.map Term.atom) neg₂ (Ds₂.map Term.atom) κ)
+    (hA : ∀ a ∈ A₁, a ∈ A₂ ∨ SplitKey (rs₂.map Term.atom) neg₂ (Ds₂.map Term.atom) (.atom a)) {w : MW V}
+    (h : KRS den M₁ rs₁ neg₁ Ds₁ A₁ v₁ keep w) : KRS den M₂ rs₂ neg₂ Ds₂ A₂ v₂ keep w := by
+  classical
+  obtain ⟨Dm₁, mDm₁, h⟩ := h
+  have mDm₂ : ∀ d, d ∈ Ds₂.filter (fun d => decide (keep = Bool.true ∨ KindHeld M₂ d)) ↔
+      d ∈ Ds₂ ∧ (keep = Bool.true ∨ KindHeld M₂ d) := fun d => by simp
+  refine ⟨_, mDm₂, ?_⟩
+  rcases h with h | ⟨a, ma, h⟩
+  · exact Or.inl (upd_mono hM hv vne ok₁ ok₂ nr₂ hK mDm₁ mDm₂ h)
+  · rcases hA a ma with m | k
+    · exact Or.inr ⟨a, m, keepSemM_mono hM hv h⟩
+    · left
+      have ok₀ : SplitOk ([a].map Term.atom) (.atom "nil") (([] : List String).map Term.atom) :=
+        ⟨by simp, Or.inl rfl, by simp, by simp⟩
+      refine upd_mono (Dm₁ := []) hM hv vne ok₀ ok₂ nr₂ (fun κ hκ => ?_) (fun d => by simp) mDm₂
+        (Or.inl ⟨rfl, Or.inl ⟨a, by simp, h⟩⟩)
+      cases κ with
+      | atom c =>
+        rcases hκ with hκ | ⟨N, e, -⟩
+        · simp at hκ; subst hκ; exact k
+        · cases e
+      | dom k' i => simp [SplitKey] at hκ
+
+theorem foundG_weak {M : MW V → Prop} {rk Os : List String} {neg : Term} {Ds Do : List String} {md : String}
+    {st : Bool} (h : FoundG M rk Os neg Ds Do md st) : FoundG M rk Os neg Ds Do md Bool.false := by
+  rcases h with h | ⟨nf, h | h | ⟨a, ma, hv, -⟩⟩
+  · exact Or.inl h
+  · exact Or.inr ⟨nf, Or.inl h⟩
+  · exact Or.inr ⟨nf, Or.inr (Or.inl h)⟩
+  · exact Or.inr ⟨nf, Or.inr (Or.inr ⟨a, ma, hv, fun e => by cases e⟩)⟩
+
+theorem foundG_mono {M₁ M₂ : MW V → Prop} (hM : ∀ u, M₁ u → M₂ u) {rk Os : List String} {neg : Term}
+    {Ds Do : List String} {md : String} (h : FoundG M₁ rk Os neg Ds Do md Bool.false) :
+    FoundG M₂ rk Os neg Ds Do md Bool.false := by
+  rcases h with h | ⟨nf, ⟨x, w, hw, h⟩ | ⟨at', a, ma, w, x, hw, e⟩ | ⟨a, ma, ⟨w, x, hw, e⟩, -⟩⟩
+  · exact Or.inl h
+  · exact Or.inr ⟨nf, Or.inl ⟨x, w, hM w hw, h⟩⟩
+  · exact Or.inr ⟨nf, Or.inr (Or.inl ⟨at', a, ma, w, x, hM w hw, e⟩)⟩
+  · exact Or.inr ⟨nf, Or.inr (Or.inr ⟨a, ma, ⟨w, x, hM w hw, e⟩, fun e => by cases e⟩)⟩
+
+theorem foundG_congr {M₁ M₂ : MW V → Prop} (hM : ∀ u, M₁ u ↔ M₂ u) {rk Os : List String} {neg : Term}
+    {Ds Do : List String} {md : String} {st : Bool} (h : FoundG M₁ rk Os neg Ds Do md st) :
+    FoundG M₂ rk Os neg Ds Do md st := by
+  have e : M₁ = M₂ := funext fun u => propext (hM u)
+  exact e ▸ h
+
+end
+
+section
+variable {t : Term} {d : Nat}
+
+/-- `map_update/5` of a value at a split with static-level semantics for every static value, on a gradual map type
+of the next level: it gives a type exactly when the lower bound holds only maps and the upper bound some, and the
+update of the upper bound finds a key (as a static update when the map type and the value are static); then the lower
+bound holds, for a static value, the updates of the maps of the lower bound, the upper bound those of the value's
+upper bound at the maps of the upper bound, and the same for the old values. -/
+theorem upd_all_g {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {v : Term} (gv : GC (level t d) v)
+    (dup : DE (level t d).E (upper v)) (vne : ∃ y : PN t d, denD (upper v) y) {key s : Term} {md : String} {m : Nat}
+    (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s) (hmd : Mode md)
+    {OV : (MW (level t (d + 1)).V → Prop) → (level t (d + 1)).V → Prop}
+    {S : Term → (MW (level t (d + 1)).V → Prop) → MW (level t (d + 1)).V → Prop}
+    {F : (MW (level t (d + 1)).V → Prop) → Bool → Prop}
+    (hS : ∀ x, DE (level t d).E x → (x = .atom "term" ∨ ∃ Z, x = .map Z) → (∃ y : PN t d, denD x y) →
+      SUpd t (d + 1) s (cOp x Bool.false md) OV (S x) F)
+    (ovE : ∀ M x, OV M x → ∃ w, M w)
+    (ovm : ∀ M₁ M₂ : MW (level t (d + 1)).V → Prop, (∀ u, M₁ u → M₂ u) → ∀ x, OV M₁ x → OV M₂ x)
+    (hSm : ∀ x (M₁ M₂ : MW (level t (d + 1)).V → Prop), DE (level t d).E x → (∃ y : PN t d, denD x y) →
+      (∀ u, M₁ u → M₂ u) → ∀ w,
+      S x M₁ w → S x M₂ w)
+    (hm : (level t (d + 1)).K + 30 ≤ m) :
+    ∃ r, Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key v (.atom md) (.atom "true") = .ok r ∧
+      ((∃ T R er, r = .tuple #[T, R, er]) ↔ (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+        (∃ w, MT t (d + 1) (dynL (upper (.map X))) w) ∧
+        F (MT t (d + 1) (dynL (upper (.map X)))) ((mapLookup X (.atom "dynamic")).isNone && @decide (upper v = v) (Classical.propDecidable _))) ∧
+      ∀ T R er, r = .tuple #[T, R, er] → GC (level t (d + 1)) R ∧
+        (∀ q : PN t (d + 1), denD (upper R) q → q.1.1 = "map") ∧
+        (∀ w, denD R (mpt (t := t) (n := d + 1) w) ↔ upper v = v ∧ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S v (MT t (d + 1) (rmDyn X)) w) ∧
+        (∀ w, denD (upper R) (mpt (t := t) (n := d + 1) w) ↔ S (upper v) (MT t (d + 1) (dynL (upper (.map X)))) w) ∧
+        ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+          Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+          (∀ x : PN t d, denD lt x ↔ upper v = v ∧ OV (MT t (d + 1) (rmDyn X)) x) ∧
+          ∀ x : PN t d, denD ut x ↔ OV (MT t (d + 1) (dynL (upper (.map X)))) x := by
+  have hmode : Term.atom md = .atom "force" ∨ Term.atom md = .atom "keep" ∨ Term.atom md = .atom "reject" := by
+    rcases hmd with rfl | rfl | rfl <;> simp
+  -- The static part's maps are among those of the upper bound.
+  have inc : ∀ u, MT t (d + 1) (rmDyn X) u → MT t (d + 1) (dynL (upper (.map X))) u := fun u h =>
+    (mt_dynL' gX.up_tc u).mpr (GC.inv gX _ ((denD_rmDyn X _).mp ((denD_mpt u).mpr h)))
+  -- A static value updates the map type as it is.
+  have static : ∀ {x : Term}, (x = .atom "term" ∨ ∃ Z, x = .map Z ∧ mapLookup Z (.atom "dynamic") = none) →
+      DE (level t d).E x → (∃ y : PN t d, denD x y) →
+      ∃ r, Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key x (.atom md) (.atom "true") = .ok r ∧
+        ((∃ T R er, r = .tuple #[T, R, er]) ↔ (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+          (∃ w, MT t (d + 1) (dynL (upper (.map X))) w) ∧
+          F (MT t (d + 1) (dynL (upper (.map X)))) (mapLookup X (.atom "dynamic")).isNone) ∧
+        ∀ T R er, r = .tuple #[T, R, er] → GC (level t (d + 1)) R ∧
+          (∀ q : PN t (d + 1), denD (upper R) q → q.1.1 = "map") ∧
+          (∀ w, denD R (mpt (t := t) (n := d + 1) w) ↔ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+            S x (MT t (d + 1) (rmDyn X)) w) ∧
+          (∀ w, denD (upper R) (mpt (t := t) (n := d + 1) w) ↔ S x (MT t (d + 1) (dynL (upper (.map X)))) w) ∧
+          ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+            Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+            (∀ x : PN t d, denD lt x ↔ OV (MT t (d + 1) (rmDyn X)) x) ∧
+            ∀ x : PN t d, denD ut x ↔ OV (MT t (d + 1) (dynL (upper (.map X)))) x := by
+    intro x sx dx nx
+    have sx' : x = .atom "term" ∨ ∃ Z, x = .map Z := sx.imp id fun ⟨Z, e, _⟩ => ⟨Z, e⟩
+    rw [upd5_val (.map X) hk hmode sx]
+    obtain ⟨r, run, iff, sem⟩ := gupd_un gX (hS x dx sx' nx) ovE hm
+    refine ⟨r, run, iff, fun T R er e => ?_⟩
+    obtain ⟨g, o, l, u, lt, ut, rl, ru, dl, du, sl, su⟩ := sem T R er e
+    refine ⟨g, o, l, fun w => (u w).trans ⟨fun h => h.elim (fun ⟨_, h⟩ => hSm x _ _ dx nx inc w h) id, Or.inr⟩,
+      lt, ut, rl, ru, dl, du, sl, fun y => (su y).trans ⟨fun h => h.elim (ovm _ _ inc y) id, Or.inr⟩⟩
+  -- A static value: its upper bound is itself.
+  have ofStatic : ∀ {x : Term}, upper x = x → (x = .atom "term" ∨ ∃ Z, x = .map Z ∧ mapLookup Z (.atom "dynamic") = none) →
+      v = x → ∃ r, Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key v (.atom md) (.atom "true") = .ok r ∧
+      ((∃ T R er, r = .tuple #[T, R, er]) ↔ (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ∧
+        (∃ w, MT t (d + 1) (dynL (upper (.map X))) w) ∧
+        F (MT t (d + 1) (dynL (upper (.map X)))) ((mapLookup X (.atom "dynamic")).isNone &&
+          @decide (upper v = v) (Classical.propDecidable _))) ∧
+      ∀ T R er, r = .tuple #[T, R, er] → GC (level t (d + 1)) R ∧
+        (∀ q : PN t (d + 1), denD (upper R) q → q.1.1 = "map") ∧
+        (∀ w, denD R (mpt (t := t) (n := d + 1) w) ↔ upper v = v ∧ (∃ u, MT t (d + 1) (rmDyn X) u) ∧
+          S v (MT t (d + 1) (rmDyn X)) w) ∧
+        (∀ w, denD (upper R) (mpt (t := t) (n := d + 1) w) ↔ S (upper v) (MT t (d + 1) (dynL (upper (.map X)))) w) ∧
+        ∃ lt ut, Elixir.Module.Types.Descr.«lower_bound/1» (D m) T = .ok lt ∧
+          Elixir.Module.Types.Descr.«upper_bound/1» (D m) T = .ok ut ∧ DE (level t d).E lt ∧ DE (level t d).E ut ∧
+          (∀ x : PN t d, denD lt x ↔ upper v = v ∧ OV (MT t (d + 1) (rmDyn X)) x) ∧
+          ∀ x : PN t d, denD ut x ↔ OV (MT t (d + 1) (dynL (upper (.map X)))) x := by
+    intro x ux sx ev
+    subst ev
+    have e : @decide (upper v = v) (Classical.propDecidable _) = Bool.true := @decide_eq_true _ (Classical.propDecidable _) ux
+    rw [e, Bool.and_true]
+    obtain ⟨r, run, iff, sem⟩ := static sx (ux ▸ dup) (ux ▸ vne)
+    refine ⟨r, run, iff, fun T R er e => ?_⟩
+    obtain ⟨g, o, l, u, lt, ut, rl, ru, dl, du, sl, su⟩ := sem T R er e
+    exact ⟨g, o, fun w => (l w).trans ⟨fun h => ⟨ux, h⟩, fun h => h.2⟩, fun w => ux.symm ▸ u w,
+      lt, ut, rl, ru, dl, du, fun y => (sl y).trans ⟨fun h => ⟨ux, h⟩, fun h => h.2⟩, su⟩
+  rcases gv.cases with rfl | ⟨V, rfl, hV⟩ | ⟨V, rfl, hV⟩ | ⟨V, Y, rfl, hV, hY⟩
+  · exact ofStatic rfl (Or.inl rfl) rfl
+  · exact ofStatic (by simp [upper, hV]) (Or.inr ⟨V, rfl, hV⟩) rfl
+  all_goals
+    obtain ⟨Dv, hD⟩ : ∃ Dv, mapLookup V (.atom "dynamic") = some Dv := ⟨_, hV⟩
+    have uV : upper (.map V) = Dv := upper_dyn hD
+    have notS : upper (.map V) ≠ .map V := fun e => by
+      have dup' := dup
+      rw [uV] at dup' e
+      rcases dup' with h | ⟨Z, h, sZ⟩
+      · rw [e] at h; cases h
+      · rw [e] at h; cases h; rw [sZ.static] at hD; cases hD
+    have e : @decide (upper (.map V) = .map V) (Classical.propDecidable _) = Bool.false :=
+      @decide_eq_false _ (Classical.propDecidable _) notS
+    rw [e, Bool.and_false]
+    have hdv : DE (level t d).E Dv := uV ▸ dup
+    have sx : Dv = .atom "term" ∨ ∃ Z, Dv = .map Z := by
+      rcases hdv with h | ⟨Z, h, -⟩
+      · exact Or.inl h
+      · exact Or.inr ⟨Z, h⟩
+    have nx : ∃ y : PN t d, denD Dv y := uV ▸ vne
+    have lowIff : (∀ q : PN t (d + 1), denD (lower (.map X)) q → q.1.1 = "map") ↔
+        ∀ q : PN t (d + 1), denD (.map (rmDyn X)) q → q.1.1 = "map" :=
+      ⟨fun h q hq => h q ((denD_lower _ _).mpr ((denD_rmDyn X q).mp hq)),
+        fun h q hq => h q ((denD_rmDyn X q).mpr ((denD_lower _ _).mp hq))⟩
+    rcases mo_cases gX (m := m) (by omega) with ⟨hmo, onlyS⟩ | ⟨hmo, nS⟩
+    · rw [upd5_gval X hk hmode hD hmo]
+      have gG : GC (level t (d + 1)) (.map (dynG X)) :=
+        Or.inr ⟨_, upper (.map X), rfl, by simp [dynG, mapLookup, upper], gX.up_tc,
+          by simp only [dynG, rmDyn_cons_dyn]; exact descrC_nil, fun q h => by
+            have := (denD_rmDyn _ q).mpr h
+            simp [dynG, rmDyn, denD_map, mapLookup, Elixir.STTDescrProofsTest.dn_none] at this⟩
+      have hDG : mapLookup (dynG X) (.atom "dynamic") = some (upper (.map X)) := by
+        simp [dynG, mapLookup, upper]
+      have rG : rmDyn (dynG X) = [] := by simp [dynG, rmDyn]
+      have uG : upper (.map (dynG X)) = upper (.map X) := upper_dyn hDG
+      have noM : ∀ u, ¬MT t (d + 1) [] u := fun u h => by simp [MT, mapLookup] at h
+      obtain ⟨r, run, iff, sem⟩ := gupd_un gG (hS Dv hdv sx nx) ovE hm
+      rw [uG, hDG] at iff
+      rw [uG, rG] at sem
+      simp only [Option.isNone_some] at iff
+      refine ⟨r, run, iff.trans ⟨fun ⟨_, h₂, h₃⟩ => ⟨lowIff.mpr onlyS, h₂, h₃⟩,
+        fun ⟨_, h₂, h₃⟩ => ⟨fun q hq => ?_, h₂, h₃⟩⟩, fun T R er e' => ?_⟩
+      · have := (denD_lower _ _).mp hq
+        rw [← denD_rmDyn, rG] at this
+        simp [denD_map, mapLookup, dn_none] at this
+      obtain ⟨g, o, l, u, lt, ut, rl, ru, dl, du, sl, su⟩ := sem T R er e'
+      refine ⟨g, o, fun w => (l w).trans ⟨fun ⟨⟨u, hu⟩, _⟩ => absurd hu (noM u), fun h => absurd h.1 notS⟩,
+        fun w => (u w).trans ?_, lt, ut, rl, ru, dl, du,
+        fun y => (sl y).trans ⟨fun h => absurd (ovE _ _ h).choose_spec (noM _), fun h => absurd h.1 notS⟩,
+        fun y => (su y).trans ⟨fun h => h.elim (fun h => absurd (ovE _ _ h).choose_spec (noM _)) id, Or.inr⟩⟩
+      rw [uV]
+      exact ⟨fun h => h.elim (fun ⟨⟨u, hu⟩, _⟩ => absurd hu (noM u)) id, Or.inr⟩
+    · rw [upd5_gval_bad X hk hmode hD hmo]
+      exact ⟨_, rfl, ⟨fun ⟨_, _, _, h⟩ => (by cases h), fun ⟨h, _⟩ => absurd (lowIff.mp h) nS⟩,
+        fun _ _ _ h => by cases h⟩
+
+
+/-- Updating less precise maps with less precise values at a split with static-level semantics is less precise, as is
+the old type. -/
+theorem upd_prec {X : List (Term × Term)} {a₂ v v₂ : Term} (gX : GC (level t (d + 1)) (.map X))
+    (g₂ : GC (level t (d + 1)) a₂) (gv : GC (level t d) v) (gv₂ : GC (level t d) v₂)
+    (dup : DE (level t d).E (upper v)) (dup₂ : DE (level t d).E (upper v₂)) (vne : ∃ y : PN t d, denD (upper v) y)
+    {key s : Term} {md : String} {m : Nat}
+    (hk : Elixir.Module.Types.Descr.«map_split_keys_and_domains/1» (D m) key = .ok s) (hmd : Mode md)
+    {OV : (MW (level t (d + 1)).V → Prop) → (level t (d + 1)).V → Prop}
+    {S : Term → (MW (level t (d + 1)).V → Prop) → MW (level t (d + 1)).V → Prop}
+    {F : (MW (level t (d + 1)).V → Prop) → Bool → Prop}
+    (hS : ∀ x, DE (level t d).E x → (x = .atom "term" ∨ ∃ Z, x = .map Z) → (∃ y : PN t d, denD x y) →
+      SUpd t (d + 1) s (cOp x Bool.false md) OV (S x) F)
+    (ovE : ∀ M x, OV M x → ∃ w, M w)
+    (ovm : ∀ M₁ M₂ : MW (level t (d + 1)).V → Prop, (∀ u, M₁ u → M₂ u) → ∀ x, OV M₁ x → OV M₂ x)
+    (hmono : ∀ x₁ x₂ (M₁ M₂ : MW (level t (d + 1)).V → Prop), DE (level t d).E x₁ → DE (level t d).E x₂ →
+      (∃ y : PN t d, denD x₁ y) → (∀ u, M₁ u → M₂ u) → (∀ y : PN t d, denD x₁ y → denD x₂ y) → ∀ w,
+      S x₁ M₁ w → S x₂ M₂ w)
+    (hSm : ∀ x (M₁ M₂ : MW (level t (d + 1)).V → Prop), DE (level t d).E x → (∃ y : PN t d, denD x y) →
+      (∀ u, M₁ u → M₂ u) → ∀ w,
+      S x M₁ w → S x M₂ w)
+    (Fw : ∀ (M : MW (level t (d + 1)).V → Prop) st, F M st → F M Bool.false)
+    (Fm : ∀ M₁ M₂ : MW (level t (d + 1)).V → Prop, (∀ u, M₁ u → M₂ u) → F M₁ Bool.false → F M₂ Bool.false)
+    (Fc : ∀ M₁ M₂ : MW (level t (d + 1)).V → Prop, (∀ u, M₁ u ↔ M₂ u) → ∀ st, F M₁ st → F M₂ st)
+    (hm : (level t (d + 1)).K + 30 ≤ m)
+    (lo : ∀ q : PN t (d + 1), denD a₂ q → denD (.map X) q)
+    (up : ∀ q : PN t (d + 1), denD (upper (.map X)) q → denD (upper a₂) q)
+    (lov : ∀ y : PN t d, denD v₂ y → denD v y) (upv : ∀ y : PN t d, denD (upper v) y → denD (upper v₂) y)
+    (kd : mapLookup X (.atom "dynamic") ≠ none → ∃ X₂, a₂ = .map X₂ ∧ mapLookup X₂ (.atom "dynamic") ≠ none)
+    (kdv : upper v₂ = v₂ → upper v = v) {T R er : Term}
+    (run : Elixir.Module.Types.Descr.«map_update/5» (D m) (.map X) key v (.atom md) (.atom "true") =
+      .ok (.tuple #[T, R, er])) :
+    ∃ T₂ R₂ er₂, Elixir.Module.Types.Descr.«map_update/5» (D m) a₂ key v₂ (.atom md) (.atom "true") =
+        .ok (.tuple #[T₂, R₂, er₂]) ∧ «precise?/2» (D m) T T₂ = .ok (.atom "true") ∧
+      «precise?/2» (D m) R R₂ = .ok (.atom "true") := by
+  obtain ⟨r, run', iffA, semA⟩ := upd_all_g gX gv dup vne hk hmd hS ovE ovm hSm hm
+  rw [run] at run'; cases run'
+  obtain ⟨onlyA, neA, fA⟩ := iffA.mp ⟨_, _, _, rfl⟩
+  have lo' : ∀ q : PN t (d + 1), denD (lower a₂) q → denD (lower (.map X)) q := fun q h =>
+    (denD_lower _ _).mpr (lo q ((denD_lower _ _).mp h))
+  obtain ⟨X₂, rfl⟩ : ∃ X₂, a₂ = .map X₂ := by
+    rcases g₂.shape with rfl | ⟨X₂, rfl⟩
+    · have := onlyA bitPt (lo' bitPt (by simp [lower, denD_term]))
+      simp [bitPt] at this
+    · exact ⟨X₂, rfl⟩
+  have muA : ∀ w, MT t (d + 1) (dynL (upper (.map X))) w → MT t (d + 1) (dynL (upper (.map X₂))) w := fun w h =>
+    (mt_dynL' g₂.up_tc w).mpr (up _ ((mt_dynL' gX.up_tc w).mp h))
+  have msB : ∀ w, MT t (d + 1) (rmDyn X₂) w → MT t (d + 1) (rmDyn X) w := fun w h =>
+    (denD_mpt w).mp ((denD_rmDyn X _).mpr (lo _ ((denD_rmDyn X₂ _).mp ((denD_mpt w).mpr h))))
+  have vne₂ : ∃ y : PN t d, denD (upper v₂) y := let ⟨y, hy⟩ := vne; ⟨y, upv y hy⟩
+  -- The less precise update finds a key.
+  have fB : F (MT t (d + 1) (dynL (upper (.map X₂))))
+      ((mapLookup X₂ (.atom "dynamic")).isNone && @decide (upper v₂ = v₂) (Classical.propDecidable _)) := by
+    by_cases st₂ : ((mapLookup X₂ (.atom "dynamic")).isNone && @decide (upper v₂ = v₂) (Classical.propDecidable _)) =
+        Bool.true
+    · rw [st₂]
+      simp only [Bool.and_eq_true, Option.isNone_iff_eq_none] at st₂
+      obtain ⟨hD₂, ev₂⟩ := st₂
+      have ev₂' : upper v₂ = v₂ := @of_decide_eq_true _ (Classical.propDecidable _) ev₂
+      have hA : mapLookup X (.atom "dynamic") = none := Classical.byContradiction fun h => by
+        obtain ⟨X₂', e, h'⟩ := kd h
+        simp only [Term.map.injEq] at e; subst e; exact h' hD₂
+      have st₁ : ((mapLookup X (.atom "dynamic")).isNone && @decide (upper v = v) (Classical.propDecidable _)) =
+          Bool.true := by
+        simp [hA, kdv ev₂']
+      rw [st₁] at fA
+      refine Fc _ _ (fun u => ⟨muA u, fun h => ?_⟩) _ fA
+      have uX₂ : upper (.map X₂) = .map X₂ := by simp [upper, hD₂]
+      have uX : upper (.map X) = .map X := by simp [upper, hA]
+      rw [uX₂] at h; rw [uX]
+      simp only [dynL] at h ⊢
+      have := msB u (by rwa [rmDyn_static hD₂])
+      rwa [rmDyn_static hA] at this
+    · simp only [Bool.not_eq_true] at st₂
+      rw [st₂]
+      exact Fm _ _ muA (Fw _ _ fA)
+  obtain ⟨r₂, run₂, iffB, semB⟩ := upd_all_g g₂ gv₂ dup₂ vne₂ hk hmd hS ovE ovm hSm hm
+  obtain ⟨T₂, R₂, er₂, rfl⟩ := iffB.mpr ⟨fun q h => onlyA q (lo' q h), let ⟨w, hw⟩ := neA; ⟨w, muA w hw⟩, fB⟩
+  obtain ⟨gR, oR, lR, uR, lt, ut, lA, uA, dlA, duA, slA, suA⟩ := semA T R er rfl
+  obtain ⟨gR₂, oR₂, lR₂, uR₂, lt₂, ut₂, lB, uB, dlB, duB, slB, suB⟩ := semB T₂ R₂ er₂ rfl
+  have hm' : (level t d).K + 23 ≤ m := by rw [level_K] at hm ⊢; omega
+  refine ⟨T₂, R₂, er₂, run₂, precise_of_bounds (n := d) hm' lA uA lB uB dlA duA dlB duB
+    (fun x h => (slA x).mpr (let ⟨e, h⟩ := (slB x).mp h; ⟨kdv e, ovm _ _ msB x h⟩))
+    (fun x h => (suB x).mpr (ovm _ _ muA x ((suA x).mp h))), precise_of (n := d + 1) (by omega) gR gR₂ ?_ ?_⟩
+  · refine via_mpt gR₂.shape gR.shape (fun q h => oR₂ q (GC.inv gR₂ q h)) fun w h => ?_
+    obtain ⟨e₂, ⟨u, hu⟩, h⟩ := (lR₂ w).mp h
+    have ne₂ : ∃ y : PN t d, denD v₂ y := let ⟨y, hy⟩ := vne₂; ⟨y, e₂ ▸ hy⟩
+    exact (lR w).mpr ⟨kdv e₂, ⟨u, msB u hu⟩, hmono v₂ v _ _ (e₂ ▸ dup₂) (kdv e₂ ▸ dup) ne₂ msB lov w h⟩
+  · refine via_mpt (Or.imp id (fun ⟨Y, e, _⟩ => ⟨Y, e⟩) gR.up_tc) (Or.imp id (fun ⟨Y, e, _⟩ => ⟨Y, e⟩) gR₂.up_tc)
+      oR fun w h => ?_
+    exact (uR₂ w).mpr (hmono _ _ _ _ dup dup₂ vne muA upv w ((uR w).mp h))
+
+
+/-- `map_update/5` at a gradual key type of the laws: less precise maps and values give a less precise result and old
+type. -/
+theorem upd_prec_key {X : List (Term × Term)} {a₂ v v₂ : Term} (gX : GC (level t (d + 1)) (.map X))
+    (g₂ : GC (level t (d + 1)) a₂) (gv : GC (level t d) v) (gv₂ : GC (level t d) v₂)
+    (dup : DE (level t d).E (upper v)) (dup₂ : DE (level t d).E (upper v₂)) (vne : ∃ y : PN t d, denD (upper v) y)
+    {key : Term} {md : String} {m : Nat} (hmk : (level t d).K + 23 ≤ m)
+    (hk' : «arrows_gradual?/2» (D (m + 1)) key (.tuple #[.integer d, t]) = .ok (.atom "true")) (hmd : Mode md)
+    (hm : (level t (d + 1)).K + 30 ≤ m + 1)
+    (lo : ∀ q : PN t (d + 1), denD a₂ q → denD (.map X) q)
+    (up : ∀ q : PN t (d + 1), denD (upper (.map X)) q → denD (upper a₂) q)
+    (lov : ∀ y : PN t d, denD v₂ y → denD v y) (upv : ∀ y : PN t d, denD (upper v) y → denD (upper v₂) y)
+    (kd : mapLookup X (.atom "dynamic") ≠ none → ∃ X₂, a₂ = .map X₂ ∧ mapLookup X₂ (.atom "dynamic") ≠ none)
+    (kdv : upper v₂ = v₂ → upper v = v) {T R er : Term}
+    (run : Elixir.Module.Types.Descr.«map_update/5» (D (m + 1)) (.map X) key v (.atom md) (.atom "true") =
+      .ok (.tuple #[T, R, er])) :
+    ∃ T₂ R₂ er₂, Elixir.Module.Types.Descr.«map_update/5» (D (m + 1)) a₂ key v₂ (.atom md) (.atom "true") =
+        .ok (.tuple #[T₂, R₂, er₂]) ∧ «precise?/2» (D (m + 1)) T T₂ = .ok (.atom "true") ∧
+      «precise?/2» (D (m + 1)) R R₂ = .ok (.atom "true") := by
+  obtain ⟨s, hk, hs⟩ := key_gform (t := t) (n := d) hmk hk'
+  obtain ⟨rk, Os, ng, Ds, Do, rfl, gs, hkey⟩ := gform_strs hs
+  have ef := (level t (d + 1)).ef
+  have ovE : ∀ (M : MW (level t (d + 1)).V → Prop) x, Vals M (KeyPt t d (upper key)) x → ∃ w, M w :=
+    fun M x ⟨w, hw, _⟩ => ⟨w, hw⟩
+  have ovm : ∀ M₁ M₂ : MW (level t (d + 1)).V → Prop, (∀ u, M₁ u → M₂ u) → ∀ x,
+      Vals M₁ (KeyPt t d (upper key)) x → Vals M₂ (KeyPt t d (upper key)) x := fun M₁ M₂ h x => vals_mono h
+  have dn : ∀ {x : Term}, DE (level t d).E x → ∀ y, (level t (d + 1)).den x y ↔ denD x y := fun dx y => den_succ dx y
+  have toE : ∀ {x : Term}, DE (level t d).E x → (level t (d + 1)).E x := fun dx => Or.inl dx
+  have toS : ∀ {x : Term}, DE (level t d).E x → x = .atom "term" ∨ ∃ Z, x = .map Z := fun dx => by
+    rcases dx with h | ⟨Z, h, -⟩
+    · exact Or.inl h
+    · exact Or.inr ⟨Z, h⟩
+  rcases hmd with rfl | rfl | rfl
+  · obtain ⟨s', neg, Ss, rk', na, hP, oks, -⟩ := key_gsplit (t := t) (n := d) hmk hk'
+    rw [hk] at rk'; cases rk'
+    refine upd_prec gX g₂ gv gv₂ dup dup₂ vne hk (Or.inl rfl)
+      (S := fun x M w => PutAny Ss (level t (d + 1)).den M x w)
+      (fun x dx sx ⟨y, hy⟩ => supd_val gs hkey (toE dx) sx ⟨y, (dn dx y).mpr hy⟩ (Or.inl rfl)
+        (force_hY hP na (toE dx) sx)) ovE ovm ?_ ?_ (fun M st h => foundG_weak h) (fun M₁ M₂ h f => foundG_mono h f)
+      (fun M₁ M₂ h st f => foundG_congr h f) hm lo up lov upv kd kdv run
+    · intro x₁ x₂ M₁ M₂ d₁ d₂ _ hM hv w ⟨sp, msp, h⟩
+      exact ⟨sp, msp, put_mono hM (fun y hy => (dn d₂ y).mpr (hv y ((dn d₁ y).mp hy))) (oks sp msp).1 (oks sp msp).1
+        (oks sp msp).2 (fun _ h => h) h⟩
+    · intro x M₁ M₂ _ _ hM w ⟨sp, msp, h⟩
+      exact ⟨sp, msp, put_mono hM (fun y hy => hy) (oks sp msp).1 (oks sp msp).1 (oks sp msp).2 (fun _ h => h) h⟩
+  · obtain ⟨rs, neg, D2, A, ⟨ok2, nr2, -⟩, hY⟩ := kr_hY (t := t) (n := d + 1) hs Bool.true
+    refine upd_prec gX g₂ gv gv₂ dup dup₂ vne hk (Or.inr (Or.inl rfl))
+      (S := fun x M w => KRS (level t (d + 1)).den M rs neg D2 A x Bool.true w)
+      (fun x dx sx ⟨y, hy⟩ => supd_val gs hkey (toE dx) sx ⟨y, (dn dx y).mpr hy⟩ (mode_modeS Bool.true)
+        (hY (toE dx) sx ⟨y, (dn dx y).mpr hy⟩)) ovE ovm ?_ ?_ (fun M st h => foundG_weak h)
+      (fun M₁ M₂ h f => foundG_mono h f) (fun M₁ M₂ h st f => foundG_congr h f) hm lo up lov upv kd kdv run
+    · intro x₁ x₂ M₁ M₂ d₁ d₂ ⟨y, hy⟩ hM hv w h
+      exact krs_mono hM (fun y hy => (dn d₂ y).mpr (hv y ((dn d₁ y).mp hy))) ⟨y, (dn d₁ y).mpr hy⟩ ok2 ok2 nr2
+        (fun κ h => h) (fun a m => Or.inl m) h
+    · intro x M₁ M₂ dx ⟨y, hy⟩ hM w h
+      exact krs_mono hM (fun y hy => hy) ⟨y, (dn dx y).mpr hy⟩ ok2 ok2 nr2 (fun κ h => h) (fun a m => Or.inl m) h
+  · obtain ⟨rs, neg, D2, A, ⟨ok2, nr2, -⟩, hY⟩ := kr_hY (t := t) (n := d + 1) hs Bool.false
+    refine upd_prec gX g₂ gv gv₂ dup dup₂ vne hk (Or.inr (Or.inr rfl))
+      (S := fun x M w => KRS (level t (d + 1)).den M rs neg D2 A x Bool.false w)
+      (fun x dx sx ⟨y, hy⟩ => supd_val gs hkey (toE dx) sx ⟨y, (dn dx y).mpr hy⟩ (mode_modeS Bool.false)
+        (hY (toE dx) sx ⟨y, (dn dx y).mpr hy⟩)) ovE ovm ?_ ?_ (fun M st h => foundG_weak h)
+      (fun M₁ M₂ h f => foundG_mono h f) (fun M₁ M₂ h st f => foundG_congr h f) hm lo up lov upv kd kdv run
+    · intro x₁ x₂ M₁ M₂ d₁ d₂ ⟨y, hy⟩ hM hv w h
+      exact krs_mono hM (fun y hy => (dn d₂ y).mpr (hv y ((dn d₁ y).mp hy))) ⟨y, (dn d₁ y).mpr hy⟩ ok2 ok2 nr2
+        (fun κ h => h) (fun a m => Or.inl m) h
+    · intro x M₁ M₂ dx ⟨y, hy⟩ hM w h
+      exact krs_mono hM (fun y hy => hy) ⟨y, (dn dx y).mpr hy⟩ ok2 ok2 nr2 (fun κ h => h) (fun a m => Or.inl m) h
+
+end
+
+
 end Elixir.STTDescrProofsTest.Nest
