@@ -45,6 +45,7 @@ theorem seen_lookup {S : List (Term × Term)} (hS : SeenOk S) (s : String) :
   · intro h
     obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp h
     rw [mapLookup] at hv
+    simp only [equalExact_eq_decide] at hv
     cases e : S.find? (fun entry => decide (compareExact (fuel (.atom s) entry.1) (.atom s) entry.1 = .eq)) with
     | none => rw [e] at hv; cases hv
     | some r =>
@@ -57,6 +58,7 @@ theorem seen_lookup {S : List (Term × Term)} (hS : SeenOk S) (s : String) :
       exact mr
   · intro h
     rw [mapLookup]
+    simp only [equalExact_eq_decide]
     cases e : S.find? (fun entry => decide (compareExact (fuel (.atom s) entry.1) (.atom s) entry.1 = .eq)) with
     | none => exact absurd (List.find?_eq_none.mp e _ h) (by simp)
     | some r => simp

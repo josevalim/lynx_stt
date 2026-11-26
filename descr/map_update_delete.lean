@@ -486,7 +486,7 @@ theorem update_delete_old {X : List (Term × Term)} (hX : DE (level t n).E (.map
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 6)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     have only : MOnly t n X ↔ (∀ v : PN t n, ¬denD (.map (rmM X)) v) ∧
         ∃ w, denMF (level t n).E (level t n).den b w = Bool.true := by

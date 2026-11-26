@@ -85,7 +85,7 @@ theorem fuse_term_l (d : Dispatcher) (b n : Term) :
 theorem fuse_term_r (d : Dispatcher) (A : List (Term × Term)) (n : Term) :
     Elixir.Module.Types.Descr.«opt_tuple_fuse_element/3» d (.map A) (.atom "term") n = .ok (.atom "nil") := by
   unfold Elixir.Module.Types.Descr.«opt_tuple_fuse_element/3»
-  simp only [Elixir.Module.Types.Descr.«atom_or_bitmap_only?/1», getMapKeys]
+  simp only [Elixir.Module.Types.Descr.«atom_or_bitmap_only?/1», getMapKeys, equalExact_eq_decide]
   repeat' split
   all_goals simp_all [Lynx.Except.andAlso, Erlang.erlang.«==/2», Erlang.erlang.«map_size/1»]
   all_goals (repeat' split) <;> simp_all

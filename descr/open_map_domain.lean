@@ -33,7 +33,7 @@ theorem mt_open_opt {e : Term} (he : (level t n).E e) (a : String) (k : Int) (w 
     MT t n [(.atom "map", .tuple #[.integer k, .atom "open", fieldsTerm [(.atom a, .tuple #[e, .atom "true"])]])] w ↔
       OkAt (level t n).den e (w (.atom a)) := by
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [denMF_leaf (level t n).ef (fieldsV_opt he) (Or.inl rfl), msem_at (level t n).ef (Or.inl rfl) _ a]
   have er : eraseKey a [(.atom a, .tuple #[e, .atom "true"])] = [] := by simp [eraseKey]
   rw [er]
@@ -134,20 +134,20 @@ theorem mt_dom {d : String} {v : Term} (he : (level t n).E v) (k : Int) (w : MW 
     · simp only [e, ite_false, OkAt]
       cases o <;> simp [(level t n).ef.den_term]
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [show (Term.nil : Term) = fieldsTerm [] from rfl, denMF_leaf (level t n).ef ⟨by simp, by simp⟩ g]
   constructor
   · intro h
     refine ⟨fun e s => ?_, fun k' i e => ?_⟩
     · have := h.atoms s
       unfold FSem at this
-      simp only [mapLookup, List.find?_nil, Option.map_none] at this
+      simp only [mapLookup, List.find?_nil, Option.map_none, equalExact_eq_decide] at this
       exact (ts "atom" (by simp [domainKinds]) _).mp this e.symm
     · exact (ts _ (domKind_mem k') _).mp (h.doms k' i) e
   · rintro ⟨ha, hd'⟩
     refine ⟨fun s => ?_, fun k' i => (ts _ (domKind_mem k') _).mpr (hd' k' i)⟩
     unfold FSem
-    simp only [mapLookup, List.find?_nil, Option.map_none]
+    simp only [mapLookup, List.find?_nil, Option.map_none, equalExact_eq_decide]
     exact (ts "atom" (by simp [domainKinds]) _).mpr fun e => ha e.symm s
 
 end

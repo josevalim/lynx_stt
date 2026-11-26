@@ -67,7 +67,7 @@ theorem cache_get (cg : DenCongr E den) {cache : Term} (ok : CacheOk E den n cac
   | none => rw [hl] at h; cases h
   | some w' =>
     rw [hl] at h; simp at h; subst h
-    simp only [mapLookup, Option.map_eq_some_iff] at hl
+    simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at hl
     obtain ⟨e, he, rfl⟩ := hl
     have me := List.mem_of_find?_eq_some he
     have qe : compareExact (fuel (.tuple #[encA args, encR ret, encP P]) e.1) (.tuple #[encA args, encR ret, encP P]) e.1 = .eq := by simpa using List.find?_some he

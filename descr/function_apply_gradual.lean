@@ -228,7 +228,7 @@ theorem descr_fields_g (l : List Term) (hl : ∀ e ∈ l, GA e) :
     have run := ih (fun e m => hl e (List.mem_cons_of_mem _ m)) (lower x :: acc) (upper x :: dacc)
       (dy || isDynB x) (se || isNoneB (lower x))
     have eq : Erlang.erlang.«==/2» (lower x) (.map []) = .ok (boolAtom (isNoneB (lower x))) := by
-      simp only [Erlang.erlang.«==/2», isNoneB]
+      simp only [Erlang.erlang.«==/2», isNoneB, equal_eq_decide]
       by_cases h : Term.compare (Term.fuel (lower x) (.map [])) (lower x) (.map []) = .eq <;> simp [h, boolAtom]
     rw [Elixir.Module.Types.Descr.«tuple_descr_fields/5».eq_def]
     simp only [Term.list] at run ⊢

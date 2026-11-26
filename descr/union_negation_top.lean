@@ -180,7 +180,7 @@ theorem fun_key (n m k : Nat) (x : Term) (field : FunField x) :
     have same : ∀ q, mapLookup R q = mapLookup out q := by
       intro q
       rw [look q, ← mapLookup_mapEntries R]
-      simp only [mapLookup]
+      simp only [mapLookup, equalExact_eq_decide]
       cases (mapEntries R).find? (fun e => decide (compareExact (fuel q e.1) q e.1 = .eq)) <;> simp
     refine ⟨.tuple #[.atom "negation", .map out], ?_, fun k => by simp [kept] at k, fun _ => ?_⟩
     · simp [Elixir.Module.Types.Descr.«bare_difference/3», Elixir.Module.Types.Descr.«fun_difference/2»,
@@ -812,7 +812,7 @@ theorem term_keys {T : List (Term × Term)} (term : Elixir.Module.Types.Descr.«
       (q = .atom "map" ∧ t = .tuple #[.integer 61102469, .atom "open", .nil]) := by
   simp only [Elixir.Module.Types.Descr.«unfolded_term/0»] at term
   cases term
-  simp only [mapLookup, List.find?] at hT
+  simp only [mapLookup, List.find?, equalExact_eq_decide] at hT
   split at hT
   · simp at hT; rename_i e; simp at e; simp [e, hT]
   split at hT

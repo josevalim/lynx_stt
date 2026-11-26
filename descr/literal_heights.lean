@@ -91,14 +91,13 @@ theorem le_lh_map {X : List (Term × Term)} {e : Term × Term} (me : e ∈ mapEn
 theorem entry_of_lookup {X : List (Term × Term)} {q v : Term} (h : mapLookup X q = some v) :
     ∃ e ∈ mapEntries X, e.2 = v := by
   rw [← mapLookup_mapEntries] at h
-  simp only [mapLookup, Option.map_eq_some_iff] at h
+  simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at h
   obtain ⟨e, he, rfl⟩ := h
   exact ⟨e, List.mem_of_find?_eq_some he, rfl⟩
 
 theorem lookup_exact {X Y : List (Term × Term)} (h : compareExact (fuel (.map X) (.map Y)) (.map X) (.map Y) = .eq) {q v : Term}
     (hv : mapLookup X q = some v) : ∃ w, mapLookup Y q = some w ∧ compareExact (fuel v w) v w = .eq := by
   have rel := lookup_of_map_compareExact_eq X Y h q
-  change Option.Rel _ (mapLookup X q) (mapLookup Y q) at rel
   rw [hv] at rel
   cases hw : mapLookup Y q with
   | none => rw [hw] at rel; cases rel

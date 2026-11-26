@@ -118,7 +118,7 @@ theorem keyfind_lk (k : Term) : ∀ L : List Term, (∀ x ∈ L, ∃ a b, x = .t
     obtain ⟨a, b, rfl⟩ := h x (by simp)
     have ih := keyfind_lk k L (fun y hy => h y (by simp [hy]))
     rw [Term.list_cons]
-    simp only [Erlang.lists.«keyfind/3», USort.lk_cons, show fk (.tuple #[a, b]) = a from rfl]
+    simp only [Erlang.lists.«keyfind/3», USort.lk_cons, show fk (.tuple #[a, b]) = a from rfl, equal_eq_decide]
     by_cases e : Term.compare (Term.fuel a k) a k = .eq
     · simp [e]
     · simp [e, ih]

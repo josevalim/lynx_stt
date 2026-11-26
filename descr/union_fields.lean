@@ -5,7 +5,7 @@ theorem find_atom (X : List (Term × Term)) (name : String) :
     (mapEntries X).find? (fun p => decide (compareExact (fuel (.atom name) p.1) (.atom name) p.1 = .eq)) =
       (mapLookup X (.atom name)).map fun v => (.atom name, v) := by
   rw [← mapLookup_mapEntries]
-  simp only [mapLookup]
+  simp only [mapLookup, equalExact_eq_decide]
   cases hit : (mapEntries X).find? (fun p => decide (compareExact (fuel (.atom name) p.1) (.atom name) p.1 = .eq)) with
   | none => rfl
   | some p =>

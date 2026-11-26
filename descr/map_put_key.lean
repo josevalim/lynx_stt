@@ -821,7 +821,7 @@ theorem update_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 4)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo
@@ -1096,7 +1096,7 @@ theorem force_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a 
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 4)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo
@@ -1675,7 +1675,7 @@ theorem group_fold {v : Term} (m : Nat) (pairs : List Term)
         | none => exact ⟨[], Or.inr ⟨rfl, rfl⟩, by simp⟩
         | some val =>
           obtain ⟨e, me, ee, rfl⟩ : ∃ e ∈ entries, compareExact (fuel f e.1) f e.1 = .eq ∧ e.2 = val := by
-            simp only [mapLookup, Option.map_eq_some_iff] at hlk
+            simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at hlk
             obtain ⟨e, he, rfl⟩ := hlk
             exact ⟨e, List.mem_of_find?_eq_some he, by simpa using List.find?_some he, rfl⟩
           obtain ⟨ke, rs, hv, hb⟩ := h₁ e me
@@ -1714,7 +1714,7 @@ theorem group_fold {v : Term} (m : Nat) (pairs : List Term)
           exact ⟨b :: rs, lookup_same, List.mem_cons_self⟩
       · rcases hl with hl | ⟨hl, rfl⟩
         · have found : (entries.find? fun entry => decide (compareExact (fuel f entry.1) f entry.1 = .eq)).isSome := by
-            simp only [mapLookup, Option.map_eq_some_iff] at hl
+            simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at hl
             obtain ⟨e, he, -⟩ := hl
             simp [he]
           simp [Elixir.Module.Types.Descr.«-map_update_named_key/5-fun-1-/2», getMapKeys_single, hl,
@@ -1784,7 +1784,7 @@ theorem group_bdds (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (a : Strin
     intro f b' kf mb
     obtain ⟨rs, hl, mr⟩ := inv.2 f b' mb
     rw [← mapLookup_mapEntries] at hl
-    simp only [mapLookup, Option.map_eq_some_iff] at hl
+    simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at hl
     obtain ⟨e, he, ee⟩ := hl
     have me := List.mem_of_find?_eq_some he
     have ce : compareExact (fuel f e.1) f e.1 = .eq := by simpa using List.find?_some he
@@ -2333,7 +2333,7 @@ theorem keep_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a :
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 4)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     have lack : (∃ w, MT t n X w ∧ w (.atom a) = none) ↔
         ∃ w, denMF (level t n).E (level t n).den b w = Bool.true ∧ w (.atom a) = none :=

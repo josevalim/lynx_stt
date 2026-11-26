@@ -411,7 +411,7 @@ theorem tail_term_lookup : ∃ T, (∀ d, Elixir.Module.Types.Descr.«list_tail_
     ∀ q, mapLookup T q = mapLookup tailTerm q := by
   refine ⟨_, fun d => by unfold Elixir.Module.Types.Descr.«list_tail_unfold/1»; rfl, ?_⟩
   refine lookup_tail_perm (fun name => ?_) fun q h => ?_
-  · simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq]
+  · simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide]
     all_goals by_cases b : name = "bitmap" <;> by_cases t : name = "tuple" <;> by_cases f : name = "fun" <;>
       by_cases m : name = "map" <;> by_cases a : name = "atom" <;> simp_all
   · by_cases a : ∃ name : String, q = .atom name

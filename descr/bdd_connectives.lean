@@ -1079,7 +1079,7 @@ theorem same_lit_bool (x y : Term) :
       Elixir.Module.Types.Descr.«same_lit?/2» x y = .ok (.atom "false") := by
   unfold Elixir.Module.Types.Descr.«same_lit?/2»
   split
-  · simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2», Lynx.Except.tryWith]
+  · simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2», Lynx.Except.tryWith, equalExact_eq_decide]
     split <;> simp
   · simp
 

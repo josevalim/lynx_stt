@@ -695,10 +695,10 @@ theorem lookup_drop_key (k : Term) (hk : ∀ x, compareExact (fuel k x) k x = .e
       by_cases hq : q = k
       · subst hq
         have nq : ¬compareExact (fuel q e.1) q e.1 = .eq := by rw [hk]; exact he
-        simp only [mapLookup, List.find?_cons, nq, decide_false] at ih ⊢
+        simp only [mapLookup, List.find?_cons, nq, decide_false, equalExact_eq_decide] at ih ⊢
         simp
       · simp only [hq, ite_false] at ih ⊢
-        simp only [mapLookup, List.find?_cons] at ih ⊢
+        simp only [mapLookup, List.find?_cons, equalExact_eq_decide] at ih ⊢
         split <;> simp_all
 
 open Classical in
@@ -890,7 +890,7 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
       obtain ⟨res, run, sem, sh⟩ := others dead rest (arityBdds_drop hR n) evalRest (fun ρ => Or.inl (restN ρ))
       refine ⟨res, fun m hm => ?_, Or.inr ⟨dead, sem, sh⟩⟩
       rw [shape]
-      simp only [Erlang.maps.«take/2», hl, Lynx.Except.ok_bind]
+      simp only [Erlang.maps.«take/2», hl, Lynx.Except.ok_bind, equalExact_eq_decide]
       rw [rQ m (by omega), Lynx.Except.ok_bind, fold m (by omega), Lynx.Except.ok_bind]
       simp [Term.list, Erlang.erlang.«==/2», -integer_compareExact_eq]
       exact run m (by omega)
@@ -898,7 +898,7 @@ theorem normalize_union (fe : FunElem E den K (.map [])) (fd : FunDom Dm E den d
       refine ⟨.tuple #[.atom "ok", dom, Term.list ((q :: Q').reverse.map encP)], fun m hm => ?_,
         Or.inl ⟨b, dom, q :: Q', rfl, nQ, by simp, hdom (by simp), fun x => ?_, rfl⟩⟩
       · rw [shape]
-        simp only [Erlang.maps.«take/2», hl, Lynx.Except.ok_bind]
+        simp only [Erlang.maps.«take/2», hl, Lynx.Except.ok_bind, equalExact_eq_decide]
         rw [rQ m (by omega), Lynx.Except.ok_bind, fold m (by omega), Lynx.Except.ok_bind]
         have ne : Term.list ((Q'.map encP).reverse ++ [encP q]) ≠ .nil := by
           cases h : (Q'.map encP).reverse <;> simp [Term.list]
@@ -1143,7 +1143,7 @@ theorem fun_only_run {X : List (Term × Term)} (sX : DE (level t n).E (.map X)) 
     by_cases f : v.1.1 = "fun"
     · rw [ite_eq_left (by rw [f])]; simp [f, dn_none]
     · rw [ite_eq_right (by simp [f])]; simp [f]
-  simp only [Elixir.Module.Types.Descr.«fun_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+  simp only [Elixir.Module.Types.Descr.«fun_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
   rw [next_empty (Or.inr ⟨Y, rfl, sY⟩) hm]
   congr 2
   exact bp_congr ⟨fun h v f d => h v ((eY v).mpr ⟨f, d⟩), fun h v d => h v ((eY v).mp d).1 ((eY v).mp d).2⟩
@@ -1178,7 +1178,7 @@ theorem funIn_arrow (args : List Term) (hargs : ∀ a ∈ args, (level t n).E a)
     FunIn t n [(.atom "fun", .tuple #[.atom "union", .map [(.integer args.length, .tuple #[.integer k, Term.list args, ret])]])] a g ↔
       a = args.length ∧ ∀ r ∈ g, FunSem.Allows (args.map (level t n).den, (level t n).den ret) r := by
   simp only [FunIn, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some,
-    Option.some.injEq, exists_eq_left', arityOf]
+    Option.some.injEq, exists_eq_left', arityOf, equalExact_eq_decide]
   by_cases e : a = args.length
   · subst e
     simp [valF_iff (level t n).ef.congrE g hargs hret]

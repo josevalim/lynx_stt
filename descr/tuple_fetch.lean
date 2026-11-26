@@ -45,7 +45,7 @@ def rmT (X : List (Term × Term)) : List (Term × Term) :=
 
 theorem lookup_rmT (X : List (Term × Term)) (name : String) :
     mapLookup (rmT X) (.atom name) = if name = "tuple" then none else mapLookup X (.atom name) := by
-  rw [rmT, mapLookup_remove]
+  simp only [rmT, mapLookup_remove]
   by_cases h : name = "tuple" <;> simp [h]
 
 theorem rest_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
@@ -53,7 +53,7 @@ theorem rest_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
   have sX := de_map hX
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name x h => ?_⟩, fun v => ?_⟩
   · have : (mapLookup X q).isSome := by
-      rw [rmT, mapLookup_remove] at h
+      simp only [rmT, mapLookup_remove] at h
       split at h
       · simp at h
       · exact h
@@ -96,7 +96,7 @@ theorem tt_open_at {e : Term} (he : (level t n).E e) (i : Nat) (k : Int) (w : Li
     · rw [List.eq_of_mem_replicate mx]; exact (level t n).ef.term
     · simp at mx; subst mx; exact he
   simp only [TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left', denTF_leaf (level t n).ef (Or.inl rfl) hl, vT_lit (level t n).ef (Or.inl rfl) hl]
+    exists_eq_left', denTF_leaf (level t n).ef (Or.inl rfl) hl, vT_lit (level t n).ef (Or.inl rfl) hl, equalExact_eq_decide]
   rw [show ("open" == "closed") = Bool.false from rfl, InT.mid]
   constructor
   · rintro ⟨v₁, y, v₂, rfl, h₁, hy, -⟩
@@ -111,7 +111,7 @@ theorem tt_open (i : Nat) (k : Int) (w : List (level t n).V) :
   have hl : ∀ x ∈ List.replicate i (.atom "term"), (level t n).E x := by
     intro x mx; rw [List.eq_of_mem_replicate mx]; exact (level t n).ef.term
   simp only [TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left', denTF_leaf (level t n).ef (Or.inl rfl) hl, vT_lit (level t n).ef (Or.inl rfl) hl]
+    exists_eq_left', denTF_leaf (level t n).ef (Or.inl rfl) hl, vT_lit (level t n).ef (Or.inl rfl) hl, equalExact_eq_decide]
   exact inT_terms_iff (level t n).ef.den_term i w
 
 /-- The top tuple type, as `tuple/0` builds it. -/
@@ -177,7 +177,7 @@ theorem fetch_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (
         exact ⟨w, (tt w).mpr (by simpa using hw)⟩
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 2)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
-      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb, equalExact_eq_decide]
       rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 2) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>

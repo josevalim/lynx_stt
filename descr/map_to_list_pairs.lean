@@ -53,7 +53,7 @@ theorem emptyMap_de : DE (level t n).E emptyMapT := mfused_de emptyMap_field
 theorem mt_emptyMap (w : MW (level t n).V) : MT t n [(.atom "map", .tuple #[.integer (-288230376038284242), .atom "closed",
     .nil])] w ↔ w = wNone := by
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [show (Term.nil : Term) = fieldsTerm [] from rfl, denMF_leaf (level t n).ef ⟨by simp, by simp⟩ (Or.inr (Or.inl rfl))]
   constructor
   · intro h

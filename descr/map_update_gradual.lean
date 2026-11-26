@@ -236,7 +236,7 @@ theorem grad_upd_inv {X : List (Term × Term)} {Dy : Term} (hD : mapLookup X (.a
       ((res = .atom "badmap" ∧ sd = .map []) ∨ ∃ a e f, res = .tuple #[a, sd, e, f]) ∧
       Elixir.Module.Types.Descr.«opt_union/2» (D (m + 1)) sd (.map [(.atom "dynamic", .map Yd)]) = .ok R := by
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def] at run
-  simp only [Erlang.maps.«take/2», hD] at run
+  simp only [Erlang.maps.«take/2», hD, equalExact_eq_decide] at run
   simp only [filter_dyn, bind, Except.bind, pure, Except.pure] at run
   have fun1 : ∀ x, (D (m + 1)).pure (.function false "Elixir.Module.Types.Descr" "-map_update_unchecked/4-fun-1-" 1 #[]) #[x] ≠
       .ok (.tuple #[T, R, er]) := fun x => by
@@ -3178,7 +3178,8 @@ theorem gsplit_form {X : List (Term × Term)} {Dy : Term} (gk : GC (level t n) (
   obtain ⟨rds, rrd, hrds, hrat, hrk⟩ := dom_kinds dS hm
   have lX : mapLookup (rmDyn X) (.atom "atom") = mapLookup X (.atom "atom") := lookup_rmDyn_name X (by decide)
   obtain ⟨odds, rod, sod, ind⟩ := diff_atoms dds rds fun x mx => let ⟨s, _, e⟩ := hdds x mx; ⟨s, e⟩
-  have rem : Erlang.maps.«remove/2» (.atom "dynamic") (.map X) = .ok (.map (rmDyn X)) := rfl
+  have rem : Erlang.maps.«remove/2» (.atom "dynamic") (.map X) = .ok (.map (rmDyn X)) := by
+    simp [Erlang.maps.«remove/2», rmDyn]
   -- Atoms and kinds of the static part are those of the dynamic part.
   have inclA : ∀ s, amemV (mapLookup X (.atom "atom")) (.atom s) = Bool.true →
       amemV (mapLookup Yd (.atom "atom")) (.atom s) = Bool.true := fun s h =>
@@ -3822,7 +3823,7 @@ theorem key_gform {k : Term} {m : Nat} (hm : (level t n).K + 23 ≤ m)
     | none => simp [getMapKeys_single, hD] at h; exact static h
     | some Dy =>
       simp only [getMapKeys_single, hD, Option.toList, Erlang.maps.«remove/2», Lynx.Except.ok_bind,
-        Lynx.Except.andAlso_eq_true] at h
+        Lynx.Except.andAlso_eq_true, equalExact_eq_decide] at h
       obtain ⟨⟨hS, hDy⟩, -⟩ := h
       rw [← rmDyn] at hS
       have lX : mapLookup (rmDyn X) (.atom "atom") = mapLookup X (.atom "atom") := lookup_rmDyn_name X (by decide)

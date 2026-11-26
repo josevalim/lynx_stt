@@ -30,7 +30,7 @@ theorem upd_domains2 (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lin
       obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] hT hg (m := n + 3) (by omega)
       rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_get_domains/5-fun-0-/2».pure]
       simp only [Elixir.Module.Types.Descr.«-map_update_get_domains/5-fun-0-/5», rg, rb, Lynx.Except.ok_bind,
-        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2»]
+        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2», equal_eq_decide]
       have semU : ∀ x, den u x ↔ den acc x ∨ ∃ s', .atom s' ∈ pre ++ [.atom s] ∧ ∃ L ∈ lines, LineTag den L s' x :=
         fun x => by
           rw [su, sT, sg]

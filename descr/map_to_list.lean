@@ -21,7 +21,7 @@ theorem tolist_map {X : List (Term × Term)} (hX : DE (level t (n + 1)).E (.map 
   have rE := next_empty dR (m := M + 5) (by omega)
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (M + 5)) (.map X) =
       .ok (boolAtom (bp (∀ v : PN t (n + 1), ¬denD (.map (rmM X)) v))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact rE
   rw [Elixir.Module.Types.Descr.«map_to_list/2».eq_def]
   simp only [Erlang.maps.«take/2», sX.static, mo]

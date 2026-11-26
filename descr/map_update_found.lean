@@ -30,7 +30,7 @@ theorem upd_found (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (lines 
       obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] hT hg (m := n + 3) (by omega)
       rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_get_domains/5-fun-0-/2».pure]
       simp only [Elixir.Module.Types.Descr.«-map_update_get_domains/5-fun-0-/5», rg, rb, Lynx.Except.ok_bind,
-        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2»]
+        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2», equal_eq_decide]
       have heldI : b = Bool.false ↔ ∃ L ∈ lines, ∃ x, LineTag den L s x := by
         constructor
         · intro hb
@@ -867,7 +867,7 @@ theorem flag_update {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 6)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     have only : MOnly t n X ↔ (∀ v : PN t n, ¬denD (.map (rmM X)) v) ∧
         ∃ w, denMF (level t n).E (level t n).den b w = Bool.true := by

@@ -25,6 +25,7 @@ theorem dom_lookup_of_mem : ∀ {dl : List (Term × Term)}, DomsV E dl → ∀ {
 theorem dom_mem_of_lookup {dl : List (Term × Term)} {d : String} {v : Term} (h : mapLookup dl (.atom d) = some v) :
     (Term.atom d, v) ∈ dl := by
   rw [mapLookup] at h
+  simp only [equalExact_eq_decide] at h
   cases e : dl.find? (fun entry => decide (compareExact (fuel (.atom d) entry.1) (.atom d) entry.1 = .eq)) with
   | none => rw [e] at h; cases h
   | some r =>

@@ -26,7 +26,7 @@ theorem arrows_gradual_gc {m : Nat} (hm : (level t n).K + 15 ≤ m) (descr : Ter
     | none => simp [getMapKeys_single, hD] at h; exact static h
     | some Dy =>
       simp only [getMapKeys_single, hD, Option.toList, Erlang.maps.«remove/2», Lynx.Except.ok_bind, Term.true,
-        Lynx.Except.andAlso_eq_true] at h
+        Lynx.Except.andAlso_eq_true, equalExact_eq_decide] at h
       obtain ⟨⟨hS, hDy⟩, hI⟩ := h
       have tS : TC (level t n) (.map (rmDyn X)) := arrows_static_ok hS
       have tD : TC (level t n) Dy := arrows_static_ok hDy

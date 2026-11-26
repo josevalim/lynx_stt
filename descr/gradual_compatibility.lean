@@ -128,29 +128,29 @@ theorem compat_run (d : Dispatcher) {l r : Term} (hl : l = .atom "term" ∨ ∃ 
     cases e <;> cases j <;> simp [h₁, h₂, h₃, boolAtom, isMember, Erlang.erlang.«not/1»]
   rcases hl with rfl | ⟨X, rfl⟩ <;> rcases hr with rfl | ⟨Y, rfl, hd⟩
   · unfold Elixir.Module.Types.Descr.«compatible?/2»
-    simp
+    simp [-isMember_cons]
     exact finish eE eS eJ
   · unfold Elixir.Module.Types.Descr.«compatible?/2»
     cases hY : mapLookup Y (.atom "dynamic") with
     | none =>
       simp only [upper, hY, Option.getD_none] at eS eJ
-      simp [getMapKeys_single, hY]
+      simp [-isMember_cons, getMapKeys_single, hY]
       exact finish eE eS eJ
     | some Dy =>
       simp only [upper, hY, Option.getD_some] at eS eJ
-      rcases hd Dy hY with rfl | ⟨Z, rfl⟩ <;> simp [getMapKeys_single, hY] <;> exact finish eE eS eJ
+      rcases hd Dy hY with rfl | ⟨Z, rfl⟩ <;> simp [-isMember_cons, getMapKeys_single, hY] <;> exact finish eE eS eJ
   · unfold Elixir.Module.Types.Descr.«compatible?/2»
-    simp [unfold_map, pop_dyn]
+    simp [-isMember_cons, unfold_map, pop_dyn]
     exact finish eE eS eJ
   · unfold Elixir.Module.Types.Descr.«compatible?/2»
     cases hY : mapLookup Y (.atom "dynamic") with
     | none =>
       simp only [upper, hY, Option.getD_none] at eS eJ
-      simp [unfold_map, pop_dyn, getMapKeys_single, hY]
+      simp [-isMember_cons, unfold_map, pop_dyn, getMapKeys_single, hY]
       exact finish eE eS eJ
     | some Dy =>
       simp only [upper, hY, Option.getD_some] at eS eJ
-      rcases hd Dy hY with rfl | ⟨Z, rfl⟩ <;> simp [unfold_map, pop_dyn, getMapKeys_single, hY] <;>
+      rcases hd Dy hY with rfl | ⟨Z, rfl⟩ <;> simp [-isMember_cons, unfold_map, pop_dyn, getMapKeys_single, hY] <;>
         exact finish eE eS eJ
 
 /-- `compatible?/2` checks that the static part of the left type is included in the dynamic part of the right one and

@@ -6,10 +6,10 @@ open Lynx Lynx.Term BddProofs
 /-- Maps of size one hold a single key, up to exact equality. -/
 theorem size_one_keys {A : List (Term × Term)} (h : Erlang.erlang.«map_size/1» (.map A) = .ok (.integer 1))
     {q q' x x' : Term} (hx : mapLookup A q = some x) (hx' : mapLookup A q' = some x') : compareExact (fuel q q') q q' = .eq := by
-  simp only [Erlang.erlang.«map_size/1», Except.ok.injEq, Term.integer.injEq] at h
+  simp only [Erlang.erlang.«map_size/1», Except.ok.injEq, Term.integer.injEq, equalExact_eq_decide] at h
   have mem : ∀ {q x}, mapLookup A q = some x → ∃ e ∈ A, compareExact (fuel q e.1) q e.1 = .eq := by
     intro q x hq
-    simp only [mapLookup, Option.map_eq_some_iff] at hq
+    simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at hq
     obtain ⟨e, he, -⟩ := hq
     exact ⟨e, List.mem_of_find?_eq_some he, by simpa using List.find?_some he⟩
   obtain ⟨e, me, qe⟩ := mem hx

@@ -147,6 +147,7 @@ def Inhabited (den : Term → V → Prop) (l : List (Term × Term)) : Prop := �
 theorem lookup_cons_atom (a s : String) (f : Term) (t : List (Term × Term)) :
     mapLookup ((.atom a, f) :: t) (.atom s) = if a = s then some f else mapLookup t (.atom s) := by
   unfold mapLookup
+  simp only [equalExact_eq_decide]
   by_cases h : a = s
   · subst h; simp
   · have : ¬compare s a = .eq := fun e => h (Std.compare_eq_iff_eq.mp e).symm
@@ -155,17 +156,20 @@ theorem lookup_cons_atom (a s : String) (f : Term) (t : List (Term × Term)) :
 theorem lookup_append (A B : List (Term × Term)) (k : Term) :
     mapLookup (A ++ B) k = (mapLookup A k).or (mapLookup B k) := by
   unfold mapLookup
+  simp only [equalExact_eq_decide]
   rw [List.find?_append]
   cases A.find? (fun entry => decide (compareExact (fuel k entry.1) k entry.1 = .eq)) <;> simp
 
 theorem lookup_mem {l : List (Term × Term)} {k f : Term} (h : mapLookup l k = some f) : ∃ e ∈ l, e.2 = f := by
   unfold mapLookup at h
+  simp only [equalExact_eq_decide] at h
   obtain ⟨e, he, rfl⟩ := Option.map_eq_some_iff.mp h
   exact ⟨e, List.mem_of_find?_eq_some he, rfl⟩
 
 theorem lookup_none {l : List (Term × Term)} {s : String} (h : ∀ e ∈ l, e.1 ≠ .atom s) :
     mapLookup l (.atom s) = Option.none := by
   unfold mapLookup
+  simp only [equalExact_eq_decide]
   simp only [Option.map_eq_none_iff, List.find?_eq_none, decide_eq_true_eq]
   intro e he eq
   exact h e he ((atom_compareExact_eq s e.1).mp eq)

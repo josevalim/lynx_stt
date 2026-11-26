@@ -144,7 +144,7 @@ theorem encP_inj : ∀ {P P' : List (Term × List Term × Term)}, encP P = encP 
 theorem lookup_entry {R : List (Term × Term)} {q b : Term} (h : mapLookup R q = some b) :
     ∃ e ∈ mapEntries R, compareExact (fuel q e.1) q e.1 = .eq ∧ e.2 = b := by
   rw [← mapLookup_mapEntries] at h
-  simp only [mapLookup, Option.map_eq_some_iff] at h
+  simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at h
   obtain ⟨e, he, rfl⟩ := h
   exact ⟨e, List.mem_of_find?_eq_some he, by simpa using List.find?_some he, rfl⟩
 

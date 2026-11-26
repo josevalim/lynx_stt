@@ -5,7 +5,7 @@ theorem eq_nil_of_compare {a : Term} (h : Term.compare (Term.fuel a .nil) a .nil
   cases a <;> rw [Term.compare_step] at h <;> simp [Compare.compareStep] at h ⊢
 
 theorem nil_of_eq {a : Term} (h : Erlang.erlang.«==/2» a .nil = .ok (.atom "true")) : a = .nil := by
-  simp only [Erlang.erlang.«==/2»] at h
+  simp only [Erlang.erlang.«==/2», equal_eq_decide, decide_eq_true_eq] at h
   split at h
   · exact eq_nil_of_compare ‹_›
   · simp at h
@@ -29,7 +29,7 @@ theorem atom_list_ok : ∀ (A : Term), Elixir.STTDescrProofsTest.«atom_list?/1�
 theorem isMember_true {v : Term} : ∀ {L : List Term}, isMember v L = .atom "true" → ∃ c ∈ L, compareExact (fuel v c) v c = .eq
   | [], h => by simp at h
   | c :: rest, h => by
-    simp only [isMember] at h
+    simp only [isMember, equalExact_eq_decide, decide_eq_true_eq] at h
     split at h
     · exact ⟨c, List.mem_cons_self, ‹_›⟩
     · obtain ⟨c', m', e'⟩ := isMember_true h

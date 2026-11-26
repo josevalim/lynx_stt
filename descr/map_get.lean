@@ -43,7 +43,7 @@ theorem get_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {rs :
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 4)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo

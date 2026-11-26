@@ -160,7 +160,7 @@ theorem le_sum_of_mem : ∀ (l : List Nat) (x : Nat), x ∈ l → x ≤ l.sum
 theorem fresh_atom (E : List (Term × Term)) : ∃ q, mapLookup E q = Option.none := by
   let n : Nat := (E.map fun e => match e.1 with | .atom m => m.length | _ => 0).sum + 1
   refine ⟨.atom (String.ofList (List.replicate n 'a')), ?_⟩
-  simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none]
+  simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none, equalExact_eq_decide]
   intro e member hit
   have same := (compareExact_eq_atom _ _).mp (Lynx.Term.compareExact_eq_symm (of_decide_eq_true hit))
   have le : (match e.1 with | .atom m => m.length | _ => 0) ≤

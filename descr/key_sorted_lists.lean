@@ -97,7 +97,7 @@ theorem fpa_run (m : Nat) (val : Term) : ∀ (K : List Term) (dl : List (Term ×
       have ne : compareExact (fuel (.atom s) (.atom s1)) (.atom s) (.atom s1) ≠ .eq := by
         intro e; simp at e; subst e; simp at g'
       have none : mapLookup dl (.atom s) = none := by
-        simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none, decide_eq_true_eq]
+        simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none, decide_eq_true_eq, equalExact_eq_decide]
         intro e he c
         rw [atom_compareExact_eq] at c
         have := sd'.1 e he; rw [c] at this
@@ -136,7 +136,7 @@ theorem exact_ok (a b : Term) : Erlang.erlang.«=:=/2» a b =
 
 theorem lookup_none_of {k : Term} {dl : List (Term × Term)} (h : ∀ e ∈ dl, compareExact (fuel k e.1) k e.1 ≠ .eq) :
     mapLookup dl k = none := by
-  simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none, decide_eq_true_eq]
+  simp only [mapLookup, Option.map_eq_none_iff, List.find?_eq_none, decide_eq_true_eq, equalExact_eq_decide]
   exact h
 
 section

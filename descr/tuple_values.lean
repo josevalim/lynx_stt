@@ -290,7 +290,7 @@ theorem closed_tuples_sem {v : Term} (hv : (level t n).E v) {m : Nat} (hm : (lev
       · rw [denD_tpt] at h
         simp only [TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some,
           Option.some.injEq, exists_eq_left', denTF_leaf (level t n).ef (Or.inr rfl) hl,
-          vT_lit (level t n).ef (Or.inr rfl) hl] at h
+          vT_lit (level t n).ef (Or.inr rfl) hl, equalExact_eq_decide] at h
         obtain ⟨len, hy⟩ := (inT_replicate s w).mp (by simpa using h)
         exact ⟨by simp [len], hy⟩
       · obtain ⟨len, hy⟩ := sC w h

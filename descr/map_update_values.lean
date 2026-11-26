@@ -30,7 +30,7 @@ theorem upd_domains (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) (line
       obtain ⟨u, hu, ru, su⟩ := ef.opt_union [] hT hg (m := n + 3) (by omega)
       rw [Erlang.program.«Elixir.Module.Types.Descr:-map_update_get_domains/5-fun-0-/2».pure]
       simp only [Elixir.Module.Types.Descr.«-map_update_get_domains/5-fun-0-/5», rg, rb, Lynx.Except.ok_bind,
-        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2»]
+        Elixir.Module.Types.Descr.«opt_union/2», ru, Erlang.erlang.«==/2», equal_eq_decide]
       have semU : ∀ x, den u x ↔ den acc x ∨ ∃ s', .atom s' ∈ pre ++ [.atom s] ∧ ∃ L ∈ lines, LineTag den L s' x :=
         fun x => by
           rw [su, sT, sg]
@@ -648,7 +648,7 @@ theorem upd_old_unchecked {X : List (Term × Term)} (hX : DE (level t n).E (.map
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 6)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo

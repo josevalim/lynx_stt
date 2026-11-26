@@ -188,7 +188,7 @@ theorem lowTag_tagV {tag d : Term} (h : LowTag E tag d) : TagV E tag := by
   · exact Or.inr (Or.inr ⟨dl, rfl, dv⟩)
 
 theorem eqq_val (x y : Term) : Erlang.erlang.«==/2» x y = .ok (boolAtom (Term.compare (Term.fuel x y) x y == .eq)) := by
-  simp only [Erlang.erlang.«==/2»]; by_cases h : Term.compare (Term.fuel x y) x y = .eq <;> simp [h, boolAtom]
+  simp only [Erlang.erlang.«==/2», equal_eq_decide]; by_cases h : Term.compare (Term.fuel x y) x y = .eq <;> simp [h, boolAtom]
 
 /-- `map_replace_domain/3` on a tag built before a kind sets the type of the kind. -/
 theorem replace_domain (ef : EF nd E V den tl K) {tag : Term} {d : String} (hd : d ∈ domainKinds)
@@ -223,6 +223,7 @@ theorem replace_domain (ef : EF nd E V den tl K) {tag : Term} {d : String} (hd :
       | some f =>
         exfalso
         unfold mapLookup at h
+        simp only [equalExact_eq_decide] at h
         obtain ⟨e, he, -⟩ := Option.map_eq_some_iff.mp h
         have me := List.mem_of_find?_eq_some he
         have ex := List.find?_some he
@@ -2820,7 +2821,7 @@ theorem domains_result (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) (U
         · simp [mapLookup] at hq; exact hq
       · simp [mapLookup] at hc; subst hc; exact fc'
       · simp only [mapLookup, List.find?_cons, compareExact_self, decide_true, Option.map_some, Option.some.injEq,
-          exists_eq_left']
+          exists_eq_left', equalExact_eq_decide]
         rw [sc', semU]
   have noneU : u = .atom "bdd_bot" → ∀ w, ¬((∃ b ∈ Up, denMF E den b w = Bool.true) ∧ w ≠ wNone) := by
     rintro rfl w ⟨⟨b, mb, hb⟩, _⟩
@@ -3780,7 +3781,7 @@ theorem mapsD_box {res : Term} {S : MW V → Prop}
       · simp [mapLookup] at hq; exact hq
     · simp [mapLookup] at hc; subst hc; exact fc
     · simp only [mapLookup, List.find?_cons, compareExact_self, decide_true, Option.map_some, Option.some.injEq,
-        exists_eq_left']
+        exists_eq_left', equalExact_eq_decide]
       exact sc w
 
 /-- The maps of the updates `map_update_static_dnf/6` makes with keys outside a negated set of atoms. -/
@@ -4633,7 +4634,7 @@ theorem dput_map_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 6)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     have conv : (fun u => denMF (level t n).E (level t n).den b u = Bool.true) = MT t n X :=
       funext fun u => propext (mt u).symm
@@ -4658,7 +4659,7 @@ theorem dput_map_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
         · rcases fe with rfl | rfl <;> simp [key, mo, run, Lynx.Except.andAlso, Lynx.Term.isMember]
         · rw [denD_map] at hq
           simp [mapLookup, dn_none] at hq
-        · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+        · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
           exact emp w
       · have fe' := not_or.mp fe
         have fm : Lynx.Term.isMember f [.atom "false", .atom "nil"] = .atom "false" := by
@@ -4668,7 +4669,7 @@ theorem dput_map_g {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {v
           · simp [key, mo, run, Lynx.Except.andAlso, fm]
           · rw [denD_map] at hq
             simp [mapLookup, dn_none] at hq
-          · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+          · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
             exact emp w
         · refine ⟨_, ?_, Or.inr ⟨_, Or.inl rfl, mOnly, Or.inr ⟨_, rfl, descrC_map fr⟩, fun q hq => ?_, fun w => ?_⟩⟩
           · simp [key, mo, run, Lynx.Except.andAlso, fm]

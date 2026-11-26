@@ -45,11 +45,11 @@ theorem fused_de {k : Int} {tag : String} {l : List Term} (g : tag = "open" ∨ 
     (key : KeyOk (.tuple #[.integer k, .atom tag, Term.list l])) :
     DE E (.map [(.atom "tuple", .tuple #[.integer k, .atom tag, Term.list l])]) := by
   refine Or.inr ⟨_, rfl, fun q h => ?_, fun name w h => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases e : compareExact (fuel q (.atom "tuple")) q (.atom "tuple") = .eq
     · exact ⟨"tuple", by simp [names], (compareExact_eq_atom _ _).mp e⟩
     · simp [e] at h
-  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide] at h
     by_cases e : name = "tuple"
     · subst e
       simp at h

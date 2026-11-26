@@ -233,7 +233,7 @@ theorem only_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {b :
       obtain ⟨w, hw⟩ := Classical.not_forall.mp (mt seb.mpr (by simp [h₂]))
       exact ⟨w, (tt w).mpr (by simpa using hw)⟩
   refine ⟨bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb, ?_, ?_⟩
-  · simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+  · simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb, equalExact_eq_decide]
     rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
     simp only [Lynx.Except.ok_bind, rE, reb m (by rw [level_K] at hm ⊢; omega)]
     cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>

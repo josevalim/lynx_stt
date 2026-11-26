@@ -50,7 +50,7 @@ theorem named_step_req (d : Dispatcher) (dnf v st build key acc : Term) :
     · subst hb; simp [forceOp, Lynx.Term.isMember]
     by_cases ht : build = .atom "true"
     · subst ht
-      simp only [forceOp, Lynx.Term.isMember]
+      simp only [forceOp, Lynx.Term.isMember, equalExact_eq_decide]
       cases Elixir.Module.Types.Descr.«map_dnf_pop_key/2» d dnf key <;> simp
     · split <;> simp_all [forceOp]
   · rfl
@@ -885,7 +885,8 @@ theorem gsplit {X : List (Term × Term)} {Dy : Term} (gk : GC (level t n) (.map 
   obtain ⟨rds, rrd, hrds, hrat, hrk⟩ := dom_kinds dS hm
   have lX : mapLookup (rmDyn X) (.atom "atom") = mapLookup X (.atom "atom") := lookup_rmDyn_name X (by decide)
   obtain ⟨odds, rod, sod, ind⟩ := diff_atoms dds rds fun x mx => let ⟨s, _, e⟩ := hdds x mx; ⟨s, e⟩
-  have rem : Erlang.maps.«remove/2» (.atom "dynamic") (.map X) = .ok (.map (rmDyn X)) := rfl
+  have rem : Erlang.maps.«remove/2» (.atom "dynamic") (.map X) = .ok (.map (rmDyn X)) := by
+    simp [Erlang.maps.«remove/2», rmDyn]
   -- Atoms and kinds of the static part are those of the dynamic part.
   have inclA : ∀ s, amemV (mapLookup X (.atom "atom")) (.atom s) = Bool.true →
       amemV (mapLookup Yd (.atom "atom")) (.atom s) = Bool.true := fun s h =>
@@ -1211,7 +1212,7 @@ theorem put_gradual_cases {X : List (Term × Term)} (gX : GC (level t n) (.map X
   obtain ⟨dR, sR⟩ := rest_map (t := t) (n := n) gX.low_tc
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR hm
   have iff : (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) ↔ ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map" :=
     ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sR q).mpr ⟨hq, nq⟩),
@@ -1230,7 +1231,7 @@ theorem map_only_bool {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {
   obtain ⟨dR, -⟩ := rest_map (t := t) (n := n) gX.low_tc
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR hm
   rw [mo]
   cases bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) <;> simp [boolAtom]
@@ -1299,7 +1300,7 @@ theorem key_gsplit {k : Term} {m : Nat} (hm : (level t n).K + 23 ≤ m)
     | none => simp [getMapKeys_single, hD] at h; exact static h
     | some Dy =>
       simp only [getMapKeys_single, hD, Option.toList, Erlang.maps.«remove/2», Lynx.Except.ok_bind,
-        Lynx.Except.andAlso_eq_true] at h
+        Lynx.Except.andAlso_eq_true, equalExact_eq_decide] at h
       obtain ⟨⟨hS, hDy⟩, -⟩ := h
       rw [← rmDyn] at hS
       have lX : mapLookup (rmDyn X) (.atom "atom") = mapLookup X (.atom "atom") := lookup_rmDyn_name X (by decide)

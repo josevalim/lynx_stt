@@ -177,7 +177,7 @@ theorem combo_expN {e : Term} (he : IsT nd e) : Combo nd (expN e (keyOf nd)) := 
   · simp [mapLookup] at hw
     subst hw
     exact Or.inr (Bdd.leaf_iff.mpr ⟨e, he, rfl⟩)
-  · simp only [mapLookup, List.find?_cons, compareExact_eq_atom, Term.atom.injEq] at hw
+  · simp only [mapLookup, List.find?_cons, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide] at hw
     by_cases t : name = "tuple"
     · exact absurd t nt
     · by_cases a : name = "atom"
@@ -695,7 +695,7 @@ theorem expN_exact {e e' : Term} (he : IsT nd e) (he' : IsT nd e') (k : Int) :
   have ee := isT_exact he he'
   apply map_compareExact_eq_of_lookup
   intro q
-  simp only [List.find?_cons, List.find?_nil]
+  simp only [mapLookup, equalExact_eq_decide, List.find?_cons, List.find?_nil]
   by_cases t : compareExact (fuel q (.atom "tuple")) q (.atom "tuple") = .eq
   · simp [t, litN, Term.list, compareExact_tuple, List.compareLex_cons_cons, compareExact_cons, ee,
       List.compareLex_nil_nil]
@@ -812,7 +812,6 @@ theorem single_exact {A B : List (Term × Term)} {x y : Term}
     compareExact (fuel (.map A) (.map B)) (.map A) (.map B) = .eq := by
   apply map_compareExact_eq_of_lookup
   intro q
-  change Option.Rel _ (mapLookup A q) (mapLookup B q)
   by_cases hq : compareExact (fuel q (.atom "tuple")) q (.atom "tuple") = .eq
   · rw [mapLookup_congr hq, mapLookup_congr hq, tA, tB]
     exact Option.Rel.some e
@@ -909,11 +908,11 @@ theorem fuse0 (nd : Term) : FuseOk 8 FunTop (OField (PureLit nd)) (FieldOk "list
               Erlang.erlang.«and/2», Erlang.erlang.«==/2», Erlang.erlang.«>/2», pc, isMember]
             rw [Elixir.Module.Types.Descr.«opt_tuple_fuse_elements/4».eq_def]
             simp [Erlang.lists.«reverse/1», hk]
-          · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+          · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
             by_cases e : compareExact (fuel q (.atom "tuple")) q (.atom "tuple") = .eq
             · exact ⟨"tuple", by simp [names], (compareExact_eq_atom _ _).mp e⟩
             · simp [e] at h
-          · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq] at h
+          · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide] at h
             by_cases e : name = "tuple"
             · subst e; simp at h; subst h
               exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, Or.inl ⟨kf, rfl⟩⟩))))

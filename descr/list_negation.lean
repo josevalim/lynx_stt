@@ -259,7 +259,7 @@ theorem recursive_node_shape {e : Term} (h : «recursive_node?/1» e = .ok Term.
   · rename_i _ r M g₄
     split at h
     · rename_i _ x g' hk
-      simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2»] at h
+      simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2», equalExact_eq_decide] at h
       by_cases h₁ : Term.compareExact (Term.fuel x (.reference r)) x (.reference r) = .eq <;> by_cases h₂ : Term.compareExact (Term.fuel g₄ g') g₄ g' = .eq <;>
         simp [h₁, h₂, Erlang.erlang.«and/2», Term.true] at h
       subst h
@@ -417,9 +417,9 @@ theorem nested_node {e t : Term} {d : Nat} (h : «nested?/2» e (.tuple #[.integ
     (shape : ∃ a b c, e = .tuple #[a, b, c]) : IsT t e := by
   obtain ⟨a, b, c, rfl⟩ := shape
   unfold «nested?/2» at h
-  simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2»] at h
+  simp only [Lynx.Except.guard, Erlang.erlang.«=:=/2», equalExact_eq_decide] at h
   by_cases hc : Term.compareExact (Term.fuel (Term.tuple #[a, b, c]) t) (Term.tuple #[a, b, c]) t = .eq
-  · simp only [hc, ite_true] at h
+  · simp only [hc] at h
     exact ⟨hc, h⟩
   · simp [hc, Term.true, Term.false] at h
     split at h
@@ -654,7 +654,7 @@ theorem empty_gone {K m : Nat} (hm : K + 2 ≤ m) (I : List (Term × Term))
     Term.true, Term.false]
   by_cases empty : I = []
   · simp [empty]
-  simp only [empty, ite_false, anyKey]
+  simp only [empty, ite_false, equalExact_eq_decide, anyKey]
   simp [Erlang.erlang.«not/1»]
   have tupleOk : ∀ r, mapLookup I (.atom "tuple") = some r →
       Elixir.Module.Types.Descr.«tuple_empty?/2» (D m) r (.map []) = .ok (.atom "true") := fun r h => by

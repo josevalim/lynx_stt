@@ -27,7 +27,7 @@ theorem pair_sem {a b : Term} (ha : (level t n).E a) (hb : (level t n).E b) (hsa
   have hl : ∀ e ∈ [a, b], (level t n).E e := by simp [ha, hb]
   refine ⟨_, run, fused_de (Or.inr rfl) hl key, fun w => ?_⟩
   simp only [Term.map.injEq, exists_eq_left', TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true,
-    Option.map_some, Option.some.injEq, denTF_leaf (level t n).ef (Or.inr rfl) hl, vT_lit (level t n).ef (Or.inr rfl) hl]
+    Option.map_some, Option.some.injEq, denTF_leaf (level t n).ef (Or.inr rfl) hl, vT_lit (level t n).ef (Or.inr rfl) hl, equalExact_eq_decide]
   match w with
   | [] => simp [InT]
   | [x] => simp [InT]

@@ -236,7 +236,7 @@ theorem empty_map_maps : MapsOf t n (.map [(.atom "map", .tuple #[.integer (-288
   have sl : FieldsV (level t n).E [] := ⟨by simp, by simp⟩
   refine mapsOf_congr (mapsOf_one _ (mleaf_field g sl key)) fun w => ?_
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [show (Term.nil : Term) = fieldsTerm [] from rfl, denMF_leaf (level t n).ef sl g]
   have none : ∀ (s : String) (o : Option (level t n).V), CKind (t := t) (n := n) "closed" [] s o ↔ o = none := by
     intro s o; cases o <;> simp [CKind, DomAny]
@@ -245,7 +245,7 @@ theorem empty_map_maps : MapsOf t n (.map [(.atom "map", .tuple #[.integer (-288
     refine ⟨fun s => ?_, fun k i => (none _ _).mpr ?_⟩
     · have := ms.atoms s
       unfold FSem at this
-      simp only [mapLookup, List.find?_nil, Option.map_none, tagSem_atom] at this
+      simp only [mapLookup, List.find?_nil, Option.map_none, tagSem_atom, equalExact_eq_decide] at this
       unfold CAtom
       simp only [fieldsRev, List.filter_nil, List.reverse_nil, USort.lk_nil]
       exact (none _ _).mpr (by simpa using this)
@@ -256,7 +256,7 @@ theorem empty_map_maps : MapsOf t n (.map [(.atom "map", .tuple #[.integer (-288
       unfold CAtom at this
       simp only [fieldsRev, List.filter_nil, List.reverse_nil, USort.lk_nil] at this
       unfold FSem
-      simp only [mapLookup, List.find?_nil, Option.map_none, tagSem_atom]
+      simp only [mapLookup, List.find?_nil, Option.map_none, tagSem_atom, equalExact_eq_decide]
       exact Or.inr ((none _ _).mp this)
     · rw [tagSem_atom]; exact Or.inr ((none _ _).mp (hd k i))
 

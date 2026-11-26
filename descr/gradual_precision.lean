@@ -391,7 +391,7 @@ theorem del_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     simp [getMapKeys_single, (de_map dYA).static]
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith, rS, rZ',
-    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind]
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind, equal_eq_decide]
   -- Tuples of the static part, which the dynamic part holds.
   have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length := by
     intro v hv
@@ -560,7 +560,7 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
   have rto := next_empty dR (m := k + 3) (by omega)
   obtain ⟨sz, rsz, ssz⟩ := size_check_iff dS i (m := k + 3) (by omega)
   unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
-  simp only [Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2»]
+  simp only [Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2», equalExact_eq_decide]
   simp only [filter_dyn, filter_t, rkd, rto, rsz, Lynx.Except.ok_bind]
   by_cases to : ∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v
   rotate_left
@@ -597,7 +597,7 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     simp [getMapKeys_single, (de_map dYA).static]
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard, rS, rZ,
-    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind]
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind, equal_eq_decide]
   have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
     intro v hv
     obtain ⟨w, hw⟩ := pt_tuple_de v (onlyS v hv)
@@ -671,7 +671,7 @@ theorem ins_static_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)
         exact ⟨w, (tt w).mpr (by simpa using hw)⟩
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
-      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb, equalExact_eq_decide]
       rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
@@ -1217,7 +1217,7 @@ theorem sdel {Z : List (Term × Term)} (hZ : DE (level t n).E (.map Z)) {rk Ds :
         Or.inr ⟨_, rfl, descrC_nil⟩, fun q hq => ?_, ⟨Dm, mDm, fun w => ?_⟩, hf⟩⟩
       · rw [denD_map] at hq
         simp [mapLookup, dn_none] at hq
-      · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+      · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
         exact emp w
     · refine ⟨_, run1, Or.inr ⟨⟨w₀, (mt w₀).mpr hw₀⟩, T, _, er', f', rfl, hT0, fun x => by rw [sT0]; simp only [mt],
         Or.inr ⟨_, rfl, descrC_map fr⟩, fun q hq => ?_, ⟨Dm, mDm, fun w => ?_⟩, hf⟩⟩
@@ -1328,7 +1328,7 @@ theorem gdel {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy 
   simp only [Term.map.injEq] at e; subst e
   rw [hD] at hD'; cases hD'
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
-  simp only [Erlang.maps.«take/2», hD]
+  simp only [Erlang.maps.«take/2», hD, equalExact_eq_decide]
   have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq)) = rmDyn X := rfl
   rw [eS]
   simp only [Lynx.Except.ok_bind]
@@ -1340,7 +1340,7 @@ theorem gdel {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy 
   obtain ⟨dR, sRm⟩ := rest_map dSt
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR (by omega)
   have dDy : DE (level t (d + 1)).E (.map (dynL Dy)) := by
     rcases tD with rfl | ⟨Y, rfl, sY⟩
@@ -1562,7 +1562,7 @@ theorem gdel_sem {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) 
         simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
       have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map X) =
           .ok (boolAtom (bp (∀ v : PN t (d + 1), ¬denD (.map (rmM X)) v))) := by
-        simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+        simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
         exact next_empty dR (by omega)
       have onlyIff : (∀ q : PN t (d + 1), ¬denD (.map (rmM X)) q) ↔
           ∀ q : PN t (d + 1), denD (.map X) q → q.1.1 = "map" :=
@@ -2051,7 +2051,7 @@ theorem tl_sem {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {m
   obtain ⟨dR, sRm⟩ := rest_map dSt
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 1)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t (n + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR (by omega)
   have onlyIff : (∀ q : PN t (n + 1), ¬denD (.map (rmM (rmDyn X))) q) ↔
       ∀ q : PN t (n + 1), denD (.map (rmDyn X)) q → q.1.1 = "map" :=
@@ -2097,7 +2097,7 @@ theorem tl_sem {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {m
       · simp only [Term.map.injEq] at e; subst e; rw [hD] at hD'; cases hD'; exact ⟨tD, incl⟩
     rw [upper_dyn hD]
     rw [Elixir.Module.Types.Descr.«map_to_list/2».eq_def]
-    simp only [Erlang.maps.«take/2», hD]
+    simp only [Erlang.maps.«take/2», hD, equalExact_eq_decide]
     have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic")
       entry.fst = .eq)) = rmDyn X := rfl
     rw [eS]
@@ -2521,7 +2521,7 @@ theorem gget_sem {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) 
       fun h q hq => ((sRm q).mp hq).2 (h q ((sRm q).mp hq).1)⟩
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR (by omega)
   have bad : ∀ r, Lynx.Dispatcher.pure (D (k + 8))
       (.function false "Elixir.Module.Types.Descr" "-map_get/2-fun-0-" 1 #[]) #[r] =
@@ -2534,7 +2534,7 @@ theorem gget_sem {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) 
   have lX : lower (.map X) = .map (rmDyn X) := by simp [lower]
   rw [lX]
   rw [Elixir.Module.Types.Descr.«map_get/2».eq_def]
-  simp only [hk, Lynx.Except.ok_bind, Erlang.maps.«take/2»]
+  simp only [hk, Lynx.Except.ok_bind, Erlang.maps.«take/2», equalExact_eq_decide]
   cases hD : mapLookup X (.atom "dynamic") with
   | none =>
     have eX : rmDyn X = X := rmDyn_static hD
@@ -2838,7 +2838,7 @@ theorem upd_static_g' {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
     rcases hY with ⟨rfl, emp⟩ | ⟨r, rfl, fr, sr⟩
     · refine ⟨[], f, rfl, Or.inr ⟨_, rfl, descrC_nil⟩, fun q hq => ?_, fun w => ?_, hf⟩
       · rw [denD_map] at hq; simp [mapLookup, dn_none] at hq
-      · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+      · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
         exact emp w
     · refine ⟨_, f, rfl, Or.inr ⟨_, rfl, descrC_map fr⟩, fun q hq => ?_, fun w => ?_, hf⟩
       · rw [denD_map] at hq
@@ -2873,7 +2873,7 @@ theorem gupd_g' {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : T
   simp only [Term.map.injEq] at e; subst e
   rw [hD] at hD'; cases hD'
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
-  simp only [Erlang.maps.«take/2», hD]
+  simp only [Erlang.maps.«take/2», hD, equalExact_eq_decide]
   have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq)) = rmDyn X := rfl
   rw [eS]
   simp only [Lynx.Except.ok_bind]
@@ -2885,7 +2885,7 @@ theorem gupd_g' {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : T
   obtain ⟨dR, sRm⟩ := rest_map dSt
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR (by omega)
   have dDy : DE (level t n).E (.map (dynL Dy)) := by
     rcases tD with rfl | ⟨Y, rfl, sY⟩
@@ -2955,7 +2955,7 @@ theorem gupd_g' {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : T
     rcases hS with ⟨hrS, noS⟩ | ⟨exS, Ys, fs, rfl, dYs, onlyYs, semYs, -⟩
     · refine ⟨[], .atom "false", by rcases hrS with rfl | rfl <;> simp, Or.inr ⟨_, rfl, descrC_nil⟩,
         fun q h => by simp [denD_map, mapLookup, dn_none] at h, fun w => ?_⟩
-      simp only [denD_map, mapLookup, List.find?_nil, Option.map_none]
+      simp only [denD_map, mapLookup, List.find?_nil, Option.map_none, equalExact_eq_decide]
       constructor
       · intro h; simp [mpt, dn_none] at h
       · rintro ⟨⟨u, hu⟩, -⟩; exact absurd hu (noS u)
@@ -3046,9 +3046,9 @@ theorem gput_sem_g {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy 
     subst e
     refine ⟨GC.tc (Or.inr ⟨[], rfl, descrC_nil⟩), fun q h => by simp [upper, mapLookup, denD_map, dn_none] at h,
       fun w => ?_, fun w => ?_⟩
-    · simp only [denD_map, mapLookup, List.find?_nil, Option.map_none]
+    · simp only [denD_map, mapLookup, List.find?_nil, Option.map_none, equalExact_eq_decide]
       exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd (up w h) (emp w)⟩
-    · simp only [upper, mapLookup, List.find?_nil, Option.map_none, Option.getD_none, denD_map]
+    · simp only [upper, mapLookup, List.find?_nil, Option.map_none, Option.getD_none, denD_map, equalExact_eq_decide]
       exact ⟨fun h => by simp [mpt, dn_none] at h, fun h => absurd h (emp w)⟩
   · refine ⟨.tuple #[.atom "ok", R], by simp [run, putRes, pure, Except.pure], ⟨fun _ => ⟨oS, ex⟩, fun _ => by simp⟩,
       fun R' e => ?_⟩
@@ -3283,7 +3283,7 @@ theorem minus_atoms (ks B : List String) : ∃ ks' : List String,
       have e : List.eraseP (fun x => decide (compareExact (x.fuel (.atom b)) x (.atom b) = .eq)) (L.map Term.atom) =
           (L.eraseP (fun s => decide (s = b))).map Term.atom := by
         rw [List.eraseP_map]
-        congr 1
+        simp [Function.comp_def, compareExact_eq_atom]
       obtain ⟨L', e', s₁, s₂⟩ := ih (L.eraseP (fun s => decide (s = b)))
       refine ⟨L', ?_, fun s ms => List.mem_of_mem_eraseP (s₁ s ms), fun s ms nb => s₂ s ?_ fun m => nb (List.mem_cons_of_mem _ m)⟩
       · simp only [List.map_cons, List.foldl_cons]; rw [e]; exact e'
@@ -4006,7 +4006,7 @@ theorem dnf_ok_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {nt : Te
       by_cases e0 : Dm = []
       · subst e0; simp [Term.list, boolAtom]
       · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
-        simp only [cmp_list_nil, e0', ↓reduceIte]
+        simp only [equal_eq_decide, decide_eq_true_eq, cmp_list_nil, e0', ↓reduceIte]
         first
         | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
         | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
@@ -4623,7 +4623,7 @@ theorem dnf_ok_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {nt : Te
       by_cases e0 : Dm = []
       · subst e0; simp [Term.list, boolAtom]
       · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
-        simp only [cmp_list_nil, e0', ↓reduceIte]
+        simp only [equal_eq_decide, decide_eq_true_eq, cmp_list_nil, e0', ↓reduceIte]
         first
         | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
         | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
@@ -5124,7 +5124,7 @@ theorem dnf_ok_g (ef : EF nd E V den tl K) {n : Nat} (hn : K + 4 ≤ n) {nt : Te
       by_cases e0 : Dm = []
       · subst e0; simp [Term.list, boolAtom]
       · have e0' : List.map Term.atom Dm ≠ [] := by simpa using e0
-        simp only [cmp_list_nil, e0', ↓reduceIte]
+        simp only [equal_eq_decide, decide_eq_true_eq, cmp_list_nil, e0', ↓reduceIte]
         first
         | (have := fDm rfl e0; simp [this, boolAtom, e0, Lynx.Except.orElse])
         | (cases f₁ <;> cases f₂ <;> simp [boolAtom, e0, Lynx.Except.orElse])) ?_
@@ -6043,7 +6043,7 @@ theorem gupd_gen {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) 
   simp only [Term.map.injEq] at e; subst e
   rw [hD] at hD'; cases hD'
   rw [Elixir.Module.Types.Descr.«map_update_unchecked/4».eq_def]
-  simp only [Erlang.maps.«take/2», hD]
+  simp only [Erlang.maps.«take/2», hD, equalExact_eq_decide]
   have eS : (X.filter fun entry => !decide (compareExact ((Term.atom "dynamic").fuel entry.fst) (Term.atom "dynamic") entry.fst = .eq)) = rmDyn X := rfl
   rw [eS]
   simp only [Lynx.Except.ok_bind]
@@ -6055,7 +6055,7 @@ theorem gupd_gen {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) 
   obtain ⟨dR, sRm⟩ := rest_map dSt
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t (d + 1), ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR (by omega)
   have dDy : DE (level t (d + 1)).E (.map (dynL Dy)) := by
     rcases tD with rfl | ⟨Y, rfl, sY⟩
@@ -6266,7 +6266,7 @@ theorem gupd_un {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {
         simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
       have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 8)) (.map X) =
           .ok (boolAtom (bp (∀ v : PN t (d + 1), ¬denD (.map (rmM X)) v))) := by
-        simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+        simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
         exact next_empty dR (by omega)
       have onlyIff : (∀ q : PN t (d + 1), ¬denD (.map (rmM X)) q) ↔
           ∀ q : PN t (d + 1), denD (.map X) q → q.1.1 = "map" :=
@@ -6630,7 +6630,7 @@ theorem mo_cases {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {m : N
   obtain ⟨dR, sR⟩ := rest_map (t := t) (n := n) gX.low_tc
   have mo : Elixir.Module.Types.Descr.«map_only?/1» (D m) (.map (rmDyn X)) =
       .ok (boolAtom (bp (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q))) := by
-    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+    simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
     exact next_empty dR hm
   have iff : (∀ q : PN t n, ¬denD (.map (rmM (rmDyn X))) q) ↔ ∀ q : PN t n, denD (.map (rmDyn X)) q → q.1.1 = "map" :=
     ⟨fun h q hq => Classical.byContradiction fun nq => h q ((sR q).mpr ⟨hq, nq⟩),

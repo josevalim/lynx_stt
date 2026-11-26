@@ -44,7 +44,7 @@ def rmM (X : List (Term × Term)) : List (Term × Term) :=
 
 theorem lookup_rmM (X : List (Term × Term)) (name : String) :
     mapLookup (rmM X) (.atom name) = if name = "map" then none else mapLookup X (.atom name) := by
-  rw [rmM, mapLookup_remove]
+  simp only [rmM, mapLookup_remove]
   by_cases h : name = "map" <;> simp [h]
 
 theorem rest_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
@@ -52,7 +52,7 @@ theorem rest_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) :
   have sX := de_map hX
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name x h => ?_⟩, fun v => ?_⟩
   · have : (mapLookup X q).isSome := by
-      rw [rmM, mapLookup_remove] at h
+      simp only [rmM, mapLookup_remove] at h
       split at h
       · simp at h
       · exact h
@@ -104,7 +104,7 @@ theorem fetch_map {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (a 
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     by_cases restE : ∀ v : PN t n, ¬denD (.map (rmM X)) v
     · rw [bp_true.mpr restE] at mo
@@ -167,11 +167,11 @@ theorem open_map_run (a : String) {v : Term} (hv : Static v) (m : Nat) : ∃ k :
 /-- A map type of a single map field. -/
 theorem mfused_de {x : Term} (hx : MField (level t n).E x) : DE (level t n).E (.map [(.atom "map", x)]) := by
   refine Or.inr ⟨_, rfl, fun q h => ?_, fun name w h => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases e : compareExact (fuel q (.atom "map")) q (.atom "map") = .eq
     · exact ⟨"map", by simp [names], (compareExact_eq_atom _ _).mp e⟩
     · simp [e] at h
-  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide] at h
     by_cases e : name = "map"
     · subst e
       simp at h
@@ -188,7 +188,7 @@ theorem mt_open_at {e : Term} (he : (level t n).E e) (a : String) (k : Int) (w :
     MT t n [(.atom "map", .tuple #[.integer k, .atom "open", fieldsTerm [(.atom a, .tuple #[e, .atom "false"])]])] w ↔
       ∃ x, w (.atom a) = some x ∧ (level t n).den e x := by
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [denMF_leaf (level t n).ef (fieldsV_req he) (Or.inl rfl), msem_at (level t n).ef (Or.inl rfl) _ a]
   have er : eraseKey a [(.atom a, .tuple #[e, .atom "false"])] = [] := by simp [eraseKey]
   rw [er]

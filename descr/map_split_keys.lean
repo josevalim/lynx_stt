@@ -69,10 +69,12 @@ theorem lookup_entries_atom {es : List (Term × Term)} {s : String} {v : Term} (
     .atom s ∈ (mapEntries es).map Prod.fst := by
   have hl : (mapLookup es (.atom s)).isSome := by
     rw [mapLookup]
+    simp only [equalExact_eq_decide]
     cases e : es.find? (fun entry => decide (compareExact (fuel (.atom s) entry.1) (.atom s) entry.1 = .eq)) with
     | none => exact absurd h (by simpa using List.find?_eq_none.mp e (.atom s, v))
     | some _ => simp
   rw [← mapLookup_mapEntries, mapLookup] at hl
+  simp only [equalExact_eq_decide] at hl
   cases e : (mapEntries es).find? (fun entry => decide (compareExact (fuel (.atom s) entry.1) (.atom s) entry.1 = .eq)) with
   | none => rw [e] at hl; cases hl
   | some r =>

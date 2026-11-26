@@ -239,7 +239,7 @@ theorem kr_update {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {ke
       simp [Elixir.Module.Types.Descr.«descr_key?/2», Erlang.erlang.«is_map_key/2», any_key, hb, Term.true]
     have mo : Elixir.Module.Types.Descr.«map_only?/1» (D (k + 6)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmM X)) v))) := by
-      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind]
+      simp only [Elixir.Module.Types.Descr.«map_only?/1», Erlang.maps.«remove/2», Lynx.Except.ok_bind, equalExact_eq_decide]
       exact rE
     have conv : (fun u => denMF (level t n).E (level t n).den b u = Bool.true) = MT t n X :=
       funext fun u => propext (mt u).symm
@@ -263,7 +263,7 @@ theorem kr_update {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {ke
           · simp [key, mo, run, Lynx.Except.andAlso, fm]
           · rw [denD_map] at hq
             simp [mapLookup, dn_none] at hq
-          · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+          · simp only [MT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
             exact emp w
         · refine ⟨_, ?_, Or.inr (Or.inr ⟨T, _, er, rfl, mOnly, Or.inr ⟨_, rfl, descrC_map fr⟩, fun q hq => ?_, Dm, mDm,
             fun w => ?_⟩)⟩

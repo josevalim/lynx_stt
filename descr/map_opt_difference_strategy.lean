@@ -211,6 +211,7 @@ theorem dres_tail₁ (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (t₁ t�
 theorem lookup_some_mem {l : List (Term × Term)} {s : String} {f : Term} (h : mapLookup l (.atom s) = some f) :
     ∃ e ∈ l, e.1 = .atom s ∧ e.2 = f := by
   unfold mapLookup at h
+  simp only [equalExact_eq_decide] at h
   obtain ⟨e, he, rfl⟩ := Option.map_eq_some_iff.mp h
   exact ⟨e, List.mem_of_find?_eq_some he, (atom_compareExact_eq s e.1).mp (by simpa using List.find?_some he), rfl⟩
 

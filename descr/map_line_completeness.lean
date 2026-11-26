@@ -980,6 +980,7 @@ theorem doms_length {dl : List (Term × Term)} (dv : DomsV E dl) :
 theorem lookup_mem_key {l : List (Term × Term)} {k f : Term} (h : mapLookup l k = some f) :
     ∃ e ∈ l, compareExact (fuel k e.1) k e.1 = .eq ∧ e.2 = f := by
   unfold mapLookup at h
+  simp only [equalExact_eq_decide] at h
   obtain ⟨e, he, rfl⟩ := Option.map_eq_some_iff.mp h
   exact ⟨e, List.mem_of_find?_eq_some he, by simpa using List.find?_some he, rfl⟩
 

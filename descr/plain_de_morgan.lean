@@ -3605,7 +3605,7 @@ theorem fun_empty_unsat (n : Nat) (R : List (Term × Term)) (bR : AllBdd R)
 
 theorem fresh_arity (R₁ R₂ : List (Term × Term)) : ∃ q, mapLookup R₁ q = none ∧ mapLookup R₂ q = none := by
   obtain ⟨q, hq⟩ := fresh_atom (R₁ ++ R₂)
-  refine ⟨q, ?_, ?_⟩ <;> simp only [mapLookup, List.find?_append, Option.map_eq_none_iff, Option.or_eq_none_iff] at hq ⊢
+  refine ⟨q, ?_, ?_⟩ <;> simp only [mapLookup, List.find?_append, Option.map_eq_none_iff, Option.or_eq_none_iff, equalExact_eq_decide] at hq ⊢
   · exact hq.1
   · exact hq.2
 
@@ -4072,7 +4072,7 @@ theorem sem_union (δ : Nat) (L R : List (Term × Term)) (sL : Sem E L) (sR : Se
       rcases at_name name with ⟨-, hU⟩ | ⟨y, -, -, hU⟩ | ⟨x, y, w, -, -, hU, -⟩ <;> simp [mapLookup] at hU
       have : mapLookup (e :: rest) (.atom name) ≠ Option.none := by
         rw [← he]; simp [mapLookup, Std.ReflCmp.compare_self]
-      exact this hU.symm
+      exact this (by simpa only [mapLookup, equalExact_eq_decide] using hU.symm)
 
 theorem term_top {T : List (Term × Term)} (term : Elixir.Module.Types.Descr.«unfolded_term/0» = .ok (.map T))
     {q t : Term} (h : mapLookup T q = some t) : ∃ name ∈ names, q = .atom name ∧ TopAt name t := by
@@ -4686,7 +4686,7 @@ theorem descr_fields (l : List Term) (hl : ∀ e ∈ l, Static e) :
       (se || (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq))
     refine ⟨se', ?_⟩
     have eq : Erlang.erlang.«==/2» x (.map []) = .ok (boolAtom (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq)) := by
-      simp only [Erlang.erlang.«==/2»]; by_cases h : Term.compare (Term.fuel x (.map [])) x (.map []) = .eq <;> simp [h, boolAtom]
+      simp only [Erlang.erlang.«==/2», equal_eq_decide]; by_cases h : Term.compare (Term.fuel x (.map [])) x (.map []) = .eq <;> simp [h, boolAtom]
     rw [Elixir.Module.Types.Descr.«tuple_descr_fields/5».eq_def]
     simp only [Term.list] at run ⊢
     cases se <;> cases hd : (Term.compare (Term.fuel x (.map [])) x (.map []) == .eq) <;>
@@ -6716,7 +6716,7 @@ theorem tailTerm_basic : Basic tailTerm := by
           some (.tuple #[.integer 61102469, .atom "open", .nil]) else if n = "atom" then
           some (.tuple #[.atom "negation", .map []]) else none := by
       intro n
-      simp only [tailTerm, mapLookup, List.find?]
+      simp only [tailTerm, mapLookup, List.find?, equalExact_eq_decide]
       by_cases b : n = "bitmap" <;> by_cases t : n = "tuple" <;> by_cases f : n = "fun" <;>
         by_cases m : n = "map" <;> by_cases a : n = "atom" <;> simp_all
     rw [look] at h
@@ -6791,7 +6791,7 @@ theorem tail_term : ∃ T, (∀ d, Elixir.Module.Types.Descr.«list_tail_unfold/
     Basic T := by
   refine ⟨_, fun d => by unfold Elixir.Module.Types.Descr.«list_tail_unfold/1»; rfl, ?_⟩
   refine basic_of_lookup (lookup_tail_perm (fun name => ?_) fun q h => ?_)
-  · simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq]
+  · simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide]
     all_goals by_cases b : name = "bitmap" <;> by_cases t : name = "tuple" <;> by_cases f : name = "fun" <;>
       by_cases m : name = "map" <;> by_cases a : name = "atom" <;> simp_all
   · by_cases a : ∃ name : String, q = .atom name

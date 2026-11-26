@@ -197,7 +197,7 @@ theorem descr_maps {m : Nat} (hm : (level t n).K ≤ m) (tag : String) (ht : tag
   obtain ⟨k, TAG, l, run, g, sl, key, look, tags⟩ := descr_leaf hm tag ht fs h
   refine ⟨_, run, mapsOf_congr (mapsOf_one _ (mleaf_field g sl key)) fun w => ?_⟩
   simp only [MT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some, Option.some.injEq,
-    exists_eq_left']
+    exists_eq_left', equalExact_eq_decide]
   rw [denMF_leaf (level t n).ef sl g]
   constructor
   · intro ms

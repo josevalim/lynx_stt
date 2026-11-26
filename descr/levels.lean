@@ -21,13 +21,13 @@ theorem keyOf_neg (t : Term) : keyOf t < 0 := by
 theorem expN_descr {nd : Term} {TF LF MF : Term → Prop} {e : Term} (tf : TF (litN e (keyOf nd))) :
     DEG Fn TF LF MF (expN e (keyOf nd)) := by
   refine Or.inr ⟨_, rfl, fun q h => ?_, fun name w hw => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases t : compareExact (fuel q (.atom "tuple")) q (.atom "tuple") = .eq
     · exact ⟨"tuple", by simp [names], (compareExact_eq_atom _ _).mp t⟩
     · by_cases a : compareExact (fuel q (.atom "atom")) q (.atom "atom") = .eq
       · exact ⟨"atom", by simp [names], (compareExact_eq_atom _ _).mp a⟩
       · simp [t, a] at h
-  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq] at hw
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide] at hw
     by_cases t : name = "tuple"
     · subst t; simp at hw; subst hw; exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, tf⟩))))
     · by_cases a : name = "atom"

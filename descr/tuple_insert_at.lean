@@ -33,7 +33,7 @@ theorem elem_equal (ef : EF nd E V den tl K) {a b : Term} (ha : E a) (hb : E b) 
     (hm : K ≤ m) : Elixir.Module.Types.Descr.«equal?/2» (D m) a b = .ok (.atom "true") := by
   have s₁ := ef.subc ha hb (fun v => (h v).mp) m hm
   have s₂ := ef.subc hb ha (fun v => (h v).mpr) m hm
-  simp only [Elixir.Module.Types.Descr.«equal?/2», s₁, s₂, Lynx.Except.orElse, Lynx.Except.andAlso, Erlang.erlang.«==/2»]
+  simp only [Elixir.Module.Types.Descr.«equal?/2», s₁, s₂, Lynx.Except.orElse, Lynx.Except.andAlso, Erlang.erlang.«==/2», equal_eq_decide]
   split <;> simp_all
 
 end

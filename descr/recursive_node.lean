@@ -37,7 +37,7 @@ theorem expand_node_of {r : List Nat} {e : Term} (h : NodeAt r e) (m : Nat) {k :
       .ok (.tuple #[.reference r, .map S, gen]) := by
     obtain ⟨q, hq⟩ : ∃ q, S.find? (fun entry => decide (Term.compareExact (Term.fuel (Term.atom "t") entry.fst) (Term.atom "t") entry.fst = .eq)) =
         some (q, .tuple #[.reference r, gen]) := by
-      simp only [getMapKeys, List.mapM_cons, List.mapM_nil] at hk
+      simp only [getMapKeys, List.mapM_cons, List.mapM_nil, equalExact_eq_decide] at hk
       cases hf : S.find? (fun entry => decide (Term.compareExact (Term.fuel (Term.atom "t") entry.fst) (Term.atom "t") entry.fst = .eq)) with
       | none => simp [hf] at hk
       | some p => obtain ⟨q, v⟩ := p; simp [hf] at hk; exact ⟨q, by rw [hk]⟩
@@ -850,7 +850,7 @@ def Pure (t a : Term) : Prop := a = .atom "term" ∨ IsT t a ∨ ∃ M, a = .map
 theorem expN_pure {t e : Term} (he : IsT t e) : PureMap t
     [(.atom "tuple", litN e (keyOf t)), (.atom "atom", .tuple #[.atom "union", .map [(.atom "nil", .nil)]])] := by
   refine ⟨fun q h => ?_, fun name w h => ?_⟩
-  · simp only [mapLookup, List.find?] at h
+  · simp only [mapLookup, List.find?, equalExact_eq_decide] at h
     by_cases t₁ : Term.compareExact (Term.fuel q (.atom "tuple")) q (.atom "tuple") = .eq
     · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ((compareExact_eq_atom _ _).mp t₁)))))
     · by_cases t₂ : Term.compareExact (Term.fuel q (.atom "atom")) q (.atom "atom") = .eq
@@ -1372,7 +1372,7 @@ theorem addTail {t : Term} {C : Term → Prop} (hexp : ∀ {e}, IsT t e → C (e
 theorem expN_nest {E : Term → Prop} (hterm : E (.atom "term")) {e : Term} (he : E e) (k : Int) :
     NestC E (expN e k) := by
   refine Or.inr ⟨_, rfl, fun q h => ?_, fun name w h => ?_⟩
-  · simp only [mapLookup, List.find?] at h
+  · simp only [mapLookup, List.find?, equalExact_eq_decide] at h
     by_cases t₁ : Term.compareExact (Term.fuel q (.atom "tuple")) q (.atom "tuple") = .eq
     · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ((compareExact_eq_atom _ _).mp t₁)))))
     · by_cases t₂ : Term.compareExact (Term.fuel q (.atom "atom")) q (.atom "atom") = .eq

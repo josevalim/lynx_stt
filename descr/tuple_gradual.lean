@@ -42,7 +42,7 @@ theorem ins_any {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
       fun w => ?_⟩
     · unfold Elixir.Module.Types.Descr.«tuple_insert_static/3»
       simp [getMapKeys_single, hb]
-    · simp only [TT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+    · simp only [TT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
       rintro ⟨w₁, y, w₂, -, -, -, b, hb', -⟩
       rw [hb] at hb'; cases hb'
   | some b =>
@@ -165,7 +165,7 @@ theorem ins_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
   have rto := next_empty dR (m := k + 3) (by omega)
   obtain ⟨sz, rsz, ssz⟩ := size_check dS i (m := k + 3) (by omega)
   unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» at run
-  simp only [Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2»] at run
+  simp only [Erlang.maps.«take/2», hD, Elixir.Module.Types.Descr.«tuple_only?/1», Erlang.maps.«remove/2», equalExact_eq_decide] at run
   simp only [filter_dyn, filter_t, rkd, rto, rsz, Lynx.Except.ok_bind] at run
   -- Failed checks give an atom.
   by_cases to : ∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v
@@ -202,7 +202,7 @@ theorem ins_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
     simp [getMapKeys_single, (de_map dYA).static]
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard, rS, rZ,
-    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind] at run
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind, equal_eq_decide] at run
   by_cases both : (∀ v : PN t n, ¬denD (.map C) v) ∧ ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
   · rw [bp_true.mpr both.1, bp_true.mpr both.2] at run
     simp [Lynx.Term.isMember, Term.true] at run
@@ -299,7 +299,7 @@ theorem ins_static_shape {X : List (Term × Term)} (hX : DE (level t n).E (.map 
         exact ⟨w, (tt w).mpr (by simpa using hw)⟩
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
-      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb, equalExact_eq_decide]
       rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
@@ -615,7 +615,7 @@ theorem del_any {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (i : 
       fun w => ?_⟩
     · unfold Elixir.Module.Types.Descr.«tuple_delete_static/2»
       simp [getMapKeys_single, hb]
-    · simp only [TT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff]
+    · simp only [TT, mapLookup, List.find?_nil, Option.map_none, reduceCtorEq, false_and, exists_false, false_iff, equalExact_eq_decide]
       rintro ⟨v₁, y, v₂, -, -, b, hb', -⟩
       rw [hb] at hb'; cases hb'
   | some b =>
@@ -633,7 +633,7 @@ theorem del_any {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (i : 
       · exact h
       · simp [mapLookup, h, dn_none] at hv
     · simp only [TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some,
-        Option.some.injEq, exists_eq_left', sr]
+        Option.some.injEq, exists_eq_left', sr, equalExact_eq_decide]
       simp only [Del, tt]
 
 /-- The static size check after the deleted element. -/
@@ -727,7 +727,7 @@ theorem del_grad {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {Dy : 
     simp [getMapKeys_single, (de_map dYA).static]
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith, rS, rZ',
-    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind] at run
+    Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind, equal_eq_decide] at run
   by_cases both : (∀ v : PN t n, ¬denD (.map C) v) ∧ ∀ v : PN t n, ¬denD (.map (rmDyn X)) v
   · rw [bp_true.mpr both.1, bp_true.mpr both.2] at run
     simp [Term.true] at run
@@ -772,8 +772,8 @@ theorem del_static_pts {X : List (Term × Term)} (hX : DE (level t n).E (.map X)
     · exact h
     · simp [mapLookup, h, dn_none] at hv
   · simp only [TT, mapLookup, List.find?_cons, compareExact_eq_atom, decide_true, Option.map_some,
-      Option.some.injEq, exists_eq_left', sr]
-    rfl
+      Option.some.injEq, exists_eq_left', sr, equalExact_eq_decide]
+    simp only [Del, TT, mapLookup, equalExact_eq_decide]
 
 /-- `tuple_delete_at/2` on a static or gradual type of tuples, when it gives a map: a gradual type whose static part
 holds the tuples of the static part without the element, and whose upper bound holds those and the long enough tuples

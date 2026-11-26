@@ -101,7 +101,7 @@ theorem fun_negation (n : Nat) (w : Term) (field : FunField w) :
     have same : ∀ q, mapLookup out q = mapLookup R q := by
       intro q
       rw [look q, ← mapLookup_mapEntries R]
-      simp only [mapLookup]
+      simp only [mapLookup, equalExact_eq_decide]
       cases (mapEntries R).find? (fun e => decide (compareExact (fuel q e.1) q e.1 = .eq)) <;> simp
     refine ⟨.tuple #[.atom "negation", .map out], ?_, Or.inr fun m => ?_⟩
     · simp [Elixir.Module.Types.Descr.«fun_difference/2», Elixir.Module.Types.Descr.«fun_repr_union/2»,

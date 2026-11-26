@@ -71,7 +71,7 @@ theorem lTy_de (nil : Bool) (k : Int) {inner : Term} (hi : DE (level t n).E inne
   cases nil
   · exact single_de (by simp [names]) fl
   · refine Or.inr ⟨_, rfl, fun q h => ?_, fun name w h => ?_⟩
-    · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+    · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
       by_cases e : compareExact (fuel q (.atom "bitmap")) q (.atom "bitmap") = .eq
       · exact ⟨"bitmap", by simp [names], (compareExact_eq_atom _ _).mp e⟩
       · by_cases e' : compareExact (fuel q (.atom "list")) q (.atom "list") = .eq

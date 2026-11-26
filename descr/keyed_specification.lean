@@ -144,10 +144,7 @@ theorem domain_kind_spec {k : Term} (h : «domain_kind?/1» k = .ok Term.true) :
   unfold «domain_kind?/1» at h
   simp only [domainKinds, List.map]
   refine Classical.byContradiction fun hm => ?_
-  simp [Term.true] at h
-  split at h
-  · exact hm (by assumption)
-  · simp at h
+  simp [Term.true, -isMember_cons] at h
 
 theorem domain_kinds_spec : ∀ dl : List (Term × Term), «domain_kinds?/1» (fieldsTerm dl) = .ok Term.true →
     (∀ e ∈ dl, ∃ s, e.1 = .atom s ∧ s ∈ domainKinds) ∧ dl.Pairwise (fun a b => Term.compare (Term.fuel a.1 b.1) a.1 b.1 = .lt)

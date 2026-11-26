@@ -36,7 +36,7 @@ theorem single_de {name : String} {x : Term} (hn : name ∈ names)
     (fx : FieldC (FunA (level t n).E) (TField (level t n).E) (LF (level t n).E) (MField (level t n).E) name x) :
     DE (level t n).E (.map [(.atom name, x)]) := by
   refine Or.inr ⟨_, rfl, fun q h => ?_, fun name' w h => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases e : compareExact (fuel q (.atom name)) q (.atom name) = .eq
     · exact ⟨name, hn, (compareExact_eq_atom _ _).mp e⟩
     · simp [e] at h

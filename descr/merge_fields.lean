@@ -9,7 +9,7 @@ def rmDyn (X : List (Term × Term)) : List (Term × Term) :=
 
 theorem lookup_rmDyn (X : List (Term × Term)) (q : Term) :
     mapLookup (rmDyn X) q = if compareExact (fuel q (.atom "dynamic")) q (.atom "dynamic") = .eq then none else mapLookup X q := by
-  rw [rmDyn, mapLookup_remove]
+  simp only [rmDyn, mapLookup_remove]
 
 theorem lookup_rmDyn_name (X : List (Term × Term)) {name : String} (h : name ≠ "dynamic") :
     mapLookup (rmDyn X) (.atom name) = mapLookup X (.atom name) := by

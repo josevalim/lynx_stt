@@ -148,7 +148,7 @@ theorem domT_list : DomT t n "list"
     Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, Bdd.leaf_iff.mpr ⟨_, _, _, rfl, (level t n).ef.term, (level t n).ef.term⟩⟩)))
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name w h => ?_⟩, Or.inr (Or.inl ⟨_, rfl, by simp [mapLookup]⟩),
     fun h => by simp at h, fun _ v hv => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases e : compareExact (fuel q (.atom "bitmap")) q (.atom "bitmap") = .eq
     · exact ⟨"bitmap", by simp [names], (compareExact_eq_atom _ _).mp e⟩
     · by_cases e' : compareExact (fuel q (.atom "list")) q (.atom "list") = .eq

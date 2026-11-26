@@ -449,7 +449,7 @@ theorem tailTerm_noList {T : List (Term × Term)} (term : Elixir.Module.Types.De
   simp only [Elixir.Module.Types.Descr.«unfolded_term/0»] at term
   cases term
   rw [noList_atom]
-  simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq]
+  simp only [mapLookup, List.find?, tailTerm, compareExact_eq_atom, Term.atom.injEq, equalExact_eq_decide]
   by_cases b : name = "bitmap" <;> by_cases t : name = "tuple" <;> by_cases f : name = "fun" <;>
     by_cases m : name = "map" <;> by_cases a : name = "atom" <;> by_cases l : name = "list" <;> simp_all
 

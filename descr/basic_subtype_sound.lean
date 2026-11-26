@@ -43,7 +43,7 @@ theorem iterator_sound (d : Dispatcher) (B : List (Term × Term)) :
 theorem lookup_entry {A : List (Term × Term)} {q x : Term} (h : mapLookup A q = some x) :
     ∃ e ∈ mapEntries A, compareExact (fuel q e.1) q e.1 = .eq ∧ e.2 = x := by
   rw [← mapLookup_mapEntries] at h
-  simp only [mapLookup, Option.map_eq_some_iff] at h
+  simp only [mapLookup, Option.map_eq_some_iff, equalExact_eq_decide] at h
   obtain ⟨e, hit, rfl⟩ := h
   exact ⟨e, List.mem_of_find?_eq_some hit, by simpa using List.find?_some hit, rfl⟩
 

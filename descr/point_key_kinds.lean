@@ -29,7 +29,7 @@ theorem field_de {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y)) {nam
       ∀ v : PN t n, denD (.map [(.atom name, x)]) v ↔ v.1.1 = name ∧ denD (.map Y) v := by
   have sY := de_map hY
   refine ⟨Or.inr ⟨_, rfl, fun q h => ?_, fun name' w h => ?_⟩, fun v => ?_⟩
-  · simp only [mapLookup, List.find?_cons, List.find?_nil] at h
+  · simp only [mapLookup, List.find?_cons, List.find?_nil, equalExact_eq_decide] at h
     by_cases e : compareExact (fuel q (.atom name)) q (.atom name) = .eq
     · rw [(compareExact_eq_atom _ _).mp e]
       exact sY.keys _ (by rw [hx]; rfl)
@@ -226,6 +226,7 @@ theorem dom_fold {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y)) {m :
 theorem entry_of_lookup_entries {es : List (Term × Term)} {q x : Term} (h : mapLookup es q = some x) :
     ∃ e ∈ mapEntries es, compareExact (fuel q e.1) q e.1 = .eq ∧ e.2 = x := by
   rw [← mapLookup_mapEntries, mapLookup] at h
+  simp only [equalExact_eq_decide] at h
   cases e : (mapEntries es).find? (fun entry => decide (compareExact (fuel q entry.1) q entry.1 = .eq)) with
   | none => rw [e] at h; cases h
   | some r =>

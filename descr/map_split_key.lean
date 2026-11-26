@@ -9,7 +9,7 @@ def eraseKey (a : String) (l : List (Term × Term)) : List (Term × Term) :=
 
 theorem lookup_eraseKey (a s : String) (l : List (Term × Term)) :
     mapLookup (eraseKey a l) (.atom s) = if s = a then none else mapLookup l (.atom s) := by
-  rw [eraseKey, mapLookup_remove]
+  simp only [eraseKey, mapLookup_remove]
   by_cases h : s = a <;> simp [h]
 
 theorem eraseKey_of_absent {a : String} {l : List (Term × Term)} (h : ∀ e ∈ l, e.1 ≠ .atom a) : eraseKey a l = l :=

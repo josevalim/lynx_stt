@@ -199,7 +199,7 @@ theorem insert_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
         exact ⟨w, (tt w).mpr (by simpa using hw)⟩
     have nonEmpty : Elixir.Module.Types.Descr.«non_empty_tuple_only?/1» (D (k + 3)) (.map X) =
         .ok (boolAtom (bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) && !eb)) := by
-      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb]
+      simp only [Elixir.Module.Types.Descr.«non_empty_tuple_only?/1», Erlang.maps.«take/2», hb, equalExact_eq_decide]
       rw [show (List.filter (fun entry => !decide (compareExact (fuel (.atom "tuple") entry.fst) (.atom "tuple") entry.fst = .eq)) X) = rmT X from rfl]
       simp only [Lynx.Except.ok_bind, rE, reb (k + 3) (by omega)]
       cases bp (∀ v : PN t n, ¬denD (.map (rmT X)) v) <;> cases eb <;>
