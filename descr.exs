@@ -93,7 +93,7 @@
 # Set LYNX_PATH to verify against a local checkout of Lynx instead of the release.
 lynx =
   case System.get_env("LYNX_PATH") do
-    nil -> {:lynx, "~> 0.1.0"}
+    nil -> {:lynx, "0.2.0"}
     path -> {:lynx, path: Path.expand(path)}
   end
 
@@ -149,12 +149,15 @@ defmodule STTDescrProofsTest do
     do: Descr.bare_union(Descr.atom([nil]), Descr.tuple([Descr.term(), recur.(:t)]))
 
   def recursive_node?({id, %{t: {id, generator}}, generator}) when is_reference(id),
-    do: generator === &__MODULE__.tuple_list/1
+    do: generator === (&__MODULE__.tuple_list/1)
 
   def recursive_node?(_node), do: false
 
   def negatable?(:term, _depth), do: true
-  def negatable?(descr, depth) when is_map(descr), do: negatable_fields?(:maps.to_list(descr), depth)
+
+  def negatable?(descr, depth) when is_map(descr),
+    do: negatable_fields?(:maps.to_list(descr), depth)
+
   def negatable?(_descr, _depth), do: false
 
   defp negatable_fields?([field | fields], depth),
@@ -177,7 +180,8 @@ defmodule STTDescrProofsTest do
 
   defp any_bdd?({hash, {key, _, _} = lit, c, u, d}, lower),
     do:
-      is_integer(hash) and is_integer(key) and lit > lower and any_bdd?(c, lit) and any_bdd?(u, lit) and
+      is_integer(hash) and is_integer(key) and lit > lower and any_bdd?(c, lit) and
+        any_bdd?(u, lit) and
         any_bdd?(d, lit)
 
   defp any_bdd?(_bdd, _lower), do: false
@@ -214,17 +218,21 @@ defmodule STTDescrProofsTest do
   # term order, whose arguments, as many as their arity, and return types are
   # nested types.
   defp fun_arities?([{arity, bdd} | arities], depth),
-    do: is_integer(arity) and fun_bdd?(bdd, arity, :bottom, depth) and fun_arities?(arities, depth)
+    do:
+      is_integer(arity) and fun_bdd?(bdd, arity, :bottom, depth) and fun_arities?(arities, depth)
 
   defp fun_arities?([], _depth), do: true
 
   defp fun_bdd?(:bdd_top, _arity, _lower, _depth), do: true
   defp fun_bdd?(:bdd_bot, _arity, _lower, _depth), do: true
-  defp fun_bdd?({_, _, _} = leaf, arity, lower, depth), do: fun_literal?(leaf, arity, lower, depth)
+
+  defp fun_bdd?({_, _, _} = leaf, arity, lower, depth),
+    do: fun_literal?(leaf, arity, lower, depth)
 
   defp fun_bdd?({hash, lit, c, u, d}, arity, lower, depth),
     do:
-      is_integer(hash) and fun_literal?(lit, arity, lower, depth) and fun_bdd?(c, arity, lit, depth) and
+      is_integer(hash) and fun_literal?(lit, arity, lower, depth) and
+        fun_bdd?(c, arity, lit, depth) and
         fun_bdd?(u, arity, lit, depth) and fun_bdd?(d, arity, lit, depth)
 
   defp fun_bdd?(_bdd, _arity, _lower, _depth), do: false
@@ -283,7 +291,9 @@ defmodule STTDescrProofsTest do
 
   defp tuple_literal?(_lit, _lower, _depth), do: false
 
-  defp elements?([element | elements], depth), do: nested?(element, depth) and elements?(elements, depth)
+  defp elements?([element | elements], depth),
+    do: nested?(element, depth) and elements?(elements, depth)
+
   defp elements?([], _depth), do: true
   defp elements?(_elements, _depth), do: false
 
@@ -370,7 +380,9 @@ defmodule STTDescrProofsTest do
   def arrows_gradual?(descr, nested), do: arrows_static?(descr, nested)
 
   # Arguments of the laws on function application: lists of static types.
-  def arguments?([arg | args], nested), do: arrows_static?(arg, nested) and arguments?(args, nested)
+  def arguments?([arg | args], nested),
+    do: arrows_static?(arg, nested) and arguments?(args, nested)
+
   def arguments?([], _nested), do: true
   def arguments?(_args, _nested), do: false
 
@@ -379,7 +391,9 @@ defmodule STTDescrProofsTest do
   def inhabited?([]), do: true
 
   # Arguments of the gradual laws on function application: lists of gradual types.
-  def gradual_arguments?([arg | args], nested), do: arrows_gradual?(arg, nested) and gradual_arguments?(args, nested)
+  def gradual_arguments?([arg | args], nested),
+    do: arrows_gradual?(arg, nested) and gradual_arguments?(args, nested)
+
   def gradual_arguments?([], _nested), do: true
   def gradual_arguments?(_args, _nested), do: false
 
@@ -390,18 +404,24 @@ defmodule STTDescrProofsTest do
       Descr.subtype?(Descr.lower_bound(right), Descr.lower_bound(left)) and
         Descr.subtype?(Descr.upper_bound(left), Descr.upper_bound(right))
 
-  def all_precise?([left | lefts], [right | rights]), do: precise?(left, right) and all_precise?(lefts, rights)
+  def all_precise?([left | lefts], [right | rights]),
+    do: precise?(left, right) and all_precise?(lefts, rights)
+
   def all_precise?([], []), do: true
   def all_precise?(_lefts, _rights), do: false
 
   # A less precise type keeps a dynamic part when the precise one has one: Descr treats a dynamic part as gradual
   # even when it adds nothing to the bounds, as with dynamic(t) or t.
-  def kept_dynamic?(%{dynamic: _}, other), do: is_map(other) and :erlang.is_map_key(:dynamic, other)
+  def kept_dynamic?(%{dynamic: _}, other),
+    do: is_map(other) and :erlang.is_map_key(:dynamic, other)
+
   def kept_dynamic?(_descr, _other), do: true
 
   # A static type between the bounds of a gradual type.
   def materializes?(static, gradual),
-    do: Descr.subtype?(Descr.lower_bound(gradual), static) and Descr.subtype?(static, Descr.upper_bound(gradual))
+    do:
+      Descr.subtype?(Descr.lower_bound(gradual), static) and
+        Descr.subtype?(static, Descr.upper_bound(gradual))
 
   def all_materialize?([static | statics], [gradual | graduals]),
     do: materializes?(static, gradual) and all_materialize?(statics, graduals)
@@ -411,7 +431,9 @@ defmodule STTDescrProofsTest do
 
   # Arguments whose upper bounds are in the upper bounds of others.
   def uppers_in?([left | lefts], [right | rights]),
-    do: Descr.subtype?(Descr.upper_bound(left), Descr.upper_bound(right)) and uppers_in?(lefts, rights)
+    do:
+      Descr.subtype?(Descr.upper_bound(left), Descr.upper_bound(right)) and
+        uppers_in?(lefts, rights)
 
   def uppers_in?([], []), do: true
   def uppers_in?(_lefts, _rights), do: false
@@ -423,7 +445,8 @@ defmodule STTDescrProofsTest do
 
   defp keyed_fields?([{:fun, {tag, arities}} | fields], depth, true) when is_map(arities),
     do:
-      (tag == :negation or map_size(arities) > 0) and keyed_arities?(:maps.to_list(arities), depth) and
+      (tag == :negation or map_size(arities) > 0) and
+        keyed_arities?(:maps.to_list(arities), depth) and
         keyed_fields?(fields, depth, true)
 
   defp keyed_fields?([{:fun, _fun} | _fields], _depth, true), do: false
@@ -437,7 +460,9 @@ defmodule STTDescrProofsTest do
   defp keyed_fields?([{:list, bdd} | fields], depth, element?),
     do: keyed_list_bdd?(bdd, depth) and keyed_fields?(fields, depth, element?)
 
-  defp keyed_fields?([_field | fields], depth, element?), do: keyed_fields?(fields, depth, element?)
+  defp keyed_fields?([_field | fields], depth, element?),
+    do: keyed_fields?(fields, depth, element?)
+
   defp keyed_fields?([], _depth, _element?), do: true
   defp keyed_fields?(_fields, _depth, _element?), do: false
 
@@ -470,7 +495,8 @@ defmodule STTDescrProofsTest do
 
   defp keyed_map_bdd?({key, domains, fields}, depth) when is_list(domains),
     do:
-      key >= 0 and domain_kinds?(domains) and keyed_domains?(domains, depth) and sorted_keys?(fields) and
+      key >= 0 and domain_kinds?(domains) and keyed_domains?(domains, depth) and
+        sorted_keys?(fields) and
         keyed_values?(fields, depth)
 
   defp keyed_map_bdd?({key, _tag, fields}, depth),
@@ -506,7 +532,9 @@ defmodule STTDescrProofsTest do
   # Function types inside other types have arities that are natural numbers, at least one when
   # they are unions, and keyed arguments and returns.
   defp keyed_arities?([{arity, bdd} | arities], depth),
-    do: is_integer(arity) and arity >= 0 and keyed_fun_bdd?(bdd, depth) and keyed_arities?(arities, depth)
+    do:
+      is_integer(arity) and arity >= 0 and keyed_fun_bdd?(bdd, depth) and
+        keyed_arities?(arities, depth)
 
   defp keyed_arities?([], _depth), do: true
   defp keyed_arities?(_arities, _depth), do: false
@@ -516,7 +544,9 @@ defmodule STTDescrProofsTest do
       keyed_fun_bdd?(lit, depth) and keyed_fun_bdd?(c, depth) and keyed_fun_bdd?(u, depth) and
         keyed_fun_bdd?(d, depth)
 
-  defp keyed_fun_bdd?({_key, args, return}, depth), do: keyed_elements?(args, depth) and keyed?(return, depth)
+  defp keyed_fun_bdd?({_key, args, return}, depth),
+    do: keyed_elements?(args, depth) and keyed?(return, depth)
+
   defp keyed_fun_bdd?(_bdd, _depth), do: true
 
   defp keyed_list_bdd?({_, lit, c, u, d}, depth),
@@ -546,10 +576,24 @@ defmodule STTDescrProofsTest do
 
   # The kinds of keys other than atoms, whose domains map_update/5 reports in {:baddomain, type} errors.
   def update_kinds,
-    do: [:bitstring_no_binary, :binary, :integer, :float, :pid, :port, :reference, :fun, :tuple, :map, :list]
+    do: [
+      :bitstring_no_binary,
+      :binary,
+      :integer,
+      :float,
+      :pid,
+      :port,
+      :reference,
+      :fun,
+      :tuple,
+      :map,
+      :list
+    ]
 
   def has_baddomain?([{:baddomain, other} | errors], type),
-    do: (Descr.subtype?(other, type) and Descr.subtype?(type, other)) or has_baddomain?(errors, type)
+    do:
+      (Descr.subtype?(other, type) and Descr.subtype?(type, other)) or
+        has_baddomain?(errors, type)
 
   def has_baddomain?([_ | errors], type), do: has_baddomain?(errors, type)
   def has_baddomain?(_errors, _type), do: false
@@ -558,7 +602,8 @@ defmodule STTDescrProofsTest do
   def baddomains?(map, key, errors, [kind | kinds]),
     do:
       (Descr.disjoint?(kind_type(kind), key) or
-         has_baddomain?(errors, kind_type(kind)) == Descr.empty?(got(Descr.map_get(map, kind_type(kind))))) and
+         has_baddomain?(errors, kind_type(kind)) ==
+           Descr.empty?(got(Descr.map_get(map, kind_type(kind))))) and
         baddomains?(map, key, errors, kinds)
 
   def baddomains?(_map, _key, _errors, []), do: true
@@ -568,7 +613,8 @@ defmodule STTDescrProofsTest do
     do:
       keys?(atoms, []) and
         (Descr.disjoint?(key, Descr.atom()) or Descr.subtype?(Descr.atom(), key) or
-           (atoms != [] and Descr.subtype?(Descr.opt_difference(Descr.atom(), key), Descr.atom(atoms))))
+           (atoms != [] and
+              Descr.subtype?(Descr.opt_difference(Descr.atom(), key), Descr.atom(atoms))))
 
   # Results of tuple_fetch/2 that agree: the same element type, or the same error.
   def same_fetch?({false, left}, {false, right}), do: Descr.equal?(left, right)
@@ -606,8 +652,14 @@ defmodule STTDescrProofsTest do
     holder = Descr.opt_intersection(map, has_key(atom))
 
     case Descr.empty?(holder) do
-      true -> updates(map, atoms, value)
-      false -> Descr.bare_union(elem(Descr.map_put_key(holder, atom, value), 1), updates(map, atoms, value))
+      true ->
+        updates(map, atoms, value)
+
+      false ->
+        Descr.bare_union(
+          elem(Descr.map_put_key(holder, atom, value), 1),
+          updates(map, atoms, value)
+        )
     end
   end
 
@@ -620,7 +672,8 @@ defmodule STTDescrProofsTest do
     do: Descr.bare_union(updates(map, atoms, value), Descr.opt_difference(map, holding(atoms)))
 
   # Lists with the same elements, without duplicates.
-  def permutation?(left, right), do: length(left) == length(right) and all_in?(left, right) and all_in?(right, left)
+  def permutation?(left, right),
+    do: length(left) == length(right) and all_in?(left, right) and all_in?(right, left)
 
   defp all_in?([x | xs], ys), do: :lists.member(x, ys) and all_in?(xs, ys)
   defp all_in?([], _ys), do: true
@@ -635,7 +688,9 @@ defmodule STTDescrProofsTest do
 
   def closed_tuples([], _value), do: Descr.none()
 
-  defp kinds_type([kind | kinds], acc), do: kinds_type(kinds, Descr.bare_union(kind_type(kind), acc))
+  defp kinds_type([kind | kinds], acc),
+    do: kinds_type(kinds, Descr.bare_union(kind_type(kind), acc))
+
   defp kinds_type([], acc), do: acc
 
   defp kind_type(:atom), do: Descr.atom()
@@ -644,7 +699,10 @@ defmodule STTDescrProofsTest do
   defp kind_type(:float), do: Descr.float()
   defp kind_type(:fun), do: Descr.fun()
   defp kind_type(:integer), do: Descr.integer()
-  defp kind_type(:list), do: Descr.bare_union(Descr.empty_list(), Descr.non_empty_list(Descr.term(), Descr.term()))
+
+  defp kind_type(:list),
+    do: Descr.bare_union(Descr.empty_list(), Descr.non_empty_list(Descr.term(), Descr.term()))
+
   defp kind_type(:map), do: Descr.open_map()
   defp kind_type(:pid), do: Descr.pid()
   defp kind_type(:port), do: Descr.port()
@@ -653,10 +711,16 @@ defmodule STTDescrProofsTest do
 
   # Maps whose keys of the given atoms and kinds hold values of a type: the open maps
   # holding them at each of those keys.
-  def keys_hold(atoms, kinds, value), do: kinds_hold(kinds, value, atoms_hold(atoms, value, Descr.open_map()))
+  def keys_hold(atoms, kinds, value),
+    do: kinds_hold(kinds, value, atoms_hold(atoms, value, Descr.open_map()))
 
   defp atoms_hold([atom | atoms], value, acc),
-    do: atoms_hold(atoms, value, Descr.bare_intersection(acc, Descr.open_map([{atom, {value, true}}])))
+    do:
+      atoms_hold(
+        atoms,
+        value,
+        Descr.bare_intersection(acc, Descr.open_map([{atom, {value, true}}]))
+      )
 
   defp atoms_hold([], _value, acc), do: acc
 
@@ -667,8 +731,9 @@ defmodule STTDescrProofsTest do
 
   # Pairs of map constructors: atom keys with types and optional flags, and lists of kinds of keys
   # with types, all of them static types of the given nesting.
-  def map_pairs?([{key, {value, optional?}} | pairs], nested) when is_atom(key) and is_boolean(optional?),
-    do: arrows_static?(value, nested) and map_pairs?(pairs, nested)
+  def map_pairs?([{key, {value, optional?}} | pairs], nested)
+      when is_atom(key) and is_boolean(optional?),
+      do: arrows_static?(value, nested) and map_pairs?(pairs, nested)
 
   def map_pairs?([{kinds, value} | pairs], nested) when is_list(kinds),
     do: kind_list?(kinds) and arrows_static?(value, nested) and map_pairs?(pairs, nested)
@@ -700,7 +765,9 @@ defmodule STTDescrProofsTest do
     end
   end
 
-  defp domain_value([_pair | pairs], kind, acc, found?), do: domain_value(pairs, kind, acc, found?)
+  defp domain_value([_pair | pairs], kind, acc, found?),
+    do: domain_value(pairs, kind, acc, found?)
+
   defp domain_value([], _kind, acc, _found?), do: acc
 
   defp kind_in?([kind | kinds], other), do: kind == other or kind_in?(kinds, other)
@@ -711,80 +778,84 @@ defmodule STTDescrProofsTest do
 
   laws "static" do
     # Elixir's default map field access falls back to a remote call on non-maps.
-    cutoff &:elixir_erl_pass.no_parens_remote/2
+    cutoff(&:elixir_erl_pass.no_parens_remote/2)
 
     # Lines with negative tuple or map literals are not modeled, so their
     # emptiness is cut off.
 
     # Tuples are only padded to longer sizes, which never raises.
-    cutoff &ArgumentError.exception/1
+    cutoff(&ArgumentError.exception/1)
 
     # The laws do not inspect the domains that failed applications report.
-    cutoff &Descr.domain_to_flat_args/2
+    cutoff(&Descr.domain_to_flat_args/2)
 
     # Descr only uses version 2 sets, which are maps.
-    cutoff &:sets.get_slot/2
-    cutoff &:sets.get_bucket/2
-    cutoff &:sets.fold_set/3
-    cutoff &:sets.filter_set/2
-    cutoff &:sets.maybe_expand/1
-    cutoff &:sets.maybe_contract/2
-    cutoff &:sets.mk_seg/1
+    cutoff(&:sets.get_slot/2)
+    cutoff(&:sets.get_bucket/2)
+    cutoff(&:sets.fold_set/3)
+    cutoff(&:sets.filter_set/2)
+    cutoff(&:sets.maybe_expand/1)
+    cutoff(&:sets.maybe_contract/2)
+    cutoff(&:sets.mk_seg/1)
 
     # Recursive types are unfolded on demand, so descr's recursion is partial.
-    termination_suffix &Descr.unfold/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.upper_bound/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.lower_bound/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.empty_seen?/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.bdd_union/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.bdd_difference/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.bdd_intersection/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.bdd_difference/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.opt_map_difference_strategy/5, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:orddict.merge/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.fields_merge_with_defaults/5, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.duplicate/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.opt_map_union_strategy/5, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.opt_tuple_fuse_elements/4, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.opt_tuple_union_leaf/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.empty_difference_subtype?/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.iterator_empty_difference_subtype?/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.fun_line_empty?/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.dynamic/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.fun_normalize/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.fun_apply/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.tuple_fetch/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_fetch_key/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_get/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_split_keys_and_domains/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.to_domain_keys/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:sets.fold_1/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_to_list/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.ukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.rukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.umergel/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.mergel/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &:lists.ukeymergel/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.fields_put_all_new/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.tuple_elim_sizes/4, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.tuple_delete_at/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.tuple_insert_at/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.tuple_values/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_union_all/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_update_static/5, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_update_unchecked/4, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_put/3, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_gradual/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &Descr.map_get_static/2, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix(&Descr.unfold/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.upper_bound/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.lower_bound/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.empty_seen?/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.bdd_union/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.bdd_difference/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.bdd_intersection/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.bdd_difference/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.opt_map_difference_strategy/5, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:orddict.merge/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.fields_merge_with_defaults/5, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.duplicate/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.opt_map_union_strategy/5, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.opt_tuple_fuse_elements/4, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.opt_tuple_union_leaf/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.empty_difference_subtype?/3, ~LEAN"partial_fixpoint", recur: true)
+
+    termination_suffix(&Descr.iterator_empty_difference_subtype?/3, ~LEAN"partial_fixpoint",
+      recur: true
+    )
+
+    termination_suffix(&Descr.fun_line_empty?/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.dynamic/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.fun_normalize/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.fun_apply/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.tuple_fetch/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_fetch_key/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_get/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_split_keys_and_domains/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.to_domain_keys/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:sets.fold_1/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_to_list/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.ukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.rukeymerge3_1/11, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.umergel/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.mergel/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&:lists.ukeymergel/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.fields_put_all_new/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.tuple_elim_sizes/4, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.tuple_delete_at/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.tuple_insert_at/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.tuple_values/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_union_all/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_update_static/5, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_update_unchecked/4, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_put/3, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_gradual/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&Descr.map_get_static/2, ~LEAN"partial_fixpoint", recur: true)
     # Nested types are finite, so their specification terminates.
-    termination_suffix &__MODULE__.nested?/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &__MODULE__.keyed?/2, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &__MODULE__.sorted_keys?/1, ~LEAN"partial_fixpoint", recur: true
-    termination_suffix &__MODULE__.domain_kinds?/1, ~LEAN"partial_fixpoint", recur: true
+    termination_suffix(&__MODULE__.nested?/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&__MODULE__.keyed?/2, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&__MODULE__.sorted_keys?/1, ~LEAN"partial_fixpoint", recur: true)
+    termination_suffix(&__MODULE__.domain_kinds?/1, ~LEAN"partial_fixpoint", recur: true)
 
-    postlude "descr"
+    postlude("descr")
 
-    law intersection_none_empty(descr),
+    law(intersection_none_empty(descr),
       requires: descr?(descr),
       expects: Descr.empty?(Descr.bare_intersection(descr, Descr.none())),
       proof: ~LEAN"""
@@ -811,10 +882,16 @@ defmodule STTDescrProofsTest do
         · simp [«descr?/1», top, Lynx.Term.getMapKeys, Erlang.erlang.«is_map/1»] at requires
       | _ => simp [«descr?/1», Lynx.Term.getMapKeys, Erlang.erlang.«is_map/1»] at requires
       """
+    )
 
-    law intersection_negation_empty(descr, depth, node),
-      requires: (negatable?(descr, {depth, node}) or arrows_gradual?(descr, {depth, node})) and depth?(depth),
-      expects: Descr.empty?(Descr.lower_bound(Descr.bare_intersection(descr, Descr.bare_negation(descr)))),
+    law(intersection_negation_empty(descr, depth, node),
+      requires:
+        (negatable?(descr, {depth, node}) or arrows_gradual?(descr, {depth, node})) and
+          depth?(depth),
+      expects:
+        Descr.empty?(
+          Descr.lower_bound(Descr.bare_intersection(descr, Descr.bare_negation(descr)))
+        ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -861,10 +938,12 @@ defmodule STTDescrProofsTest do
         obtain ⟨n, i, r₁, r₂, r₃, eq⟩ := Nest.gd_inter_neg_lower t (m := δ + 100) (by rw [Nest.level_K]; omega)
         simp [r₁, r₂, r₃, eq]
       """
+    )
 
-    law opt_intersection_negation_empty(descr, depth, node),
+    law(opt_intersection_negation_empty(descr, depth, node),
       requires: arrows_gradual?(descr, {depth, node}) and depth?(depth),
-      expects: Descr.empty?(Descr.lower_bound(Descr.opt_intersection(descr, Descr.opt_negation(descr)))),
+      expects:
+        Descr.empty?(Descr.lower_bound(Descr.opt_intersection(descr, Descr.opt_negation(descr)))),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -884,10 +963,17 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_intersection_negation_empty:ensures/3»]
       simp [r₁, r₂, r₃, eq]
       """
+    )
 
-    law union_negation_term(descr, depth, node),
-      requires: (negatable?(descr, {depth, node}) or arrows_gradual?(descr, {depth, node})) and depth?(depth),
-      expects: Descr.subtype?(Descr.term(), Descr.upper_bound(Descr.bare_union(descr, Descr.bare_negation(descr)))),
+    law(union_negation_term(descr, depth, node),
+      requires:
+        (negatable?(descr, {depth, node}) or arrows_gradual?(descr, {depth, node})) and
+          depth?(depth),
+      expects:
+        Descr.subtype?(
+          Descr.term(),
+          Descr.upper_bound(Descr.bare_union(descr, Descr.bare_negation(descr)))
+        ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -927,10 +1013,15 @@ defmodule STTDescrProofsTest do
         obtain ⟨n, u, r₁, r₂, r₃, sub⟩ := Nest.gd_union_neg_upper t (m := δ + 100) (by rw [Nest.level_K]; omega)
         simp [Elixir.Module.Types.Descr.«term/0», r₁, r₂, r₃, sub]
       """
+    )
 
-    law opt_union_negation_term(descr, depth, node),
+    law(opt_union_negation_term(descr, depth, node),
       requires: arrows_gradual?(descr, {depth, node}) and depth?(depth),
-      expects: Descr.subtype?(Descr.term(), Descr.upper_bound(Descr.opt_union(descr, Descr.opt_negation(descr)))),
+      expects:
+        Descr.subtype?(
+          Descr.term(),
+          Descr.upper_bound(Descr.opt_union(descr, Descr.opt_negation(descr)))
+        ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -950,11 +1041,13 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_union_negation_term:ensures/3»]
       simp [Elixir.Module.Types.Descr.«term/0», r₁, r₂, r₃, sub]
       """
+    )
 
-    law de_morgan_union(left, right, depth, node),
+    law(de_morgan_union(left, right, depth, node),
       requires:
         ((negatable?(left, {depth, node}) and negatable?(right, {depth, node})) or
-           (arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}))) and depth?(depth),
+           (arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}))) and
+          depth?(depth),
       expects:
         Descr.equal?(
           Descr.bare_negation(Descr.bare_union(left, right)),
@@ -985,9 +1078,12 @@ defmodule STTDescrProofsTest do
           Nest.gd_de_morgan_union tL tR (m := δ + 100) (by rw [Nest.level_K]; omega)
         simp [r₁, r₂, r₃, r₄, r₅, eq]
       """
+    )
 
-    law opt_de_morgan_union(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(opt_de_morgan_union(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.equal?(
           Descr.opt_negation(Descr.opt_union(left, right)),
@@ -1014,9 +1110,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_de_morgan_union:ensures/4»]
       simp [r₁, r₂, r₃, r₄, r₅, eq]
       """
+    )
 
-    law opt_de_morgan_intersection(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(opt_de_morgan_intersection(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.equal?(
           Descr.opt_negation(Descr.opt_intersection(left, right)),
@@ -1043,9 +1142,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_de_morgan_intersection:ensures/4»]
       simp [r₁, r₂, r₃, r₄, r₅, eq]
       """
+    )
 
-    law opt_intersection_subtype(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(opt_intersection_subtype(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.subtype?(Descr.opt_intersection(left, right), left) and
           Descr.subtype?(Descr.opt_intersection(left, right), right),
@@ -1069,9 +1171,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_intersection_subtype:ensures/4»]
       simp [r₁, s₁, s₂]
       """
+    )
 
-    law opt_union_supertype(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(opt_union_supertype(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.subtype?(left, Descr.opt_union(left, right)) and
           Descr.subtype?(right, Descr.opt_union(left, right)),
@@ -1095,9 +1200,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_union_supertype:ensures/4»]
       simp [r₁, s₁, s₂]
       """
+    )
 
-    law intersection_subtype(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(intersection_subtype(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.subtype?(Descr.bare_intersection(left, right), left) and
           Descr.subtype?(Descr.bare_intersection(left, right), right),
@@ -1121,9 +1229,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_subtype:ensures/4»]
       simp [r₁, s₁, s₂]
       """
+    )
 
-    law union_supertype(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(union_supertype(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.subtype?(left, Descr.bare_union(left, right)) and
           Descr.subtype?(right, Descr.bare_union(left, right)),
@@ -1147,11 +1258,13 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_supertype:ensures/4»]
       simp [r₁, s₁, s₂]
       """
+    )
 
-    law opt_union_equal(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
-      expects:
-        Descr.equal?(Descr.bare_union(left, right), Descr.opt_union(left, right)),
+    law(opt_union_equal(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
+      expects: Descr.equal?(Descr.bare_union(left, right), Descr.opt_union(left, right)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1172,9 +1285,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_union_equal:ensures/4»]
       simp [r₁, r₂, eq]
       """
+    )
 
-    law opt_intersection_equal(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(opt_intersection_equal(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.equal?(Descr.bare_intersection(left, right), Descr.opt_intersection(left, right)),
       proof: ~LEAN"""
@@ -1197,13 +1313,19 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_intersection_equal:ensures/4»]
       simp [r₁, r₂, eq]
       """
+    )
 
-    law intersection_union_distributive(descr, left, right, depth, node),
-      requires: arrows_gradual?(descr, {depth, node}) and arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(intersection_union_distributive(descr, left, right, depth, node),
+      requires:
+        arrows_gradual?(descr, {depth, node}) and arrows_gradual?(left, {depth, node}) and
+          arrows_gradual?(right, {depth, node}) and depth?(depth),
       expects:
         Descr.equal?(
           Descr.bare_intersection(descr, Descr.bare_union(left, right)),
-          Descr.bare_union(Descr.bare_intersection(descr, left), Descr.bare_intersection(descr, right))
+          Descr.bare_union(
+            Descr.bare_intersection(descr, left),
+            Descr.bare_intersection(descr, right)
+          )
         ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1227,8 +1349,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_union_distributive:ensures/5»]
       simp [r₁, r₂, r₃, r₄, r₅, eq]
       """
+    )
 
-    law opt_negation_equal(descr, depth, node),
+    law(opt_negation_equal(descr, depth, node),
       requires: arrows_gradual?(descr, {depth, node}) and depth?(depth),
       expects: Descr.equal?(Descr.bare_negation(descr), Descr.opt_negation(descr)),
       proof: ~LEAN"""
@@ -1250,10 +1373,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_negation_equal:ensures/3»]
       simp [r₁, r₂, eq]
       """
+    )
 
-    law opt_difference_equal(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
-      expects: Descr.equal?(Descr.bare_difference(left, right), Descr.opt_difference(left, right)),
+    law(opt_difference_equal(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
+      expects:
+        Descr.equal?(Descr.bare_difference(left, right), Descr.opt_difference(left, right)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1274,10 +1401,15 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «opt_difference_equal:ensures/4»]
       simp [r₁, r₂, eq]
       """
+    )
 
-    law fun_arity_equal(arity),
+    law(fun_arity_equal(arity),
       requires: is_integer(arity) and arity >= 0,
-      expects: Descr.equal?(Descr.fun(arity), Descr.fun(:lists.duplicate(arity, Descr.none()), Descr.term())),
+      expects:
+        Descr.equal?(
+          Descr.fun(arity),
+          Descr.fun(:lists.duplicate(arity, Descr.none()), Descr.term())
+        ),
       proof: ~LEAN"""
       open Lynx Lynx.Term in
       obtain ⟨n, rfl⟩ : ∃ n : Nat, arity = .integer n := by
@@ -1294,12 +1426,16 @@ defmodule STTDescrProofsTest do
       simp [fun_arity_run, Elixir.Module.Types.Descr.«none/0», dup_nat, Elixir.Module.Types.Descr.«term/0», run, eq,
         Term.true]
       """
+    )
 
-    law compatible_bounds(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(compatible_bounds(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.compatible?(left, right) ==
-          (Descr.subtype?(Descr.lower_bound(left), Descr.upper_bound(right)) and not Descr.disjoint?(left, right)),
+          (Descr.subtype?(Descr.lower_bound(left), Descr.upper_bound(right)) and
+             not Descr.disjoint?(left, right)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1320,8 +1456,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «compatible_bounds:ensures/4»]
       simp [r₁, Nest.lower_bound_run gl.shape, Nest.upper_bound_run gr.ub, r₂, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law subtype_reflexive(descr),
+    law(subtype_reflexive(descr),
       requires: descr?(descr),
       expects: Descr.subtype?(descr, descr),
       proof: ~LEAN"""
@@ -1338,13 +1475,15 @@ defmodule STTDescrProofsTest do
         · simp [«descr?/1», top, Lynx.Term.getMapKeys, Erlang.erlang.«is_map/1»] at requires
       | _ => simp [«descr?/1», Lynx.Term.getMapKeys, Erlang.erlang.«is_map/1»] at requires
       """
+    )
 
-    law subtype_transitive(left, middle, right, depth, node),
+    law(subtype_transitive(left, middle, right, depth, node),
       requires:
         arrows_gradual?(left, {depth, node}) and arrows_gradual?(middle, {depth, node}) and
           arrows_gradual?(right, {depth, node}) and depth?(depth),
       expects:
-        not (Descr.subtype?(left, middle) and Descr.subtype?(middle, right)) or Descr.subtype?(left, right),
+        not (Descr.subtype?(left, middle) and Descr.subtype?(middle, right)) or
+          Descr.subtype?(left, right),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1377,10 +1516,14 @@ defmodule STTDescrProofsTest do
         · simp [Nest.bp_true.mpr h₁, Nest.bp_false.mpr h₂, boolAtom, Lynx.Except.andAlso]
       · simp [Nest.bp_false.mpr h₁, boolAtom, Lynx.Except.andAlso]
       """
+    )
 
-    law equal_subtype(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
-      expects: Descr.equal?(left, right) == (Descr.subtype?(left, right) and Descr.subtype?(right, left)),
+    law(equal_subtype(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
+      expects:
+        Descr.equal?(left, right) == (Descr.subtype?(left, right) and Descr.subtype?(right, left)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1402,9 +1545,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «equal_subtype:ensures/4»]
       cases s₁ <;> cases s₂ <;> simp [r₁, r₂, r₃, boolAtom, Lynx.Except.andAlso, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law disjoint_empty(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(disjoint_empty(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.disjoint?(left, right) == Descr.empty?(Descr.bare_intersection(left, right)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1427,9 +1573,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «disjoint_empty:ensures/4»]
       cases s <;> simp [run, r₁, r₂, boolAtom, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law union_commutative(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(union_commutative(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.equal?(Descr.bare_union(left, right), Descr.bare_union(right, left)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1456,10 +1605,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_commutative:ensures/4»]
       simp [r₁, r₂, eq, Term.true]
       """
+    )
 
-    law intersection_commutative(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
-      expects: Descr.equal?(Descr.bare_intersection(left, right), Descr.bare_intersection(right, left)),
+    law(intersection_commutative(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
+      expects:
+        Descr.equal?(Descr.bare_intersection(left, right), Descr.bare_intersection(right, left)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1485,8 +1638,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_commutative:ensures/4»]
       simp [r₁, r₂, eq, Term.true]
       """
+    )
 
-    law union_associative(left, middle, right, depth, node),
+    law(union_associative(left, middle, right, depth, node),
       requires:
         arrows_gradual?(left, {depth, node}) and arrows_gradual?(middle, {depth, node}) and
           arrows_gradual?(right, {depth, node}) and depth?(depth),
@@ -1523,8 +1677,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_associative:ensures/5»]
       simp [r₁, r₂, r₃, r₄, eq, Term.true]
       """
+    )
 
-    law intersection_associative(left, middle, right, depth, node),
+    law(intersection_associative(left, middle, right, depth, node),
       requires:
         arrows_gradual?(left, {depth, node}) and arrows_gradual?(middle, {depth, node}) and
           arrows_gradual?(right, {depth, node}) and depth?(depth),
@@ -1561,8 +1716,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_associative:ensures/5»]
       simp [r₁, r₂, r₃, r₄, eq, Term.true]
       """
+    )
 
-    law union_idempotent(descr, depth, node),
+    law(union_idempotent(descr, depth, node),
       requires: arrows_gradual?(descr, {depth, node}) and depth?(depth),
       expects: Descr.equal?(Descr.bare_union(descr, descr), descr),
       proof: ~LEAN"""
@@ -1588,8 +1744,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_idempotent:ensures/3»]
       simp [r₁, eq, Term.true]
       """
+    )
 
-    law intersection_idempotent(descr, depth, node),
+    law(intersection_idempotent(descr, depth, node),
       requires: arrows_gradual?(descr, {depth, node}) and depth?(depth),
       expects: Descr.equal?(Descr.bare_intersection(descr, descr), descr),
       proof: ~LEAN"""
@@ -1615,9 +1772,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_idempotent:ensures/3»]
       simp [r₁, eq, Term.true]
       """
+    )
 
-    law union_absorption(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(union_absorption(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.equal?(Descr.bare_union(left, Descr.bare_intersection(left, right)), left),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1644,9 +1804,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_absorption:ensures/4»]
       simp [r₁, r₂, eq, Term.true]
       """
+    )
 
-    law intersection_absorption(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(intersection_absorption(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.equal?(Descr.bare_intersection(left, Descr.bare_union(left, right)), left),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1673,8 +1836,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_absorption:ensures/4»]
       simp [r₁, r₂, eq, Term.true]
       """
+    )
 
-    law union_intersection_distributive(descr, left, right, depth, node),
+    law(union_intersection_distributive(descr, left, right, depth, node),
       requires:
         arrows_gradual?(descr, {depth, node}) and arrows_gradual?(left, {depth, node}) and
           arrows_gradual?(right, {depth, node}) and depth?(depth),
@@ -1712,9 +1876,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_intersection_distributive:ensures/5»]
       simp [r₁, r₂, r₃, r₄, r₅, eq, Term.true]
       """
+    )
 
-    law subtype_union(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
+    law(subtype_union(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.subtype?(left, right) == Descr.equal?(Descr.bare_union(left, right), right),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1738,10 +1905,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «subtype_union:ensures/4»]
       cases s <;> simp [r₁, r₂, r₃, boolAtom, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law subtype_intersection(left, right, depth, node),
-      requires: arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and depth?(depth),
-      expects: Descr.subtype?(left, right) == Descr.equal?(Descr.bare_intersection(left, right), left),
+    law(subtype_intersection(left, right, depth, node),
+      requires:
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          depth?(depth),
+      expects:
+        Descr.subtype?(left, right) == Descr.equal?(Descr.bare_intersection(left, right), left),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -1764,9 +1935,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «subtype_intersection:ensures/4»]
       cases s <;> simp [r₁, r₂, r₃, boolAtom, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law subtype_difference(left, right, depth, node),
-      requires: arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and depth?(depth),
+    law(subtype_difference(left, right, depth, node),
+      requires:
+        arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.subtype?(left, right) == Descr.empty?(Descr.bare_difference(left, right)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on.
@@ -1783,12 +1957,18 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «subtype_difference:ensures/4»]
       cases s <;> simp [r₁, r₂, r₃, boolAtom, Erlang.erlang.«==/2», Term.true]
       """
+    )
 
-    law difference_partition(left, right, depth, node),
-      requires: arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and depth?(depth),
+    law(difference_partition(left, right, depth, node),
+      requires:
+        arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and
+          depth?(depth),
       expects:
         Descr.equal?(
-          Descr.bare_union(Descr.bare_difference(left, right), Descr.bare_intersection(left, right)),
+          Descr.bare_union(
+            Descr.bare_difference(left, right),
+            Descr.bare_intersection(left, right)
+          ),
           left
         ),
       proof: ~LEAN"""
@@ -1813,9 +1993,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «difference_partition:ensures/4»]
       simp [r₁ _ hm, r₂ _ (by omega), r₃ _ hm, eq, Term.true]
       """
+    )
 
-    law difference_disjoint(left, right, depth, node),
-      requires: arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and depth?(depth),
+    law(difference_disjoint(left, right, depth, node),
+      requires:
+        arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and
+          depth?(depth),
       expects: Descr.disjoint?(Descr.bare_difference(left, right), right),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on.
@@ -1834,8 +2017,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «difference_disjoint:ensures/4»]
       simp [run _ hm, disj, Term.true]
       """
+    )
 
-    law negation_involutive(descr, depth, node),
+    law(negation_involutive(descr, depth, node),
       requires: arrows_static?(descr, {depth, node}) and depth?(depth),
       expects: Descr.equal?(Descr.bare_negation(Descr.bare_negation(descr)), descr),
       proof: ~LEAN"""
@@ -1854,15 +2038,18 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «negation_involutive:ensures/3»]
       simp [r₁, r₂, eq, Term.true]
       """
+    )
 
-    law tuple_fetch_sound(tuple, index, depth, node),
+    law(tuple_fetch_sound(tuple, index, depth, node),
       requires:
         arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
           match?({false, _}, Descr.tuple_fetch(tuple, index)),
       expects:
         Descr.subtype?(
           tuple,
-          Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [elem(Descr.tuple_fetch(tuple, index), 1)])
+          Descr.open_tuple(
+            :lists.duplicate(index, Descr.term()) ++ [elem(Descr.tuple_fetch(tuple, index), 1)]
+          )
         ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -1913,12 +2100,17 @@ defmodule STTDescrProofsTest do
       rw [append_list, Lynx.Except.ok_bind, rot, Lynx.Except.ok_bind, sub]
       rfl
       """
+    )
 
-    law tuple_fetch_least(tuple, index, element, depth, node),
+    law(tuple_fetch_least(tuple, index, element, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(element, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(element, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and match?({false, _}, Descr.tuple_fetch(tuple, index)) and
-          Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [element])),
+          Descr.subtype?(
+            tuple,
+            Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [element])
+          ),
       expects: Descr.subtype?(elem(Descr.tuple_fetch(tuple, index), 1), element),
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the element `d`, so the proofs run from the bound of level `d + 1`
@@ -1980,13 +2172,15 @@ defmodule STTDescrProofsTest do
       simp [run, Erlang.erlang.«element/2», (Nest.level node (d + 1)).ef.subc he del sem (δ + 100) (by rw [Nest.level_K]; omega),
         Lynx.Term.true]
       """
+    )
 
-    law tuple_fetch_badindex(tuple, index, depth, node),
+    law(tuple_fetch_badindex(tuple, index, depth, node),
       requires:
-        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and
           Descr.subtype?(tuple, Descr.tuple()) and not Descr.empty?(tuple),
       expects:
-        (Descr.tuple_fetch(tuple, index) == :badindex) ==
+        Descr.tuple_fetch(tuple, index) == :badindex ==
           not Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term()))),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -2062,12 +2256,17 @@ defmodule STTDescrProofsTest do
         simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
           Erlang.erlang.«not/1», Lynx.Term.true]
       """
+    )
 
-    law map_fetch_key_sound(map, key, depth, node),
+    law(map_fetch_key_sound(map, key, depth, node),
       requires:
         arrows_static?(map, {depth, node}) and depth?(depth) and is_atom(key) and
           match?({false, _}, Descr.map_fetch_key(map, key)),
-      expects: Descr.subtype?(map, Descr.open_map([{key, {elem(Descr.map_fetch_key(map, key), 1), false}}])),
+      expects:
+        Descr.subtype?(
+          map,
+          Descr.open_map([{key, {elem(Descr.map_fetch_key(map, key), 1), false}}])
+        ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -2102,10 +2301,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_fetch_key_sound:ensures/4»]
       simp [run, Erlang.erlang.«element/2», rom, sub, Lynx.Term.true]
       """
+    )
 
-    law map_fetch_key_least(map, key, value, depth, node),
+    law(map_fetch_key_least(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_atom(key) and match?({false, _}, Descr.map_fetch_key(map, key)) and
           Descr.subtype?(map, Descr.open_map([{key, {value, false}}])),
       expects: Descr.subtype?(elem(Descr.map_fetch_key(map, key), 1), value),
@@ -2160,13 +2361,14 @@ defmodule STTDescrProofsTest do
       simp [run, Erlang.erlang.«element/2», (Nest.level node (d + 1)).ef.subc he del sem (δ + 100) (by rw [Nest.level_K]; omega),
         Lynx.Term.true]
       """
+    )
 
-    law map_fetch_key_badkey(map, key, depth, node),
+    law(map_fetch_key_badkey(map, key, depth, node),
       requires:
         arrows_static?(map, {depth, node}) and depth?(depth) and is_atom(key) and
           Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map),
       expects:
-        (Descr.map_fetch_key(map, key) == :badkey) ==
+        Descr.map_fetch_key(map, key) == :badkey ==
           not Descr.subtype?(map, Descr.open_map([{key, {Descr.term(), false}}])),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
@@ -2238,14 +2440,20 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_fetch_key_badkey:ensures/4»]
         simp [run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«term/0», rom, sub, Erlang.erlang.«not/1», Lynx.Term.true]
       """
+    )
 
-    law map_put_fetch(map, key, value, depth, node),
+    law(map_put_fetch(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
         match?({false, _}, Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), key)) and
-          Descr.equal?(elem(Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), key), 1), value),
+          Descr.equal?(
+            elem(Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), key), 1),
+            value
+          ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -2321,14 +2529,16 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», fetch, Nest.elem_equal (Nest.level node (d + 1)).ef he del sem (m := δ + 100)
         (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
       """
+    )
 
-    law map_put_other(map, key, other, value, depth, node),
+    law(map_put_other(map, key, other, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_atom(key) and is_atom(other) and key != other and not Descr.empty?(value) and
           match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
-        (Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), other) == :badkey) ==
+        Descr.map_fetch_key(elem(Descr.map_put_key(map, key, value), 1), other) == :badkey ==
           (Descr.map_fetch_key(map, other) == :badkey) and
           (Descr.map_fetch_key(map, other) == :badkey or
              Descr.equal?(
@@ -2438,11 +2648,13 @@ defmodule STTDescrProofsTest do
         simp [Erlang.erlang.«element/2», Erlang.erlang.«==/2», fY, Nest.elem_equal (Nest.level node (d + 1)).ef heY heX sem
           (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
       """
+    )
 
-    law map_put_subtype(left, right, key, small, large, depth, node),
+    law(map_put_subtype(left, right, key, small, large, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
-          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and
+          depth?(depth) and
           is_atom(key) and Descr.subtype?(left, right) and Descr.subtype?(small, large) and
           match?({:ok, _}, Descr.map_put_key(left, key, small)) and
           match?({:ok, _}, Descr.map_put_key(right, key, large)),
@@ -2521,11 +2733,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_put_subtype:ensures/7»]
       simp [runL, runR, Erlang.erlang.«element/2», sub, Lynx.Term.true]
       """
+    )
 
-    law map_put_hold(map, key, value, depth, node),
+    law(map_put_hold(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
         Descr.subtype?(
           Descr.opt_intersection(map, Descr.open_map([{key, {value, false}}])),
@@ -2595,11 +2810,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_put_hold:ensures/5»]
       simp [run, rom, ri, sub, Erlang.erlang.«element/2», Lynx.Term.true]
       """
+    )
 
-    law map_put_idempotent(map, key, value, depth, node),
+    law(map_put_idempotent(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
         Descr.equal?(
           elem(Descr.map_put_key(elem(Descr.map_put_key(map, key, value), 1), key, value), 1),
@@ -2685,14 +2903,26 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_put_idempotent:ensures/5», run, Lynx.Except.ok_bind]
       simp [Erlang.erlang.«element/2», run₂, Nest.next_eq_true dY₂ dY (m := δ + 100) (by omega) same, Lynx.Term.true]
       """
+    )
 
-    law map_put_delete(map, key, value, depth, node),
+    law(map_put_delete(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
         Descr.equal?(
-          elem(Descr.map_update(elem(Descr.map_put_key(map, key, value), 1), Descr.atom([key]), :delete, :force, false), 1),
+          elem(
+            Descr.map_update(
+              elem(Descr.map_put_key(map, key, value), 1),
+              Descr.atom([key]),
+              :delete,
+              :force,
+              false
+            ),
+            1
+          ),
           elem(Descr.map_update(map, Descr.atom([key]), :delete, :force, false), 1)
         ),
       proof: ~LEAN"""
@@ -2776,13 +3006,16 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», run₁, run₂,
         Nest.next_eq_true dY₁ dY₂ (m := δ + 100) (by omega) same, Lynx.Term.true]
       """
+    )
 
-    law map_put_domain_subtype(left, right, small_key, large_key, small, large, depth, node),
+    law(map_put_domain_subtype(left, right, small_key, large_key, small, large, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
           arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and
-          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
-          Descr.subtype?(left, right) and Descr.subtype?(small_key, large_key) and Descr.subtype?(small, large) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and
+          depth?(depth) and
+          Descr.subtype?(left, right) and Descr.subtype?(small_key, large_key) and
+          Descr.subtype?(small, large) and
           match?({:ok, _}, Descr.map_put(left, small_key, small)) and
           match?({:ok, _}, Descr.map_put(right, large_key, large)),
       expects:
@@ -2873,14 +3106,20 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_put_domain_subtype:ensures/8»]
       simp [runL, runR, Erlang.erlang.«element/2», sub, Lynx.Term.true]
       """
+    )
 
-    law map_put_within(map, atom, key, value, depth, node),
+    law(map_put_within(map, atom, key, value, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and is_atom(atom) and
-          Descr.subtype?(Descr.atom([atom]), key) and match?({:ok, _}, Descr.map_put_key(map, atom, value)) and
+          Descr.subtype?(Descr.atom([atom]), key) and
+          match?({:ok, _}, Descr.map_put_key(map, atom, value)) and
           match?({:ok, _}, Descr.map_put(map, key, value)),
-      expects: Descr.subtype?(elem(Descr.map_put_key(map, atom, value), 1), elem(Descr.map_put(map, key, value), 1)),
+      expects:
+        Descr.subtype?(
+          elem(Descr.map_put_key(map, atom, value), 1),
+          elem(Descr.map_put(map, key, value), 1)
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -2952,8 +3191,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_put_within:ensures/6»]
       simp [run₁, run₂, Erlang.erlang.«element/2», sub, Lynx.Term.true]
       """
+    )
 
-    law map_put_get(map, key, value, depth, node),
+    law(map_put_get(map, key, value, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and not Descr.empty?(key) and
@@ -3068,15 +3308,20 @@ defmodule STTDescrProofsTest do
       simp [run, Erlang.erlang.«element/2», rY, gY, runX, gX, rc (δ + 100) (by rw [Nest.level_K] at hm ⊢; omega), sub₁, sub₂,
         Lynx.Term.true]
       """
+    )
 
-    law map_put_other_atom(map, key, other, value, depth, node),
+    law(map_put_other_atom(map, key, other, value, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and is_atom(other) and
-          Descr.disjoint?(Descr.atom([other]), key) and match?({:ok, _}, Descr.map_put(map, key, value)) and
+          Descr.disjoint?(Descr.atom([other]), key) and
+          match?({:ok, _}, Descr.map_put(map, key, value)) and
           not Descr.empty?(elem(Descr.map_put(map, key, value), 1)),
       expects:
-        same_fetch?(Descr.map_fetch_key(elem(Descr.map_put(map, key, value), 1), other), Descr.map_fetch_key(map, other)),
+        same_fetch?(
+          Descr.map_fetch_key(elem(Descr.map_put(map, key, value), 1), other),
+          Descr.map_fetch_key(map, other)
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -3177,12 +3422,14 @@ defmodule STTDescrProofsTest do
             Nest.elem_equal (Nest.level node (d + 1)).ef heY heX sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
             Lynx.Term.true]
       """
+    )
 
-    law map_put_other_kind(map, key, kind, value, depth, node),
+    law(map_put_other_kind(map, key, kind, value, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and keys?([], [kind]) and
-          Descr.disjoint?(key_type([], [kind]), key) and match?({:ok, _}, Descr.map_put(map, key, value)) and
+          Descr.disjoint?(key_type([], [kind]), key) and
+          match?({:ok, _}, Descr.map_put(map, key, value)) and
           not Descr.empty?(elem(Descr.map_put(map, key, value), 1)),
       expects:
         same_get?(
@@ -3331,15 +3578,21 @@ defmodule STTDescrProofsTest do
             Nest.elem_equal (Nest.level node (d + 1)).ef hTY hTX sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
             Lynx.Term.true]
       """
+    )
 
-    law map_update_force_atoms(map, atoms, value, depth, node),
+    law(map_update_force_atoms(map, atoms, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          keys?(atoms, []) and atoms != [] and :lists.usort(atoms) == atoms and not Descr.empty?(value) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          keys?(atoms, []) and atoms != [] and :lists.usort(atoms) == atoms and
+          not Descr.empty?(value) and
           match?({:ok, _}, Descr.map_put(map, Descr.atom(atoms), value)),
       expects:
         match?({_, _, []}, Descr.map_update(map, Descr.atom(atoms), value, :force, true)) and
-          Descr.equal?(elem(Descr.map_update(map, Descr.atom(atoms), value, :force, true), 1), puts(map, atoms, value)) and
+          Descr.equal?(
+            elem(Descr.map_update(map, Descr.atom(atoms), value, :force, true), 1),
+            puts(map, atoms, value)
+          ) and
           Descr.equal?(
             elem(Descr.map_update(map, Descr.atom(atoms), value, :force, true), 0),
             got(Descr.map_get(map, Descr.atom(atoms)))
@@ -3426,25 +3679,31 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_update_force_atoms:ensures/5»]
       simp [rA, run₂, Erlang.erlang.«element/2», rZ, eq₁, runX, gX, eq₂, Lynx.Term.true]
       """
+    )
 
-    law map_update_missing_atoms(map, atoms, value, mode, depth, node),
+    law(map_update_missing_atoms(map, atoms, value, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          keys?(atoms, []) and atoms != [] and :lists.usort(atoms) == atoms and not Descr.empty?(value) and
-          mode in [:keep, :reject] and match?({:ok, _}, Descr.map_put(map, Descr.atom(atoms), value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          keys?(atoms, []) and atoms != [] and :lists.usort(atoms) == atoms and
+          not Descr.empty?(value) and
+          mode in [:keep, :reject] and
+          match?({:ok, _}, Descr.map_put(map, Descr.atom(atoms), value)),
       expects:
-        (case Descr.map_update(map, Descr.atom(atoms), value, mode, true) do
+        case Descr.map_update(map, Descr.atom(atoms), value, mode, true) do
           {:error, errors} ->
-            length(lacking(map, atoms)) == length(atoms) and permutation?(errors, lacking(map, atoms))
+            length(lacking(map, atoms)) == length(atoms) and
+              permutation?(errors, lacking(map, atoms))
 
           {old, descr, errors} ->
-            length(lacking(map, atoms)) < length(atoms) and permutation?(errors, lacking(map, atoms)) and
+            length(lacking(map, atoms)) < length(atoms) and
+              permutation?(errors, lacking(map, atoms)) and
               Descr.equal?(old, got(Descr.map_get(map, Descr.atom(atoms)))) and
               Descr.equal?(descr, updated(map, atoms, value, mode))
 
           _ ->
             false
-        end),
+        end,
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the value `d`.
       classical
@@ -3611,18 +3870,19 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_update_missing_atoms:ensures/6»]
         simp [rA, runU, rL', length_list, Erlang.erlang.«==/2», lenE.mpr all, pE, Lynx.Term.true, Lynx.Except.andAlso]
       """
+    )
 
-    law map_update_force_put(map, key, value, depth, node),
+    law(map_update_force_put(map, key, value, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and not Descr.empty?(value) and
           match?({:ok, _}, Descr.map_put(map, key, value)),
       expects:
-        (case Descr.map_update(map, key, value, :force, true) do
+        case Descr.map_update(map, key, value, :force, true) do
           {_, descr, _} -> Descr.equal?(descr, elem(Descr.map_put(map, key, value), 1))
           {:error, _} -> Descr.empty?(elem(Descr.map_put(map, key, value), 1))
           _ -> false
-        end),
+        end,
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -3670,14 +3930,20 @@ defmodule STTDescrProofsTest do
         simp [run₁, run₂, Erlang.erlang.«element/2», Elixir.Module.Types.Descr.«equal?/2», Erlang.erlang.«==/2»,
           Lynx.Term.true, Lynx.Except.orElse]
       """
+    )
 
-    law map_update_old(map, key, value, mode, depth, node),
+    law(map_update_old(map, key, value, mode, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_static?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
-          not Descr.empty?(value) and match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
+          arrows_static?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          not Descr.empty?(value) and
+          match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
       expects:
-        Descr.equal?(elem(Descr.map_update(map, key, value, mode, true), 0), got(Descr.map_get(map, key))),
+        Descr.equal?(
+          elem(Descr.map_update(map, key, value, mode, true), 0),
+          got(Descr.map_get(map, key))
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -3796,11 +4062,13 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_update_old:ensures/6»]
       simp [runU, Erlang.erlang.«element/2», runX, gX, eq₂, Lynx.Term.true]
       """
+    )
 
-    law map_update_within(map, atom, key, value, mode, depth, node),
+    law(map_update_within(map, atom, key, value, mode, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_static?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
+          arrows_static?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
           is_atom(atom) and Descr.subtype?(Descr.atom([atom]), key) and not Descr.empty?(value) and
           match?({_, _, _}, Descr.map_update(map, Descr.atom([atom]), value, mode, true)) and
           match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
@@ -3938,14 +4206,17 @@ defmodule STTDescrProofsTest do
       rw [Nest.atom_one, Lynx.Except.ok_bind, run₁]
       simp [run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
       """
+    )
 
-    law map_update_subtype(left, right, small_key, large_key, small, large, mode, depth, node),
+    law(map_update_subtype(left, right, small_key, large_key, small, large, mode, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
           arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and
-          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and
+          depth?(depth) and
           mode in [:force, :keep, :reject] and Descr.subtype?(left, right) and
-          Descr.subtype?(small_key, large_key) and Descr.subtype?(small, large) and not Descr.empty?(small) and
+          Descr.subtype?(small_key, large_key) and Descr.subtype?(small, large) and
+          not Descr.empty?(small) and
           match?({_, _, _}, Descr.map_update(left, small_key, small, mode, true)) and
           match?({_, _, _}, Descr.map_update(right, large_key, large, mode, true)),
       expects:
@@ -4097,11 +4368,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_update_subtype:ensures/9»]
       simp [run₁, run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
       """
+    )
 
-    law map_delete_within(map, atom, key, mode, depth, node),
+    law(map_delete_within(map, atom, key, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and is_atom(atom) and Descr.subtype?(Descr.atom([atom]), key) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and is_atom(atom) and
+          Descr.subtype?(Descr.atom([atom]), key) and
           match?({_, _, _}, Descr.map_update(map, Descr.atom([atom]), :delete, mode, true)) and
           match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
       expects:
@@ -4215,12 +4489,15 @@ defmodule STTDescrProofsTest do
       rw [Nest.atom_one, Lynx.Except.ok_bind, run₁]
       simp [run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
       """
+    )
 
-    law map_delete_subtype(left, right, small_key, large_key, mode, depth, node),
+    law(map_delete_subtype(left, right, small_key, large_key, mode, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
-          arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and Descr.subtype?(left, right) and Descr.subtype?(small_key, large_key) and
+          arrows_static?(small_key, {depth, node}) and arrows_static?(large_key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and Descr.subtype?(left, right) and
+          Descr.subtype?(small_key, large_key) and
           match?({_, _, _}, Descr.map_update(left, small_key, :delete, mode, true)) and
           match?({_, _, _}, Descr.map_update(right, large_key, :delete, mode, true)),
       expects:
@@ -4332,12 +4609,19 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_delete_subtype:ensures/7»]
       simp [run₁, run₂, Erlang.erlang.«element/2», subE, Lynx.Term.true]
       """
+    )
 
-    law map_delete_old(map, key, mode, depth, node),
+    law(map_delete_old(map, key, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
-      expects: Descr.equal?(elem(Descr.map_update(map, key, :delete, mode, true), 0), got(Descr.map_get(map, key))),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
+      expects:
+        Descr.equal?(
+          elem(Descr.map_update(map, key, :delete, mode, true), 0),
+          got(Descr.map_get(map, key))
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -4417,13 +4701,17 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_delete_old:ensures/5»]
       simp [runU, Erlang.erlang.«element/2», runX, gX, eq₂, Lynx.Term.true]
       """
+    )
 
-    law map_put_gradual_atom(map, atom, key, value, depth, node),
+    law(map_put_gradual_atom(map, atom, key, value, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
           arrows_gradual?(value, {depth, node}) and depth?(depth) and is_atom(atom) and
           Descr.subtype?(Descr.atom([atom]), Descr.upper_bound(key)) and
-          match?({:ok, _}, Descr.map_put_key(Descr.upper_bound(map), atom, Descr.upper_bound(value))) and
+          match?(
+            {:ok, _},
+            Descr.map_put_key(Descr.upper_bound(map), atom, Descr.upper_bound(value))
+          ) and
           match?({:ok, _}, Descr.map_put(map, key, value)),
       expects:
         Descr.subtype?(
@@ -4590,19 +4878,32 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», Nest.upper_bound_run gR.ub, Nest.upper_bound_run gM.ub, eU,
         Nest.upper_bound_run gV.ub, run₁, sub, Lynx.Term.true]
       """
+    )
 
-    law map_put_gradual_upper(map, key, value, depth, node),
+    law(map_put_gradual_upper(map, key, value, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
-          arrows_gradual?(value, {depth, node}) and depth?(depth) and match?({:ok, _}, Descr.map_put(map, key, value)) and
+          arrows_gradual?(value, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_put(map, key, value)) and
           match?(
             {:ok, _},
-            Descr.map_put(Descr.upper_bound(map), Descr.upper_bound(key), Descr.upper_bound(value))
+            Descr.map_put(
+              Descr.upper_bound(map),
+              Descr.upper_bound(key),
+              Descr.upper_bound(value)
+            )
           ),
       expects:
         Descr.subtype?(
           Descr.upper_bound(elem(Descr.map_put(map, key, value), 1)),
-          elem(Descr.map_put(Descr.upper_bound(map), Descr.upper_bound(key), Descr.upper_bound(value)), 1)
+          elem(
+            Descr.map_put(
+              Descr.upper_bound(map),
+              Descr.upper_bound(key),
+              Descr.upper_bound(value)
+            ),
+            1
+          )
         ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
@@ -4741,21 +5042,36 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», Nest.upper_bound_run gR.ub, Nest.upper_bound_run gM.ub, eU,
         Nest.upper_bound_run gK.ub, Nest.upper_bound_run gV.ub, runU, sub, Lynx.Term.true]
       """
+    )
 
-    law map_update_gradual_upper(map, key, value, mode, depth, node),
+    law(map_update_gradual_upper(map, key, value, mode, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
-          arrows_gradual?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
-          not Descr.empty?(value) and match?({_, _, _}, Descr.map_update(map, key, value, mode, true)) and
+          arrows_gradual?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          not Descr.empty?(value) and
+          match?({_, _, _}, Descr.map_update(map, key, value, mode, true)) and
           match?(
             {_, _, _},
-            Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), Descr.upper_bound(value), mode, true)
+            Descr.map_update(
+              Descr.upper_bound(map),
+              Descr.upper_bound(key),
+              Descr.upper_bound(value),
+              mode,
+              true
+            )
           ),
       expects:
         Descr.subtype?(
           Descr.upper_bound(elem(Descr.map_update(map, key, value, mode, true), 1)),
           elem(
-            Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), Descr.upper_bound(value), mode, true),
+            Descr.map_update(
+              Descr.upper_bound(map),
+              Descr.upper_bound(key),
+              Descr.upper_bound(value),
+              mode,
+              true
+            ),
             1
           )
         ),
@@ -4902,7 +5218,7 @@ defmodule STTDescrProofsTest do
           exact ⟨value, X, T, R, er, by rw [← Nest.upd5_val _ rk mt sv]; exact hupd', hupd', gM, hDy, inU, inD,
             Or.inl dv, sv.imp id fun ⟨Z, e, _⟩ => ⟨Z, e⟩, uv.symm, neV dv hne'⟩
         obtain ⟨Zv, Dv, rfl, hZ⟩ := hgr
-        · 
+        ·
           have uV : Nest.upper (.map Zv) = Dv := Nest.upper_dyn hZ
           rw [uV] at dVu
           have sDv : Dv = .atom "term" ∨ ∃ DX, Dv = .map DX ∧ Lynx.Term.mapLookup DX (.atom "dynamic") = none := by
@@ -5029,16 +5345,25 @@ defmodule STTDescrProofsTest do
       simp [hupd', Erlang.erlang.«element/2», Nest.upper_bound_run gR.ub, Nest.upper_bound_run gM.ub, eU,
         Nest.upper_bound_run gK.ub, Nest.upper_bound_run gV.ub, runU, sub, Lynx.Term.true]
       """
+    )
 
-    law map_delete_gradual_upper(map, key, mode, depth, node),
+    law(map_delete_gradual_upper(map, key, mode, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)) and
-          match?({_, _, _}, Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), :delete, mode, true)),
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)) and
+          match?(
+            {_, _, _},
+            Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), :delete, mode, true)
+          ),
       expects:
         Descr.subtype?(
           Descr.upper_bound(elem(Descr.map_update(map, key, :delete, mode, true), 1)),
-          elem(Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), :delete, mode, true), 1)
+          elem(
+            Descr.map_update(Descr.upper_bound(map), Descr.upper_bound(key), :delete, mode, true),
+            1
+          )
         ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key `d`.
@@ -5163,12 +5488,15 @@ defmodule STTDescrProofsTest do
       simp [hupd', Erlang.erlang.«element/2», Nest.upper_bound_run gR.ub, Nest.upper_bound_run gM.ub, eU,
         Nest.upper_bound_run gK.ub, runU, sub, Lynx.Term.true]
       """
+    )
 
-    law map_update_lower_static(map, key, value, mode, depth, node),
+    law(map_update_lower_static(map, key, value, mode, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_static?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
-          not Descr.empty?(value) and match?({_, _, _}, Descr.map_update(map, key, value, mode, true)) and
+          arrows_static?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          not Descr.empty?(value) and
+          match?({_, _, _}, Descr.map_update(map, key, value, mode, true)) and
           match?({_, _, _}, Descr.map_update(Descr.lower_bound(map), key, value, mode, true)),
       expects:
         Descr.equal?(
@@ -5276,11 +5604,14 @@ defmodule STTDescrProofsTest do
       rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)]
       simp [Nest.lower, run, runL, Erlang.erlang.«element/2», lb, eq, Lynx.Term.true]
       """
+    )
 
-    law map_delete_lower_static(map, key, mode, depth, node),
+    law(map_delete_lower_static(map, key, mode, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)) and
+        arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)) and
           match?({_, _, _}, Descr.map_update(Descr.lower_bound(map), key, :delete, mode, true)),
       expects:
         Descr.equal?(
@@ -5372,11 +5703,13 @@ defmodule STTDescrProofsTest do
       rw [Nest.lower_bound_run (Or.inr ⟨X, rfl⟩)]
       simp [Nest.lower, run, runL, Erlang.erlang.«element/2», lb, eq, Lynx.Term.true]
       """
+    )
 
-    law map_put_upper_static_key(map, key, value, depth, node),
+    law(map_put_upper_static_key(map, key, value, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_gradual?(value, {depth, node}) and depth?(depth) and match?({:ok, _}, Descr.map_put(map, key, value)) and
+          arrows_gradual?(value, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_put(map, key, value)) and
           match?({:ok, _}, Descr.map_put(Descr.upper_bound(map), key, Descr.upper_bound(value))),
       expects:
         Descr.equal?(
@@ -5514,11 +5847,13 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», Nest.upper_bound_run gR.ub, Nest.upper_bound_run gM.ub, eU,
         Nest.upper_bound_run gV.ub, runU, Nest.next_eq_true gR.up_tc dY (m := δ + 100) (by omega) same, Lynx.Term.true]
       """
+    )
 
-    law map_put_lower_static(map, key, value, depth, node),
+    law(map_put_lower_static(map, key, value, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_static?(value, {depth, node}) and depth?(depth) and match?({:ok, _}, Descr.map_put(map, key, value)),
+          arrows_static?(value, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_put(map, key, value)),
       expects:
         Descr.equal?(
           Descr.lower_bound(elem(Descr.map_put(map, key, value), 1)),
@@ -5626,11 +5961,14 @@ defmodule STTDescrProofsTest do
           rw [h, Lynx.Except.ok_bind] at rG
           simp [rG, eq]
       """
+    )
 
-    law map_update_force(map, key, value, depth, node),
+    law(map_update_force(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_atom(key) and not Descr.empty?(value) and match?({:ok, _}, Descr.map_put_key(map, key, value)),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_atom(key) and not Descr.empty?(value) and
+          match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
         Descr.equal?(
           elem(Descr.map_update(map, Descr.atom([key]), value, :force, true), 1),
@@ -5723,14 +6061,16 @@ defmodule STTDescrProofsTest do
           Nest.elem_equal (Nest.level node (d + 1)).ef hT hG sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
           Lynx.Term.true]
       """
+    )
 
-    law map_update_missing(map, key, value, mode, depth, node),
+    law(map_update_missing(map, key, value, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_atom(key) and mode in [:keep, :reject] and not Descr.empty?(value) and
           match?({:ok, _}, Descr.map_put_key(map, key, value)),
       expects:
-        (if Descr.map_fetch_key(map, key) == :badkey do
+        if Descr.map_fetch_key(map, key) == :badkey do
           Descr.map_update(map, Descr.atom([key]), value, mode, true) == {:error, [badkey: key]}
         else
           Descr.equal?(
@@ -5741,7 +6081,7 @@ defmodule STTDescrProofsTest do
               elem(Descr.map_update(map, Descr.atom([key]), value, mode, true), 0),
               got(Descr.map_get(map, Descr.atom([key])))
             )
-        end),
+        end,
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -5855,8 +6195,9 @@ defmodule STTDescrProofsTest do
           Nest.elem_equal (Nest.level node (d + 1)).ef hT hG sem (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega),
           Lynx.Term.true]
       """
+    )
 
-    law map_update_found(map, key, atoms, value, mode, depth, node),
+    law(map_update_found(map, key, atoms, value, mode, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
           arrows_static?(value, {depth, node}) and depth?(depth) and mode in [:keep, :reject] and
@@ -6004,10 +6345,12 @@ defmodule STTDescrProofsTest do
         rw [hr]
         simp [runX, «got/1», rb, Erlang.erlang.«==/2», boolAtom]
       """
+    )
 
-    law map_delete_found(map, key, atoms, mode, depth, node),
+    law(map_delete_found(map, key, atoms, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
+          depth?(depth) and
           mode in [:keep, :reject] and unnamed_keys?(key, atoms) and
           Descr.map_update(map, key, :delete, mode, true) != :badmap,
       expects:
@@ -6125,13 +6468,22 @@ defmodule STTDescrProofsTest do
         rw [hr]
         simp [runX, «got/1», rb, Erlang.erlang.«==/2», boolAtom]
       """
+    )
 
-    law map_update_baddomain(map, key, value, mode, depth, node),
+    law(map_update_baddomain(map, key, value, mode, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
-          arrows_static?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
-          not Descr.empty?(value) and match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
-      expects: baddomains?(map, key, elem(Descr.map_update(map, key, value, mode, true), 2), update_kinds()),
+          arrows_static?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          not Descr.empty?(value) and
+          match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
+      expects:
+        baddomains?(
+          map,
+          key,
+          elem(Descr.map_update(map, key, value, mode, true), 2),
+          update_kinds()
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -6252,12 +6604,21 @@ defmodule STTDescrProofsTest do
       simp [run, Erlang.erlang.«element/2», «update_kinds/0»]
       simpa [Lynx.Term.list] using bd
       """
+    )
 
-    law map_delete_baddomain(map, key, mode, depth, node),
+    law(map_delete_baddomain(map, key, mode, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
-      expects: baddomains?(map, key, elem(Descr.map_update(map, key, :delete, mode, true), 2), update_kinds()),
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
+      expects:
+        baddomains?(
+          map,
+          key,
+          elem(Descr.map_update(map, key, :delete, mode, true), 2),
+          update_kinds()
+        ),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -6347,13 +6708,15 @@ defmodule STTDescrProofsTest do
       simp [run, Erlang.erlang.«element/2», «update_kinds/0»]
       simpa [Lynx.Term.list] using bd
       """
+    )
 
-    law map_put_badmap(map, key, value, depth, node),
+    law(map_put_badmap(map, key, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_atom(key),
       expects:
-        (Descr.map_put_key(map, key, value) == :badmap) ==
+        Descr.map_put_key(map, key, value) == :badmap ==
           not (Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map)),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on.
@@ -6409,14 +6772,20 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_put_badmap:ensures/5»]
         simp [run, Erlang.erlang.«==/2», top, sT, ne, Erlang.erlang.«not/1», Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_fetch(tuple, index, value, depth, node),
+    law(tuple_insert_fetch(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_integer(index) and not Descr.empty?(value) and is_map(Descr.tuple_insert_at(tuple, index, value)),
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and not Descr.empty?(value) and
+          is_map(Descr.tuple_insert_at(tuple, index, value)),
       expects:
         match?({false, _}, Descr.tuple_fetch(Descr.tuple_insert_at(tuple, index, value), index)) and
-          Descr.equal?(elem(Descr.tuple_fetch(Descr.tuple_insert_at(tuple, index, value), index), 1), value),
+          Descr.equal?(
+            elem(Descr.tuple_fetch(Descr.tuple_insert_at(tuple, index, value), index), 1),
+            value
+          ),
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -6502,15 +6871,21 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», Nest.elem_equal (Nest.level node (d + 1)).ef he del sem (m := δ + 100)
         (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_subtype(left, right, index, small, large, depth, node),
+    law(tuple_insert_subtype(left, right, index, small, large, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
-          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and Descr.subtype?(left, right) and Descr.subtype?(small, large) and
-          is_map(Descr.tuple_insert_at(left, index, small)) and is_map(Descr.tuple_insert_at(right, index, large)),
+          is_map(Descr.tuple_insert_at(left, index, small)) and
+          is_map(Descr.tuple_insert_at(right, index, large)),
       expects:
-        Descr.subtype?(Descr.tuple_insert_at(left, index, small), Descr.tuple_insert_at(right, index, large)),
+        Descr.subtype?(
+          Descr.tuple_insert_at(left, index, small),
+          Descr.tuple_insert_at(right, index, large)
+        ),
       proof: ~LEAN"""
       -- The tuples nest at most `d + 1` levels and the values `d`, so the proofs run from the bound of level `d + 1` on,
       -- and the precondition from its own bound.
@@ -6601,12 +6976,19 @@ defmodule STTDescrProofsTest do
       simp [Nest.insert_at_static _ _ _ (static ds), Nest.insert_at_static _ _ _ (static dg), runL, runR, sub,
         Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_delete(tuple, index, value, depth, node),
+    law(tuple_insert_delete(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_integer(index) and not Descr.empty?(value) and is_map(Descr.tuple_insert_at(tuple, index, value)),
-      expects: Descr.equal?(Descr.tuple_delete_at(Descr.tuple_insert_at(tuple, index, value), index), tuple),
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and not Descr.empty?(value) and
+          is_map(Descr.tuple_insert_at(tuple, index, value)),
+      expects:
+        Descr.equal?(
+          Descr.tuple_delete_at(Descr.tuple_insert_at(tuple, index, value), index),
+          tuple
+        ),
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -6705,9 +7087,12 @@ defmodule STTDescrProofsTest do
       rw [Nest.next_eq_true dZ (Or.inr ⟨X, rfl, sX⟩) (m := δ + 100) (by rw [Nest.level_K] at hm ⊢; omega) same]
       rfl
       """
-    law tuple_insert_other(tuple, index, other, value, depth, node),
+    )
+
+    law(tuple_insert_other(tuple, index, other, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and is_integer(other) and other != index and not Descr.empty?(value) and
           is_map(Descr.tuple_insert_at(tuple, index, value)),
       expects:
@@ -6798,14 +7183,20 @@ defmodule STTDescrProofsTest do
           rw [← this]; exact rb
         simp [ra, rb', Erlang.erlang.«</2», Int.compare_eq_lt, nlt, Erlang.erlang.«-/2_integers», same, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_fetch(tuple, index, value, depth, node),
+    law(tuple_replace_fetch(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_integer(index) and not Descr.empty?(value) and is_map(Descr.tuple_replace_at(tuple, index, value)),
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and not Descr.empty?(value) and
+          is_map(Descr.tuple_replace_at(tuple, index, value)),
       expects:
         match?({false, _}, Descr.tuple_fetch(Descr.tuple_replace_at(tuple, index, value), index)) and
-          Descr.equal?(elem(Descr.tuple_fetch(Descr.tuple_replace_at(tuple, index, value), index), 1), value),
+          Descr.equal?(
+            elem(Descr.tuple_fetch(Descr.tuple_replace_at(tuple, index, value), index), 1),
+            value
+          ),
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -6889,13 +7280,19 @@ defmodule STTDescrProofsTest do
       simp [Erlang.erlang.«element/2», Nest.elem_equal (Nest.level node (d + 1)).ef he del sem (m := δ + 100)
         (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_other(tuple, index, other, value, depth, node),
+    law(tuple_replace_other(tuple, index, other, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and is_integer(other) and other != index and not Descr.empty?(value) and
           is_map(Descr.tuple_replace_at(tuple, index, value)),
-      expects: same_fetch?(Descr.tuple_fetch(Descr.tuple_replace_at(tuple, index, value), other), Descr.tuple_fetch(tuple, other)),
+      expects:
+        same_fetch?(
+          Descr.tuple_fetch(Descr.tuple_replace_at(tuple, index, value), other),
+          Descr.tuple_fetch(tuple, other)
+        ),
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -6985,15 +7382,21 @@ defmodule STTDescrProofsTest do
             exact ⟨_, (tY _).mpr ⟨x', y₀, hx', long x' hx', hy₀, rfl⟩, by rwa [List.getElem?_set_ne (Ne.symm ne)]⟩)
       simp [ra, rb, same, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_subtype(left, right, index, small, large, depth, node),
+    law(tuple_replace_subtype(left, right, index, small, large, depth, node),
       requires:
         arrows_static?(left, {depth + 1, node}) and arrows_static?(right, {depth + 1, node}) and
-          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and depth?(depth) and
+          arrows_static?(small, {depth, node}) and arrows_static?(large, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and Descr.subtype?(left, right) and Descr.subtype?(small, large) and
-          is_map(Descr.tuple_replace_at(left, index, small)) and is_map(Descr.tuple_replace_at(right, index, large)),
+          is_map(Descr.tuple_replace_at(left, index, small)) and
+          is_map(Descr.tuple_replace_at(right, index, large)),
       expects:
-        Descr.subtype?(Descr.tuple_replace_at(left, index, small), Descr.tuple_replace_at(right, index, large)),
+        Descr.subtype?(
+          Descr.tuple_replace_at(left, index, small),
+          Descr.tuple_replace_at(right, index, large)
+        ),
       proof: ~LEAN"""
       -- The tuples nest at most `d + 1` levels and the values `d`, so the proofs run from the bound of level `d + 1` on,
       -- and the precondition from its own bound.
@@ -7081,17 +7484,25 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «tuple_replace_subtype:ensures/7»]
       simp [runL, runR, sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_badindex(tuple, index, value, depth, node),
+    law(tuple_replace_badindex(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_integer(index) and index >= 0 and Descr.subtype?(tuple, Descr.tuple()) and not Descr.empty?(tuple),
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and index >= 0 and Descr.subtype?(tuple, Descr.tuple()) and
+          not Descr.empty?(tuple),
       expects:
-        (case Descr.tuple_replace_at(tuple, index, value) do
-          :badindex -> not Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
-          result when is_map(result) -> Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
-          _ -> false
-        end),
+        case Descr.tuple_replace_at(tuple, index, value) do
+          :badindex ->
+            not Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
+
+          result when is_map(result) ->
+            Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The tuple nests at most `d + 1` levels and the value `d`, so the proofs run from the bound of level `d + 1` on, and
       -- the precondition from its own bound.
@@ -7182,11 +7593,14 @@ defmodule STTDescrProofsTest do
         simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
           Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_idempotent(tuple, index, value, depth, node),
+    law(tuple_replace_idempotent(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
-          is_integer(index) and not Descr.empty?(value) and is_map(Descr.tuple_replace_at(tuple, index, value)),
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and not Descr.empty?(value) and
+          is_map(Descr.tuple_replace_at(tuple, index, value)),
       expects:
         Descr.equal?(
           Descr.tuple_replace_at(Descr.tuple_replace_at(tuple, index, value), index, value),
@@ -7277,14 +7691,19 @@ defmodule STTDescrProofsTest do
       rw [Nest.next_eq_true dY₂ dY (m := δ + 100) (by omega) same]
       rfl
       """
+    )
 
-    law tuple_replace_hold(tuple, index, value, depth, node),
+    law(tuple_replace_hold(tuple, index, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and is_map(Descr.tuple_replace_at(tuple, index, value)),
       expects:
         Descr.subtype?(
-          Descr.opt_intersection(tuple, Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [value])),
+          Descr.opt_intersection(
+            tuple,
+            Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [value])
+          ),
           Descr.tuple_replace_at(tuple, index, value)
         ),
       proof: ~LEAN"""
@@ -7366,13 +7785,17 @@ defmodule STTDescrProofsTest do
       rw [append_list, Lynx.Except.ok_bind, rot, Lynx.Except.ok_bind]
       simp [rc, run, sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_subtype(left, right, index, depth, node),
+    law(tuple_delete_subtype(left, right, index, depth, node),
       requires:
-        arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and depth?(depth) and
-          is_integer(index) and Descr.subtype?(left, right) and is_map(Descr.tuple_delete_at(left, index)) and
+        arrows_static?(left, {depth, node}) and arrows_static?(right, {depth, node}) and
+          depth?(depth) and
+          is_integer(index) and Descr.subtype?(left, right) and
+          is_map(Descr.tuple_delete_at(left, index)) and
           is_map(Descr.tuple_delete_at(right, index)),
-      expects: Descr.subtype?(Descr.tuple_delete_at(left, index), Descr.tuple_delete_at(right, index)),
+      expects:
+        Descr.subtype?(Descr.tuple_delete_at(left, index), Descr.tuple_delete_at(right, index)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the precondition from its
       -- own bound.
@@ -7431,10 +7854,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «tuple_delete_subtype:ensures/5»]
       simp [runL, runR, sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_fetch(tuple, index, other, depth, node),
+    law(tuple_delete_fetch(tuple, index, other, depth, node),
       requires:
-        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and is_integer(other) and
+        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
+          is_integer(other) and
           is_map(Descr.tuple_delete_at(tuple, index)),
       expects:
         same_fetch?(
@@ -7491,14 +7916,18 @@ defmodule STTDescrProofsTest do
             (.map X) (.integer ((o : Int) + 1)) = .ok b := by simpa using rb
         simp [ra, rb', Erlang.erlang.«</2», Int.compare_eq_lt, nlt, Erlang.erlang.«+/2_integers», same, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_sound(tuple, index, depth, node),
+    law(tuple_delete_sound(tuple, index, depth, node),
       requires:
         arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
           is_map(Descr.tuple_delete_at(tuple, index)),
       expects:
         Descr.subtype?(
-          Descr.opt_intersection(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term()))),
+          Descr.opt_intersection(
+            tuple,
+            Descr.open_tuple(:lists.duplicate(index + 1, Descr.term()))
+          ),
           Descr.tuple_insert_at(Descr.tuple_delete_at(tuple, index), index, Descr.term())
         ),
       proof: ~LEAN"""
@@ -7572,10 +8001,12 @@ defmodule STTDescrProofsTest do
         rot, rc, run, Nest.insert_at_static _ _ _ (Or.inl rfl), runI]
       simp [sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_least(tuple, index, other, depth, node),
+    law(tuple_delete_least(tuple, index, other, depth, node),
       requires:
-        arrows_static?(tuple, {depth, node}) and arrows_static?(other, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth, node}) and arrows_static?(other, {depth, node}) and
+          depth?(depth) and
           is_integer(index) and is_map(Descr.tuple_delete_at(tuple, index)) and
           is_map(Descr.tuple_insert_at(other, index, Descr.term())) and
           Descr.subtype?(tuple, Descr.tuple_insert_at(other, index, Descr.term())),
@@ -7647,17 +8078,24 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «tuple_delete_least:ensures/5», run, Lynx.Except.ok_bind]
       simp [sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_badindex(tuple, index, depth, node),
+    law(tuple_delete_badindex(tuple, index, depth, node),
       requires:
-        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and
           Descr.subtype?(tuple, Descr.tuple()) and not Descr.empty?(tuple),
       expects:
-        (case Descr.tuple_delete_at(tuple, index) do
-          :badindex -> not Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
-          result when is_map(result) -> Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
-          _ -> false
-        end),
+        case Descr.tuple_delete_at(tuple, index) do
+          :badindex ->
+            not Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
+
+          result when is_map(result) ->
+            Descr.subtype?(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term())))
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the
       -- precondition from its own bound.
@@ -7732,14 +8170,19 @@ defmodule STTDescrProofsTest do
         simp [run, Elixir.Module.Types.Descr.«term/0», dup', rot, sub,
           Lynx.Term.true]
       """
+    )
 
-    law tuple_values_sound(tuple, index, depth, node),
+    law(tuple_values_sound(tuple, index, depth, node),
       requires:
-        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+        arrows_static?(tuple, {depth, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and
           Descr.tuple_values(tuple) != :badtuple,
       expects:
         Descr.subtype?(
-          Descr.opt_intersection(tuple, Descr.open_tuple(:lists.duplicate(index + 1, Descr.term()))),
+          Descr.opt_intersection(
+            tuple,
+            Descr.open_tuple(:lists.duplicate(index + 1, Descr.term()))
+          ),
           Descr.open_tuple(:lists.duplicate(index, Descr.term()) ++ [Descr.tuple_values(tuple)])
         ),
       proof: ~LEAN"""
@@ -7814,10 +8257,12 @@ defmodule STTDescrProofsTest do
       rw [append_list, Lynx.Except.ok_bind, rot₂, Lynx.Except.ok_bind]
       simp [sub, Lynx.Term.true]
       """
+    )
 
-    law tuple_values_least(tuple, sizes, value, depth, node),
+    law(tuple_values_least(tuple, sizes, value, depth, node),
       requires:
-        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           sizes?(sizes) and Descr.tuple_values(tuple) != :badtuple and
           Descr.subtype?(tuple, closed_tuples(sizes, value)),
       expects: Descr.subtype?(Descr.tuple_values(tuple), value),
@@ -7893,11 +8338,12 @@ defmodule STTDescrProofsTest do
       rw [(Nest.level node (d + 1)).ef.subc hres del vals (δ + 100) (by omega)]
       rfl
       """
+    )
 
-    law tuple_values_badtuple(tuple, depth, node),
+    law(tuple_values_badtuple(tuple, depth, node),
       requires: arrows_static?(tuple, {depth, node}) and depth?(depth),
       expects:
-        (Descr.tuple_values(tuple) == :badtuple) ==
+        Descr.tuple_values(tuple) == :badtuple ==
           (Descr.empty?(tuple) or not Descr.subtype?(tuple, Descr.tuple())),
       proof: ~LEAN"""
       -- The type nests at most `d` levels, so the proofs run from the bound of level `d` on.
@@ -7954,10 +8400,12 @@ defmodule STTDescrProofsTest do
         simp [run, ne, nb, tup, sT, Erlang.erlang.«==/2», Erlang.erlang.«not/1», Lynx.Except.orElse, boolAtom,
           Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_upper(tuple, index, value, depth, node),
+    law(tuple_insert_upper(tuple, index, value, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and not Descr.empty?(value) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and
+          not Descr.empty?(value) and
           depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_insert_at(tuple, index, value)) and
           is_map(Descr.tuple_insert_at(Descr.upper_bound(tuple), index, Descr.upper_bound(value))),
@@ -8051,10 +8499,12 @@ defmodule STTDescrProofsTest do
       rw [Nest.insert_at_static _ _ _ sv]
       simp [run, run₂, Nest.upper_bound_run gR.ub, eq, Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_lower(tuple, index, value, depth, node),
+    law(tuple_insert_lower(tuple, index, value, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and not Descr.empty?(value) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          not Descr.empty?(value) and
           depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_insert_at(tuple, index, value)) and
           is_map(Descr.tuple_insert_at(Descr.lower_bound(tuple), index, value)),
@@ -8139,13 +8589,17 @@ defmodule STTDescrProofsTest do
       rw [Nest.insert_at_static _ (Nest.rmDyn X) i sv]
       simp [run, run₂, Nest.lower_bound_run (Or.inr ⟨R, rfl⟩), eq, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_upper(tuple, index, value, depth, node),
+    law(tuple_replace_upper(tuple, index, value, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and not Descr.empty?(value) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and
+          not Descr.empty?(value) and
           depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_replace_at(tuple, index, value)) and
-          is_map(Descr.tuple_replace_at(Descr.upper_bound(tuple), index, Descr.upper_bound(value))),
+          is_map(
+            Descr.tuple_replace_at(Descr.upper_bound(tuple), index, Descr.upper_bound(value))
+          ),
       expects:
         Descr.equal?(
           Descr.upper_bound(Descr.tuple_replace_at(tuple, index, value)),
@@ -8248,10 +8702,12 @@ defmodule STTDescrProofsTest do
       rw [Nest.upper_bound_run gT.ub, Nest.upper_bound_run gV.ub, eU]
       simp [run, run₂, Nest.upper_bound_run gR.ub, eq, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_lower(tuple, index, value, depth, node),
+    law(tuple_replace_lower(tuple, index, value, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and not Descr.empty?(value) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          not Descr.empty?(value) and
           depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_replace_at(tuple, index, value)) and
           is_map(Descr.tuple_replace_at(Descr.lower_bound(tuple), index, value)),
@@ -8340,8 +8796,9 @@ defmodule STTDescrProofsTest do
       simp [Nest.lower, run, run₂, Nest.lower_bound_run (Or.inr ⟨R, rfl⟩), Lynx.Term.true]
       exact eq
       """
+    )
 
-    law tuple_delete_upper(tuple, index, depth, node),
+    law(tuple_delete_upper(tuple, index, depth, node),
       requires:
         arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_delete_at(tuple, index)) and
@@ -8427,8 +8884,9 @@ defmodule STTDescrProofsTest do
       rw [Nest.upper_bound_run gT.ub, eU]
       simp [run, run₂, Nest.upper_bound_run gR.ub, eq, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_lower(tuple, index, depth, node),
+    law(tuple_delete_lower(tuple, index, depth, node),
       requires:
         arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
           index >= 0 and is_map(Descr.tuple_delete_at(tuple, index)) and
@@ -8500,14 +8958,16 @@ defmodule STTDescrProofsTest do
       simp [Nest.lower, run, run₂, Nest.lower_bound_run (Or.inr ⟨R, rfl⟩), Lynx.Term.true]
       exact eq
       """
+    )
 
-    law tuple_fetch_upper(tuple, index, depth, node),
+    law(tuple_fetch_upper(tuple, index, depth, node),
       requires:
         arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
           index >= 0 and match?({_, _}, Descr.tuple_fetch(tuple, index)) and
           match?({_, _}, Descr.tuple_fetch(Descr.upper_bound(tuple), index)),
       expects:
-        elem(Descr.tuple_fetch(tuple, index), 0) == elem(Descr.tuple_fetch(Descr.upper_bound(tuple), index), 0) and
+        elem(Descr.tuple_fetch(tuple, index), 0) ==
+          elem(Descr.tuple_fetch(Descr.upper_bound(tuple), index), 0) and
           Descr.equal?(
             Descr.upper_bound(elem(Descr.tuple_fetch(tuple, index), 1)),
             elem(Descr.tuple_fetch(Descr.upper_bound(tuple), index), 1)
@@ -8624,14 +9084,16 @@ defmodule STTDescrProofsTest do
         simp [run, runU, Nest.upper_bound_run gR.ub, eq, boolAtom, Erlang.erlang.«element/2», Erlang.erlang.«==/2»,
           Lynx.Except.andAlso, Lynx.Term.true]
       """
+    )
 
-    law tuple_fetch_lower(tuple, index, depth, node),
+    law(tuple_fetch_lower(tuple, index, depth, node),
       requires:
         arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and is_integer(index) and
           index >= 0 and match?({_, _}, Descr.tuple_fetch(tuple, index)) and
           match?({_, _}, Descr.tuple_fetch(Descr.lower_bound(tuple), index)),
       expects:
-        (elem(Descr.tuple_fetch(tuple, index), 0) or not elem(Descr.tuple_fetch(Descr.lower_bound(tuple), index), 0)) and
+        (elem(Descr.tuple_fetch(tuple, index), 0) or
+           not elem(Descr.tuple_fetch(Descr.lower_bound(tuple), index), 0)) and
           Descr.equal?(
             Descr.lower_bound(elem(Descr.tuple_fetch(tuple, index), 1)),
             elem(Descr.tuple_fetch(Descr.lower_bound(tuple), index), 1)
@@ -8724,12 +9186,18 @@ defmodule STTDescrProofsTest do
         cases dO <;> simp [boolAtom, Erlang.erlang.«element/2», Erlang.erlang.«not/1», Lynx.Except.orElse,
           Lynx.Except.andAlso, Lynx.Term.true, lb, eq]
       """
+    )
 
-    law tuple_values_upper(tuple, depth, node),
+    law(tuple_values_upper(tuple, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and Descr.tuple_values(tuple) != :badtuple and
+        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and
+          Descr.tuple_values(tuple) != :badtuple and
           Descr.tuple_values(Descr.upper_bound(tuple)) != :badtuple,
-      expects: Descr.equal?(Descr.upper_bound(Descr.tuple_values(tuple)), Descr.tuple_values(Descr.upper_bound(tuple))),
+      expects:
+        Descr.equal?(
+          Descr.upper_bound(Descr.tuple_values(tuple)),
+          Descr.tuple_values(Descr.upper_bound(tuple))
+        ),
       proof: ~LEAN"""
       -- The tuples nest at most `d + 1` levels.
       obtain ⟨bound, requires⟩ := requires
@@ -8812,12 +9280,18 @@ defmodule STTDescrProofsTest do
         rw [Nest.upper_bound_run gT.ub, eU]
         simp [run, run₂, Nest.upper_bound_run gR.ub, eq, Lynx.Term.true]
       """
+    )
 
-    law tuple_values_lower(tuple, depth, node),
+    law(tuple_values_lower(tuple, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and Descr.tuple_values(tuple) != :badtuple and
+        arrows_gradual?(tuple, {depth + 1, node}) and depth?(depth) and
+          Descr.tuple_values(tuple) != :badtuple and
           Descr.tuple_values(Descr.lower_bound(tuple)) != :badtuple,
-      expects: Descr.equal?(Descr.lower_bound(Descr.tuple_values(tuple)), Descr.tuple_values(Descr.lower_bound(tuple))),
+      expects:
+        Descr.equal?(
+          Descr.lower_bound(Descr.tuple_values(tuple)),
+          Descr.tuple_values(Descr.lower_bound(tuple))
+        ),
       proof: ~LEAN"""
       -- The tuples nest at most `d + 1` levels.
       obtain ⟨bound, requires⟩ := requires
@@ -8890,17 +9364,27 @@ defmodule STTDescrProofsTest do
         simp only [Nest.lower, run, run₂, Lynx.Except.ok_bind, Nest.lower_bound_run gR.shape]
         simpa [Nest.lower, Lynx.Term.true] using eq
       """
+    )
 
-    law map_get_fetch_key(map, key, depth, node),
+    law(map_get_fetch_key(map, key, depth, node),
       requires: arrows_static?(map, {depth, node}) and depth?(depth) and is_atom(key),
       expects:
-        (case {Descr.map_get(map, Descr.atom([key])), Descr.map_fetch_key(map, key)} do
-           {{:ok, got}, {_, fetched}} -> Descr.equal?(got, fetched)
-           {{:ok, _}, :badkey} -> not Descr.subtype?(map, Descr.open_map([{key, {Descr.term(), false}}]))
-           {:error, :badkey} -> true
-           {:badmap, :badmap} -> true
-           _ -> false
-         end),
+        case {Descr.map_get(map, Descr.atom([key])), Descr.map_fetch_key(map, key)} do
+          {{:ok, got}, {_, fetched}} ->
+            Descr.equal?(got, fetched)
+
+          {{:ok, _}, :badkey} ->
+            not Descr.subtype?(map, Descr.open_map([{key, {Descr.term(), false}}]))
+
+          {:error, :badkey} ->
+            true
+
+          {:badmap, :badmap} ->
+            true
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on.
       simp only [«map_get_fetch_key:requires/4», Lynx.Term.true, Lynx.Except.andAlso_eq_true] at requires
@@ -8967,12 +9451,17 @@ defmodule STTDescrProofsTest do
         simp [rA, grun, frun, Nest.elem_equal (Nest.level node d).ef hT he sem (m := δ + 100)
           (by rw [Nest.level_K] at hm ⊢; omega), Lynx.Term.true]
       """
+    )
 
-    law map_get_sound(map, atoms, kinds, depth, node),
+    law(map_get_sound(map, atoms, kinds, depth, node),
       requires:
         arrows_static?(map, {depth, node}) and depth?(depth) and keys?(atoms, kinds) and
           match?({:ok, _}, Descr.map_get(map, key_type(atoms, kinds))),
-      expects: Descr.subtype?(map, keys_hold(atoms, kinds, elem(Descr.map_get(map, key_type(atoms, kinds)), 1))),
+      expects:
+        Descr.subtype?(
+          map,
+          keys_hold(atoms, kinds, elem(Descr.map_get(map, key_type(atoms, kinds)), 1))
+        ),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the precondition from its
       -- own bound.
@@ -9009,10 +9498,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_get_sound:ensures/5»]
       simp [rY, run, Erlang.erlang.«element/2», rH, sub, Lynx.Term.true]
       """
+    )
 
-    law map_get_least(map, atoms, kinds, value, depth, node),
+    law(map_get_least(map, atoms, kinds, value, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and depth?(depth) and
+        arrows_static?(map, {depth + 1, node}) and arrows_static?(value, {depth, node}) and
+          depth?(depth) and
           keys?(atoms, kinds) and match?({:ok, _}, Descr.map_get(map, key_type(atoms, kinds))) and
           Descr.subtype?(map, keys_hold(atoms, kinds, value)),
       expects: Descr.subtype?(elem(Descr.map_get(map, key_type(atoms, kinds)), 1), value),
@@ -9068,13 +9559,14 @@ defmodule STTDescrProofsTest do
       simp [rY, run, Erlang.erlang.«element/2»,
         (Nest.level node (d + 1)).ef.subc hT del sem (δ + 100) (by rw [Nest.level_K]; omega), Lynx.Term.true]
       """
+    )
 
-    law map_get_error(map, atoms, kinds, depth, node),
+    law(map_get_error(map, atoms, kinds, depth, node),
       requires:
         arrows_static?(map, {depth, node}) and depth?(depth) and keys?(atoms, kinds) and
           Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map),
       expects:
-        (Descr.map_get(map, key_type(atoms, kinds)) == :error) ==
+        Descr.map_get(map, key_type(atoms, kinds)) == :error ==
           Descr.subtype?(map, keys_hold(atoms, kinds, Descr.none())),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on, and the precondition from its
@@ -9137,11 +9629,12 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_get_error:ensures/5»]
         simp [rY, run, Erlang.erlang.«==/2», Elixir.Module.Types.Descr.«none/0», rH, sub, Lynx.Term.true]
       """
+    )
 
-    law map_get_badmap(map, atoms, kinds, depth, node),
+    law(map_get_badmap(map, atoms, kinds, depth, node),
       requires: arrows_static?(map, {depth, node}) and depth?(depth) and keys?(atoms, kinds),
       expects:
-        (Descr.map_get(map, key_type(atoms, kinds)) == :badmap) ==
+        Descr.map_get(map, key_type(atoms, kinds)) == :badmap ==
           not (Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map)),
       proof: ~LEAN"""
       -- The types nest at most `d` levels, so the proofs run from the bound of level `d` on.
@@ -9181,13 +9674,18 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_get_badmap:ensures/5»]
         simp [rY, run, Erlang.erlang.«==/2», top, sT, ne, Erlang.erlang.«not/1», Lynx.Term.true]
       """
-    law map_to_list_atom(map, key, depth, node),
+    )
+
+    law(map_to_list_atom(map, key, depth, node),
       requires:
         arrows_static?(map, {depth + 1, node}) and depth?(depth) and is_atom(key) and
-          match?({:ok, _}, Descr.map_to_list(map)) and match?({:ok, _}, Descr.map_get(map, Descr.atom([key]))),
+          match?({:ok, _}, Descr.map_to_list(map)) and
+          match?({:ok, _}, Descr.map_get(map, Descr.atom([key]))),
       expects:
         Descr.subtype?(
-          Descr.non_empty_list(Descr.tuple([Descr.atom([key]), elem(Descr.map_get(map, Descr.atom([key])), 1)])),
+          Descr.non_empty_list(
+            Descr.tuple([Descr.atom([key]), elem(Descr.map_get(map, Descr.atom([key])), 1)])
+          ),
           elem(Descr.map_to_list(map), 1)
         ),
       proof: ~LEAN"""
@@ -9266,14 +9764,19 @@ defmodule STTDescrProofsTest do
       rw [e] at sub
       simp [one, eY, run, Erlang.erlang.«element/2», rP, rnel, Nest.tolist_one, runL, sub, Lynx.Term.true]
       """
+    )
 
-    law map_to_list_kind(map, kind, depth, node),
+    law(map_to_list_kind(map, kind, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and depth?(depth) and keys?([], [kind]) and kind != :atom and
-          match?({:ok, _}, Descr.map_to_list(map)) and match?({:ok, _}, Descr.map_get(map, key_type([], [kind]))),
+        arrows_static?(map, {depth + 1, node}) and depth?(depth) and keys?([], [kind]) and
+          kind != :atom and
+          match?({:ok, _}, Descr.map_to_list(map)) and
+          match?({:ok, _}, Descr.map_get(map, key_type([], [kind]))),
       expects:
         Descr.subtype?(
-          Descr.non_empty_list(Descr.tuple([key_type([], [kind]), elem(Descr.map_get(map, key_type([], [kind])), 1)])),
+          Descr.non_empty_list(
+            Descr.tuple([key_type([], [kind]), elem(Descr.map_get(map, key_type([], [kind])), 1)])
+          ),
           elem(Descr.map_to_list(map), 1)
         ),
       proof: ~LEAN"""
@@ -9362,10 +9865,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «map_to_list_kind:ensures/4»]
       simp [rY, run, Erlang.erlang.«element/2», rP, rnel, Nest.tolist_one, runL, sub, Lynx.Term.true]
       """
+    )
 
-    law map_to_list_values(map, depth, node),
+    law(map_to_list_values(map, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and depth?(depth) and match?({:ok, _}, Descr.map_to_list(map)) and
+        arrows_static?(map, {depth + 1, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_to_list(map)) and
           match?({:ok, _}, Descr.map_get(map, Descr.term())),
       expects:
         Descr.subtype?(
@@ -9433,10 +9938,12 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_to_list_values:ensures/3»]
         simp [Nest.tolist_one, runL, Erlang.erlang.«element/2», tm, run, rP, e, sub, Lynx.Term.true]
       """
+    )
 
-    law map_to_list_empty(map, depth, node),
+    law(map_to_list_empty(map, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and depth?(depth) and match?({:ok, _}, Descr.map_to_list(map)),
+        arrows_static?(map, {depth + 1, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_to_list(map)),
       expects:
         Descr.subtype?(elem(Descr.map_to_list(map), 1), Descr.empty_list()) ==
           Descr.subtype?(map, Descr.empty_map()),
@@ -9499,10 +10006,12 @@ defmodule STTDescrProofsTest do
         simp [Nest.tolist_one, runL, Erlang.erlang.«element/2», el, subL, Nest.emptyMap_run, subE, Erlang.erlang.«==/2»,
           Lynx.Term.true]
       """
+    )
 
-    law map_to_list_nil(map, depth, node),
+    law(map_to_list_nil(map, depth, node),
       requires:
-        arrows_static?(map, {depth + 1, node}) and depth?(depth) and match?({:ok, _}, Descr.map_to_list(map)),
+        arrows_static?(map, {depth + 1, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_to_list(map)),
       expects:
         Descr.subtype?(Descr.empty_list(), elem(Descr.map_to_list(map), 1)) ==
           not Descr.disjoint?(map, Descr.empty_map()),
@@ -9577,11 +10086,12 @@ defmodule STTDescrProofsTest do
           simp [Nest.tolist_one, runL, Erlang.erlang.«element/2», el, subL, Nest.emptyMap_run, dis, Erlang.erlang.«not/1»,
             Erlang.erlang.«==/2», Lynx.Term.true]
       """
+    )
 
-    law map_to_list_badmap(map, depth, node),
+    law(map_to_list_badmap(map, depth, node),
       requires: arrows_static?(map, {depth + 1, node}) and depth?(depth),
       expects:
-        (Descr.map_to_list(map) == :badmap) ==
+        Descr.map_to_list(map) == :badmap ==
           not (Descr.subtype?(map, Descr.open_map()) and not Descr.empty?(map)),
       proof: ~LEAN"""
       -- The map nests at most `d + 1` levels, so the proofs run from the bound of level `d + 1` on.
@@ -9627,8 +10137,9 @@ defmodule STTDescrProofsTest do
         simp only [Lynx.apply_eq, «map_to_list_badmap:ensures/3»]
         simp [Nest.tolist_one, run, Erlang.erlang.«==/2», top, sT, ne, Erlang.erlang.«not/1», Lynx.Term.true]
       """
+    )
 
-    law map_constructor_closed_open(pairs, depth, node),
+    law(map_constructor_closed_open(pairs, depth, node),
       requires: map_pairs?(pairs, {depth, node}) and depth?(depth),
       expects: Descr.subtype?(Descr.closed_map(pairs), Descr.open_map(pairs)),
       proof: ~LEAN"""
@@ -9641,8 +10152,9 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_closed_open_core hfs (by omega) _ _
       """
+    )
 
-    law map_constructor_empty(),
+    law(map_constructor_empty(),
       expects: Descr.equal?(Descr.empty_map(), Descr.closed_map([])),
       proof: ~LEAN"""
       refine ⟨(Nest.level (.atom "term") 0).K + 26, fun depth deep => ?_⟩
@@ -9650,10 +10162,17 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_empty_core (t := .atom "term") (n := 0) (by omega)
       """
+    )
 
-    law map_constructor_atom(tag, pairs, key, depth, node),
-      requires: tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and depth?(depth) and is_atom(key),
-      expects: Descr.subtype?(construct(tag, pairs), Descr.open_map([{key, atom_field(tag, pairs, key)}])),
+    law(map_constructor_atom(tag, pairs, key, depth, node),
+      requires:
+        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and depth?(depth) and
+          is_atom(key),
+      expects:
+        Descr.subtype?(
+          construct(tag, pairs),
+          Descr.open_map([{key, atom_field(tag, pairs, key)}])
+        ),
       proof: ~LEAN"""
       simp only [«map_constructor_atom:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true, Except.ok.injEq]
         at requires
@@ -9667,11 +10186,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_atom_core hs hfs k (by omega) _ _
       """
+    )
 
-    law map_constructor_atom_least(tag, pairs, key, value, optional, depth, node),
+    law(map_constructor_atom_least(tag, pairs, key, value, optional, depth, node),
       requires:
-        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and arrows_static?(value, {depth, node}) and
-          depth?(depth) and is_atom(key) and is_boolean(optional) and not Descr.empty?(construct(tag, pairs)) and
+        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and
+          arrows_static?(value, {depth, node}) and
+          depth?(depth) and is_atom(key) and is_boolean(optional) and
+          not Descr.empty?(construct(tag, pairs)) and
           Descr.subtype?(construct(tag, pairs), Descr.open_map([{key, {value, optional}}])),
       expects:
         Descr.subtype?(elem(atom_field(tag, pairs, key), 0), value) and
@@ -9698,12 +10220,18 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_atom_least_core hs hfs k ev o (by omega) r1 r2 _ _
       """
+    )
 
-    law map_constructor_kind(tag, pairs, kind, depth, node),
+    law(map_constructor_kind(tag, pairs, kind, depth, node),
       requires:
-        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and depth?(depth) and keys?([], [kind]) and
+        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and depth?(depth) and
+          keys?([], [kind]) and
           kind != :atom,
-      expects: Descr.subtype?(construct(tag, pairs), Descr.open_map([{[kind], domain_value(tag, pairs, kind)}])),
+      expects:
+        Descr.subtype?(
+          construct(tag, pairs),
+          Descr.open_map([{[kind], domain_value(tag, pairs, kind)}])
+        ),
       proof: ~LEAN"""
       simp only [«map_constructor_kind:requires/5», Lynx.Term.true, Lynx.Except.andAlso_eq_true, Except.ok.injEq]
         at requires
@@ -9719,11 +10247,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_kind_core hs hfs mk (Nest.ne_atom_ok hn) (by omega) _ _
       """
+    )
 
-    law map_constructor_kind_least(tag, pairs, kind, value, depth, node),
+    law(map_constructor_kind_least(tag, pairs, kind, value, depth, node),
       requires:
-        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and arrows_static?(value, {depth, node}) and
-          depth?(depth) and keys?([], [kind]) and kind != :atom and not Descr.empty?(construct(tag, pairs)) and
+        tag in [:open, :closed] and map_pairs?(pairs, {depth, node}) and
+          arrows_static?(value, {depth, node}) and
+          depth?(depth) and keys?([], [kind]) and kind != :atom and
+          not Descr.empty?(construct(tag, pairs)) and
           Descr.subtype?(construct(tag, pairs), Descr.open_map([{[kind], value}])),
       expects: Descr.subtype?(domain_value(tag, pairs, kind), value),
       proof: ~LEAN"""
@@ -9749,10 +10280,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq]
       exact Nest.ctor_kind_least_core hs hfs mk (Nest.ne_atom_ok hn) ev (by omega) r1 r2 _ _
       """
+    )
 
-    law fun_apply_subtype(fun, args, static?, depth, node),
+    law(fun_apply_subtype(fun, args, static?, depth, node),
       requires:
-        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and
+          depth?(depth) and
           match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
       expects: Descr.subtype?(fun, Descr.fun(args, elem(Descr.fun_apply(fun, args, static?), 1))),
       proof: ~LEAN"""
@@ -9791,10 +10324,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «fun_apply_subtype:ensures/5»]
       simp [run, Erlang.erlang.«element/2», rF, sub, Lynx.Term.true]
       """
+    )
 
-    law fun_apply_arity(fun, args, static?, depth, node),
+    law(fun_apply_arity(fun, args, static?, depth, node),
       requires:
-        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and
+          depth?(depth) and
           match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
       expects: Descr.subtype?(fun, Descr.fun(length(args))),
       proof: ~LEAN"""
@@ -9833,11 +10368,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «fun_apply_arity:ensures/5»]
       simp [length_list, fun_arity_run, top, Lynx.Term.true]
       """
+    )
 
-    law fun_apply_domain(fun, args, static?, depth, node),
+    law(fun_apply_domain(fun, args, static?, depth, node),
       requires:
-        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
-          inhabited?(args) and not Descr.empty?(fun) and Descr.subtype?(fun, Descr.fun(args, Descr.term())),
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and
+          depth?(depth) and
+          inhabited?(args) and not Descr.empty?(fun) and
+          Descr.subtype?(fun, Descr.fun(args, Descr.term())),
       expects: match?({:ok, _}, Descr.fun_apply(fun, args, static?)),
       proof: ~LEAN"""
       -- The function nests at most `d + 1` levels and the arguments `d`, so the proofs run from the bound of level
@@ -9866,10 +10404,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «fun_apply_domain:ensures/5»]
       simp [run, Lynx.Term.true]
       """
+    )
 
-    law fun_apply_badfun(fun, args, static?, depth, node),
+    law(fun_apply_badfun(fun, args, static?, depth, node),
       requires:
-        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and depth?(depth) and
+        arrows_static?(fun, {depth + 1, node}) and arguments?(args, {depth, node}) and
+          depth?(depth) and
           inhabited?(args) and (Descr.empty?(fun) or not Descr.subtype?(fun, Descr.fun())),
       expects: Descr.fun_apply(fun, args, static?) == :badfun,
       proof: ~LEAN"""
@@ -9899,13 +10439,16 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «fun_apply_badfun:ensures/5»]
       simp [run, Erlang.erlang.«==/2», Lynx.Term.true]
       """
+    )
 
-    law fun_apply_sound(fun, args, static?, g, ss, depth, node),
+    law(fun_apply_sound(fun, args, static?, g, ss, depth, node),
       requires:
-        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and is_boolean(static?) and
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
+          is_boolean(static?) and
           arrows_static?(g, {depth + 1, node}) and arguments?(ss, {depth, node}) and depth?(depth) and
           materializes?(g, fun) and all_materialize?(ss, args) and
-          match?({:ok, _}, Descr.fun_apply(fun, args, static?)) and match?({:ok, _}, Descr.fun_apply(g, ss, static?)),
+          match?({:ok, _}, Descr.fun_apply(fun, args, static?)) and
+          match?({:ok, _}, Descr.fun_apply(g, ss, static?)),
       expects:
         Descr.subtype?(
           elem(Descr.fun_apply(g, ss, static?), 1),
@@ -9990,8 +10533,9 @@ defmodule STTDescrProofsTest do
         Nest.bp_true.mpr (⟨fun v h => up v (LU₂ v h), up⟩ : Nest.SubN node d l₂ u₁ ∧ Nest.SubN node d u₂ u₁),
         Lynx.Term.true]
       """
+    )
 
-    law fun_apply_upper(fun, args, others, static?, depth, node),
+    law(fun_apply_upper(fun, args, others, static?, depth, node),
       requires:
         arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
           gradual_arguments?(others, {depth, node}) and is_boolean(static?) and depth?(depth) and
@@ -10070,17 +10614,20 @@ defmodule STTDescrProofsTest do
       simp [run₁, run₂, Erlang.erlang.«element/2», ub₁, ub₂,
         Nest.next_sub d₁ d₂ (m := depth) (by rw [Nest.level_K]; omega), Nest.bp_true.mpr sub, Lynx.Term.true]
       """
+    )
 
-    law fun_apply_precise(fun, args, fun2, args2, depth, node),
+    law(fun_apply_precise(fun, args, fun2, args2, depth, node),
       requires:
         arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
-          arrows_gradual?(fun2, {depth + 1, node}) and gradual_arguments?(args2, {depth, node}) and depth?(depth) and
-          precise?(fun, fun2) and all_precise?(args, args2) and match?({:ok, _}, Descr.fun_apply(fun, args, false)),
+          arrows_gradual?(fun2, {depth + 1, node}) and gradual_arguments?(args2, {depth, node}) and
+          depth?(depth) and
+          precise?(fun, fun2) and all_precise?(args, args2) and
+          match?({:ok, _}, Descr.fun_apply(fun, args, false)),
       expects:
-        (case Descr.fun_apply(fun2, args2, false) do
-           {:ok, result2} -> precise?(elem(Descr.fun_apply(fun, args, false), 1), result2)
-           _ -> false
-         end),
+        case Descr.fun_apply(fun2, args2, false) do
+          {:ok, result2} -> precise?(elem(Descr.fun_apply(fun, args, false), 1), result2)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- Less precise functions and arguments succeed too, and the bounds of their results are the images of their
       -- bounds, which grow with them.
@@ -10150,16 +10697,22 @@ defmodule STTDescrProofsTest do
       simp [run₁, e₂, Erlang.erlang.«element/2», «precise?/2», lb₁, lb₂, ub₁, ub₂, Nest.next_sub dl₂ dl₁ hmd,
         Nest.next_sub du₁ du₂ hmd, Nest.bp_true.mpr lo, Nest.bp_true.mpr up, Lynx.Term.true]
       """
+    )
 
-    law fun_apply_modes(fun, args, depth, node),
+    law(fun_apply_modes(fun, args, depth, node),
       requires:
-        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and depth?(depth) and
-          (match?({:ok, _}, Descr.fun_apply(fun, args, true)) or match?({:ok, _}, Descr.fun_apply(fun, args, false))),
+        arrows_gradual?(fun, {depth + 1, node}) and gradual_arguments?(args, {depth, node}) and
+          depth?(depth) and
+          (match?({:ok, _}, Descr.fun_apply(fun, args, true)) or
+             match?({:ok, _}, Descr.fun_apply(fun, args, false))),
       expects:
-        (case {Descr.fun_apply(fun, args, true), Descr.fun_apply(fun, args, false)} do
-           {{:ok, strict}, {:ok, gradual}} -> Descr.equal?(Descr.upper_bound(strict), Descr.upper_bound(gradual))
-           _ -> false
-         end),
+        case {Descr.fun_apply(fun, args, true), Descr.fun_apply(fun, args, false)} do
+          {{:ok, strict}, {:ok, gradual}} ->
+            Descr.equal?(Descr.upper_bound(strict), Descr.upper_bound(gradual))
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- Both modes succeed on the same condition, with the same upper bound.
       obtain ⟨bound, requires⟩ := requires
@@ -10217,11 +10770,14 @@ defmodule STTDescrProofsTest do
               · exact F₂ _ rfl
               · simp at hok
       """
+    )
 
-    law union_precise(left, right, left2, right2, depth, node),
+    law(union_precise(left, right, left2, right2, depth, node),
       requires:
-        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
-          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and
+          precise?(right, right2),
       expects: precise?(Descr.bare_union(left, right), Descr.bare_union(left2, right2)),
       proof: ~LEAN"""
       -- The bounds of the results are the bounds' unions, which keep the order of precision.
@@ -10243,12 +10799,16 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «union_precise:ensures/6»]
       simp [r, r₂, p, Lynx.Term.true]
       """
+    )
 
-    law intersection_precise(left, right, left2, right2, depth, node),
+    law(intersection_precise(left, right, left2, right2, depth, node),
       requires:
-        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
-          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
-      expects: precise?(Descr.bare_intersection(left, right), Descr.bare_intersection(left2, right2)),
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and
+          precise?(right, right2),
+      expects:
+        precise?(Descr.bare_intersection(left, right), Descr.bare_intersection(left2, right2)),
       proof: ~LEAN"""
       -- The bounds of the results are the bounds' intersections, which keep the order of precision.
       obtain ⟨bound, requires⟩ := requires
@@ -10269,11 +10829,14 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «intersection_precise:ensures/6»]
       simp [r, r₂, p, Lynx.Term.true]
       """
+    )
 
-    law difference_precise(left, right, left2, right2, depth, node),
+    law(difference_precise(left, right, left2, right2, depth, node),
       requires:
-        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and arrows_gradual?(left2, {depth, node}) and
-          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and precise?(right, right2),
+        arrows_gradual?(left, {depth, node}) and arrows_gradual?(right, {depth, node}) and
+          arrows_gradual?(left2, {depth, node}) and
+          arrows_gradual?(right2, {depth, node}) and depth?(depth) and precise?(left, left2) and
+          precise?(right, right2),
       expects: precise?(Descr.bare_difference(left, right), Descr.bare_difference(left2, right2)),
       proof: ~LEAN"""
       -- The bounds of the results are the bounds' differences, which keep the order of precision.
@@ -10295,9 +10858,12 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «difference_precise:ensures/6»]
       simp [r, r₂, p, Lynx.Term.true]
       """
+    )
 
-    law negation_precise(descr, descr2, depth, node),
-      requires: arrows_gradual?(descr, {depth, node}) and arrows_gradual?(descr2, {depth, node}) and depth?(depth) and precise?(descr, descr2),
+    law(negation_precise(descr, descr2, depth, node),
+      requires:
+        arrows_gradual?(descr, {depth, node}) and arrows_gradual?(descr2, {depth, node}) and
+          depth?(depth) and precise?(descr, descr2),
       expects: precise?(Descr.bare_negation(descr), Descr.bare_negation(descr2)),
       proof: ~LEAN"""
       -- The bounds of the results are the bounds' negations, which keep the order of precision.
@@ -10317,18 +10883,24 @@ defmodule STTDescrProofsTest do
       simp only [Lynx.apply_eq, «negation_precise:ensures/4»]
       simp [r, r₂, p, Lynx.Term.true]
       """
+    )
 
-    law tuple_insert_precise(tuple, index, value, tuple2, value2, depth, node),
+    law(tuple_insert_precise(tuple, index, value, tuple2, value2, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
-          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and
+          arrows_gradual?(tuple2, {depth + 1, node}) and
+          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and
           not Descr.empty?(value) and precise?(tuple, tuple2) and precise?(value, value2) and
           is_map(Descr.tuple_insert_at(tuple, index, value)),
       expects:
-        (case Descr.tuple_insert_at(tuple2, index, value2) do
-           result when is_map(result) -> precise?(Descr.tuple_insert_at(tuple, index, value), result)
-           _ -> false
-         end),
+        case Descr.tuple_insert_at(tuple2, index, value2) do
+          result when is_map(result) ->
+            precise?(Descr.tuple_insert_at(tuple, index, value), result)
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- Inserting less precise values into less precise tuples inserts into their bounds, which keep the order.
       obtain ⟨bound, requires⟩ := requires
@@ -10380,18 +10952,24 @@ defmodule STTDescrProofsTest do
         run₂, Lynx.Except.ok_bind]
       simp [run, pr₂, Lynx.Term.true]
       """
+    )
 
-    law tuple_replace_precise(tuple, index, value, tuple2, value2, depth, node),
+    law(tuple_replace_precise(tuple, index, value, tuple2, value2, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
-          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and index >= 0 and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(value, {depth, node}) and
+          arrows_gradual?(tuple2, {depth + 1, node}) and
+          arrows_gradual?(value2, {depth, node}) and depth?(depth) and is_integer(index) and
+          index >= 0 and
           not Descr.empty?(value) and precise?(tuple, tuple2) and precise?(value, value2) and
           is_map(Descr.tuple_replace_at(tuple, index, value)),
       expects:
-        (case Descr.tuple_replace_at(tuple2, index, value2) do
-           result when is_map(result) -> precise?(Descr.tuple_replace_at(tuple, index, value), result)
-           _ -> false
-         end),
+        case Descr.tuple_replace_at(tuple2, index, value2) do
+          result when is_map(result) ->
+            precise?(Descr.tuple_replace_at(tuple, index, value), result)
+
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- Replacing deletes and inserts, both of which keep the order of precision.
       obtain ⟨bound, requires⟩ := requires
@@ -10444,16 +11022,18 @@ defmodule STTDescrProofsTest do
         run₂, Lynx.Except.ok_bind]
       simp [run, pr₂, Lynx.Term.true]
       """
+    )
 
-    law tuple_delete_precise(tuple, index, tuple2, depth, node),
+    law(tuple_delete_precise(tuple, index, tuple2, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and is_integer(index) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
+          depth?(depth) and is_integer(index) and
           index >= 0 and precise?(tuple, tuple2) and is_map(Descr.tuple_delete_at(tuple, index)),
       expects:
-        (case Descr.tuple_delete_at(tuple2, index) do
-           result when is_map(result) -> precise?(Descr.tuple_delete_at(tuple, index), result)
-           _ -> false
-         end),
+        case Descr.tuple_delete_at(tuple2, index) do
+          result when is_map(result) -> precise?(Descr.tuple_delete_at(tuple, index), result)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- Deleting from less precise tuples deletes from their bounds, which keep the order of precision.
       obtain ⟨bound, requires⟩ := requires
@@ -10499,16 +11079,18 @@ defmodule STTDescrProofsTest do
         run₂, Lynx.Except.ok_bind]
       simp [run, pr₂, Lynx.Term.true]
       """
+    )
 
-    law tuple_values_precise(tuple, tuple2, depth, node),
+    law(tuple_values_precise(tuple, tuple2, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and precise?(tuple, tuple2) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
+          depth?(depth) and precise?(tuple, tuple2) and
           Descr.tuple_values(tuple) != :badtuple,
       expects:
-        (case Descr.tuple_values(tuple2) do
-           :badtuple -> false
-           values -> precise?(Descr.tuple_values(tuple), values)
-         end),
+        case Descr.tuple_values(tuple2) do
+          :badtuple -> false
+          values -> precise?(Descr.tuple_values(tuple), values)
+        end,
       proof: ~LEAN"""
       -- The values of the bounds of less precise tuples are less precise.
       obtain ⟨bound, requires⟩ := requires
@@ -10550,21 +11132,23 @@ defmodule STTDescrProofsTest do
       · exact absurd rfl nb₂
       · simp [run, pr₂, Lynx.Term.true]
       """
+    )
 
-    law tuple_fetch_precise(tuple, index, tuple2, depth, node),
+    law(tuple_fetch_precise(tuple, index, tuple2, depth, node),
       requires:
-        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and depth?(depth) and is_integer(index) and
+        arrows_gradual?(tuple, {depth + 1, node}) and arrows_gradual?(tuple2, {depth + 1, node}) and
+          depth?(depth) and is_integer(index) and
           index >= 0 and precise?(tuple, tuple2) and kept_dynamic?(tuple, tuple2) and
           match?({_, _}, Descr.tuple_fetch(tuple, index)),
       expects:
-        (case Descr.tuple_fetch(tuple2, index) do
-           {optional2, element2} ->
-             (not elem(Descr.tuple_fetch(tuple, index), 0) or optional2) and
-               precise?(elem(Descr.tuple_fetch(tuple, index), 1), element2)
+        case Descr.tuple_fetch(tuple2, index) do
+          {optional2, element2} ->
+            (not elem(Descr.tuple_fetch(tuple, index), 0) or optional2) and
+              precise?(elem(Descr.tuple_fetch(tuple, index), 1), element2)
 
-           _ ->
-             false
-         end),
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The tuples nest at most `d + 1` levels.
       obtain ⟨bound, requires⟩ := requires
@@ -10624,16 +11208,19 @@ defmodule STTDescrProofsTest do
       all_goals simp [run, run₂, pr₂, Erlang.erlang.«element/2»,
         Lynx.Except.andAlso, Lynx.Term.true] at opt ⊢
       """
+    )
 
-    law map_get_precise(map, key, map2, depth, node),
+    law(map_get_precise(map, key, map2, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
-          precise?(map, map2) and kept_dynamic?(map, map2) and match?({:ok, _}, Descr.map_get(map, key)),
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
+          precise?(map, map2) and kept_dynamic?(map, map2) and
+          match?({:ok, _}, Descr.map_get(map, key)),
       expects:
-        (case Descr.map_get(map2, key) do
-           {:ok, value2} -> precise?(elem(Descr.map_get(map, key), 1), value2)
-           _ -> false
-         end),
+        case Descr.map_get(map2, key) do
+          {:ok, value2} -> precise?(elem(Descr.map_get(map, key), 1), value2)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -10679,18 +11266,21 @@ defmodule STTDescrProofsTest do
         at run
       simp [run, run₂, prT, Erlang.erlang.«element/2», Lynx.Term.true]
       """
+    )
 
-    law map_put_precise(map, key, value, map2, value2, depth, node),
+    law(map_put_precise(map, key, value, map2, value2, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and arrows_gradual?(value, {depth, node}) and
-          arrows_gradual?(map2, {depth + 1, node}) and arrows_gradual?(value2, {depth, node}) and depth?(depth) and
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          arrows_gradual?(value, {depth, node}) and
+          arrows_gradual?(map2, {depth + 1, node}) and arrows_gradual?(value2, {depth, node}) and
+          depth?(depth) and
           precise?(map, map2) and kept_dynamic?(map, map2) and precise?(value, value2) and
           kept_dynamic?(value, value2) and match?({:ok, _}, Descr.map_put(map, key, value)),
       expects:
-        (case Descr.map_put(map2, key, value2) do
-           {:ok, descr2} -> precise?(elem(Descr.map_put(map, key, value), 1), descr2)
-           _ -> false
-         end),
+        case Descr.map_put(map2, key, value2) do
+          {:ok, descr2} -> precise?(elem(Descr.map_put(map, key, value), 1), descr2)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key and values `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -10771,23 +11361,26 @@ defmodule STTDescrProofsTest do
         at run
       simp [run, run₂, prR, Erlang.erlang.«element/2», Lynx.Term.true]
       """
+    )
 
-    law map_update_precise(map, key, value, mode, map2, value2, depth, node),
+    law(map_update_precise(map, key, value, mode, map2, value2, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and arrows_gradual?(value, {depth, node}) and
-          arrows_gradual?(map2, {depth + 1, node}) and arrows_gradual?(value2, {depth, node}) and depth?(depth) and
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          arrows_gradual?(value, {depth, node}) and
+          arrows_gradual?(map2, {depth + 1, node}) and arrows_gradual?(value2, {depth, node}) and
+          depth?(depth) and
           mode in [:force, :keep, :reject] and not Descr.empty?(value) and precise?(map, map2) and
           kept_dynamic?(map, map2) and precise?(value, value2) and kept_dynamic?(value, value2) and
           match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
       expects:
-        (case Descr.map_update(map2, key, value2, mode, true) do
-           {old2, descr2, _} ->
-             precise?(elem(Descr.map_update(map, key, value, mode, true), 0), old2) and
-               precise?(elem(Descr.map_update(map, key, value, mode, true), 1), descr2)
+        case Descr.map_update(map2, key, value2, mode, true) do
+          {old2, descr2, _} ->
+            precise?(elem(Descr.map_update(map, key, value, mode, true), 0), old2) and
+              precise?(elem(Descr.map_update(map, key, value, mode, true), 1), descr2)
 
-           _ ->
-             false
-         end),
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key and values `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -10946,16 +11539,19 @@ defmodule STTDescrProofsTest do
       rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 99 + 1) from rfl]
       simp [run, run₂, prT, prR, Erlang.erlang.«element/2», Lynx.Except.andAlso, Lynx.Term.true]
       """
+    )
 
-    law map_to_list_precise(map, map2, depth, node),
+    law(map_to_list_precise(map, map2, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
-          precise?(map, map2) and kept_dynamic?(map, map2) and match?({:ok, _}, Descr.map_to_list(map)),
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(map2, {depth + 1, node}) and
+          depth?(depth) and
+          precise?(map, map2) and kept_dynamic?(map, map2) and
+          match?({:ok, _}, Descr.map_to_list(map)),
       expects:
-        (case Descr.map_to_list(map2) do
-           {:ok, list2} -> precise?(elem(Descr.map_to_list(map), 1), list2)
-           _ -> false
-         end),
+        case Descr.map_to_list(map2) do
+          {:ok, list2} -> precise?(elem(Descr.map_to_list(map), 1), list2)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels and their lists `d + 2`.
       obtain ⟨bound, requires⟩ := requires
@@ -11001,18 +11597,20 @@ defmodule STTDescrProofsTest do
         at run
       simp [run, run₂, prL, Erlang.erlang.«element/2», Lynx.Term.true]
       """
+    )
 
     # Keys carry no gradual guarantee: a key type is the range of keys, its static part those that must exist, and
     # it does not make the map or the value gradual. Getting at a gradual key gets at its range, its upper bound,
     # while changing at it changes less than at its upper bound, as the keys of its static part surely exist.
-    law map_get_upper_key(map, key, depth, node),
+    law(map_get_upper_key(map, key, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and depth?(depth),
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          depth?(depth),
       expects:
-        (case {Descr.map_get(map, key), Descr.map_get(map, Descr.upper_bound(key))} do
-           {{:ok, value}, {:ok, value2}} -> Descr.equal?(value, value2)
-           {result, result2} -> result == result2
-         end),
+        case {Descr.map_get(map, key), Descr.map_get(map, Descr.upper_bound(key))} do
+          {{:ok, value}, {:ok, value2}} -> Descr.equal?(value, value2)
+          {result, result2} -> result == result2
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -11055,16 +11653,18 @@ defmodule STTDescrProofsTest do
       · simp [eq, Lynx.Term.true]
       all_goals simp [Lynx.Term.true, Erlang.erlang.«==/2»]
       """
+    )
 
-    law map_put_upper_key(map, key, value, depth, node),
+    law(map_put_upper_key(map, key, value, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
-          arrows_gradual?(value, {depth, node}) and depth?(depth) and match?({:ok, _}, Descr.map_put(map, key, value)),
+          arrows_gradual?(value, {depth, node}) and depth?(depth) and
+          match?({:ok, _}, Descr.map_put(map, key, value)),
       expects:
-        (case Descr.map_put(map, Descr.upper_bound(key), value) do
-           {:ok, descr2} -> Descr.subtype?(elem(Descr.map_put(map, key, value), 1), descr2)
-           _ -> false
-         end),
+        case Descr.map_put(map, Descr.upper_bound(key), value) do
+          {:ok, descr2} -> Descr.subtype?(elem(Descr.map_put(map, key, value), 1), descr2)
+          _ -> false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key and value `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -11126,21 +11726,24 @@ defmodule STTDescrProofsTest do
         at run
       simp [run, run₂, sub, Erlang.erlang.«element/2», Lynx.Term.true]
       """
+    )
 
-    law map_update_upper_key(map, key, value, mode, depth, node),
+    law(map_update_upper_key(map, key, value, mode, depth, node),
       requires:
         arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
-          arrows_gradual?(value, {depth, node}) and depth?(depth) and mode in [:force, :keep, :reject] and
-          not Descr.empty?(value) and match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
+          arrows_gradual?(value, {depth, node}) and depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          not Descr.empty?(value) and
+          match?({_, _, _}, Descr.map_update(map, key, value, mode, true)),
       expects:
-        (case Descr.map_update(map, Descr.upper_bound(key), value, mode, true) do
-           {old2, descr2, _} ->
-             Descr.subtype?(elem(Descr.map_update(map, key, value, mode, true), 0), old2) and
-               Descr.subtype?(elem(Descr.map_update(map, key, value, mode, true), 1), descr2)
+        case Descr.map_update(map, Descr.upper_bound(key), value, mode, true) do
+          {old2, descr2, _} ->
+            Descr.subtype?(elem(Descr.map_update(map, key, value, mode, true), 0), old2) and
+              Descr.subtype?(elem(Descr.map_update(map, key, value, mode, true), 1), descr2)
 
-           _ ->
-             false
-         end),
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key and values `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -11262,20 +11865,23 @@ defmodule STTDescrProofsTest do
       rw [Nest.upper_bound_run gK.ub]
       simp [run, run₂, sT, sR, Erlang.erlang.«element/2», Lynx.Except.andAlso, Lynx.Term.true]
       """
+    )
 
-    law map_delete_upper_key(map, key, mode, depth, node),
+    law(map_delete_upper_key(map, key, mode, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and depth?(depth) and
-          mode in [:force, :keep, :reject] and match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          depth?(depth) and
+          mode in [:force, :keep, :reject] and
+          match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
       expects:
-        (case Descr.map_update(map, Descr.upper_bound(key), :delete, mode, true) do
-           {old2, descr2, _} ->
-             Descr.subtype?(elem(Descr.map_update(map, key, :delete, mode, true), 0), old2) and
-               Descr.subtype?(elem(Descr.map_update(map, key, :delete, mode, true), 1), descr2)
+        case Descr.map_update(map, Descr.upper_bound(key), :delete, mode, true) do
+          {old2, descr2, _} ->
+            Descr.subtype?(elem(Descr.map_update(map, key, :delete, mode, true), 0), old2) and
+              Descr.subtype?(elem(Descr.map_update(map, key, :delete, mode, true), 1), descr2)
 
-           _ ->
-             false
-         end),
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -11339,21 +11945,23 @@ defmodule STTDescrProofsTest do
       rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 99 + 1) from rfl]
       simp [run, run₂, sT, sR, Erlang.erlang.«element/2», Lynx.Except.andAlso, Lynx.Term.true]
       """
+    )
 
-    law map_delete_precise(map, key, mode, map2, depth, node),
+    law(map_delete_precise(map, key, mode, map2, depth, node),
       requires:
-        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
+        arrows_gradual?(map, {depth + 1, node}) and arrows_gradual?(key, {depth, node}) and
+          arrows_gradual?(map2, {depth + 1, node}) and depth?(depth) and
           mode in [:force, :keep, :reject] and precise?(map, map2) and kept_dynamic?(map, map2) and
           match?({_, _, _}, Descr.map_update(map, key, :delete, mode, true)),
       expects:
-        (case Descr.map_update(map2, key, :delete, mode, true) do
-           {old2, descr2, _} ->
-             precise?(elem(Descr.map_update(map, key, :delete, mode, true), 0), old2) and
-               precise?(elem(Descr.map_update(map, key, :delete, mode, true), 1), descr2)
+        case Descr.map_update(map2, key, :delete, mode, true) do
+          {old2, descr2, _} ->
+            precise?(elem(Descr.map_update(map, key, :delete, mode, true), 0), old2) and
+              precise?(elem(Descr.map_update(map, key, :delete, mode, true), 1), descr2)
 
-           _ ->
-             false
-         end),
+          _ ->
+            false
+        end,
       proof: ~LEAN"""
       -- The maps nest at most `d + 1` levels, and the key `d`.
       obtain ⟨bound, requires⟩ := requires
@@ -11429,5 +12037,6 @@ defmodule STTDescrProofsTest do
       rw [show Lynx.Dispatcher.ofTable Erlang.program.fun_table (δ + 100) = Elixir.STTDescrProofsTest.D (δ + 99 + 1) from rfl]
       simp [run, run₂, prT, prR, Erlang.erlang.«element/2», Lynx.Except.andAlso, Lynx.Term.true]
       """
+    )
   end
 end
