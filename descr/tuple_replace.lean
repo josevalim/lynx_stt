@@ -8,7 +8,7 @@ variable {V : Type}
 
 /-- Lists split around an index are lists with the element at the index erased. -/
 theorem split_erase {P : List V → Prop} {i : Nat} {w : List V} :
-    (∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧ P (v₁ ++ y :: v₂)) ↔ ∃ x, P x ∧ i < x.length ∧ w = x.eraseIdx i := by
+    (∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧ P (v₁ ++ y :: v₂)) ↔ ∃ x, P x ∧ i < List.length x ∧ w = x.eraseIdx i := by
   constructor
   · rintro ⟨v₁, y, v₂, rfl, rfl, h⟩
     refine ⟨_, h, by simp, ?_⟩
@@ -20,7 +20,7 @@ theorem split_erase {P : List V → Prop} {i : Nat} {w : List V} :
 
 /-- Lists with a value inserted at an index. -/
 theorem ins_insert {P : List V → Prop} {i : Nat} {Q : V → Prop} {w : List V} :
-    Ins P i Q w ↔ ∃ x y, P x ∧ i ≤ x.length ∧ Q y ∧ w = x.take i ++ y :: x.drop i := by
+    Ins P i Q w ↔ ∃ x y, P x ∧ i ≤ List.length x ∧ Q y ∧ w = x.take i ++ y :: x.drop i := by
   constructor
   · rintro ⟨w₁, y, w₂, rfl, rfl, hy, h⟩
     exact ⟨_, y, h, by simp, hy, by simp⟩
@@ -45,7 +45,7 @@ theorem insert_getElem {x : List V} {i : Nat} (lx : i ≤ x.length) (y : V) (o :
 
 /-- Values at an index of lists, through lookups. -/
 theorem split_getElem {P : List V → Prop} {i : Nat} {y : V} :
-    (∃ v₁ v₂, v₁.length = i ∧ P (v₁ ++ y :: v₂)) ↔ ∃ w, P w ∧ w[i]? = some y := by
+    (∃ v₁ v₂, List.length v₁ = i ∧ P (v₁ ++ y :: v₂)) ↔ ∃ w, P w ∧ w[i]? = some y := by
   constructor
   · rintro ⟨v₁, v₂, rfl, h⟩
     exact ⟨_, h, by simp⟩
@@ -177,11 +177,11 @@ variable {t : Term} {n : Nat}
 
 /-- Values at an index of the tuples of a tuple type. -/
 def El (t : Term) (n : Nat) (X : List (Term × Term)) (i : Nat) (y : (level t n).V) : Prop :=
-  ∃ v₁ v₂, v₁.length = i ∧ TT t n X (v₁ ++ y :: v₂)
+  ∃ v₁ v₂, List.length v₁ = i ∧ TT t n X (v₁ ++ y :: v₂)
 
 /-- Some tuple of a tuple type is no longer than an index. -/
 def Short (t : Term) (n : Nat) (X : List (Term × Term)) (i : Nat) : Prop :=
-  ∃ w, TT t n X w ∧ w.length ≤ i
+  ∃ w, TT t n X w ∧ List.length w ≤ i
 
 /-- `tuple_delete_at/2` on static types of the next level: types holding only tuples, all of them longer than the index,
 give the tuples without the element at the index; types holding a shorter tuple give `:badindex`, and others
@@ -191,7 +191,7 @@ theorem delete_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
       ((res = .atom "badtuple" ∧ ¬TOnly t n X) ∨ (res = .atom "badindex" ∧ TOnly t n X ∧ Short t n X i) ∨
         (TOnly t n X ∧ ¬Short t n X i ∧ ∃ r, res = .map [(.atom "tuple", r)] ∧ TField (level t n).E r ∧
           ∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔
-            ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧ TT t n X (v₁ ++ y :: v₂))) := by
+            ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧ TT t n X (v₁ ++ y :: v₂))) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have sX := de_map hX
   by_cases ok : TOnly t n X
@@ -218,7 +218,7 @@ theorem delete_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
       rw [Elixir.Module.Types.Descr.«tuple_delete_at/2».eq_def]
       simp [Lynx.Except.andAlso, Erlang.erlang.«is_integer/1», Erlang.erlang.«>=/2», Int.isGE_compare,
         Erlang.maps.«take/2», sX.static, key, rc, size_map _ hb, rs', boolAtom, Erlang.erlang.«/=/2»]
-    · have long : ∀ w, TT t n X w → i < w.length := fun w hw =>
+    · have long : ∀ w, TT t n X w → i < List.length w := fun w hw =>
         Classical.byContradiction fun h => short ⟨w, hw, by omega⟩
       obtain ⟨r, run, tr, sr⟩ := delete_tuple hX ok i long (by omega)
       exact ⟨_, run, Or.inr (Or.inr ⟨ok, short, r, rfl, tr, sr⟩)⟩
@@ -293,14 +293,14 @@ theorem single_tuples (r : Term) (v : PN t n) (hv : denD (.map [(.atom "tuple", 
 /-- Fetching after deleting the element at an index: the values at the next index from the index on. -/
 theorem delete_same_fetch {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {i : Nat} (onlyX : TOnly t n X)
     (shortX : ¬Short t n X i) {r : Term} (tr : TField (level t n).E r)
-    (sr : ∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧
+    (sr : ∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧
       TT t n X (v₁ ++ y :: v₂)) (o : Nat) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∃ a b, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map [(.atom "tuple", r)]) (.integer o) = .ok a ∧
       Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer (if o < i then o else o + 1 : Nat)) = .ok b ∧
       «same_fetch?/2» (D m) a b = .ok (.atom "true") := by
-  have long : ∀ x, TT t n X x → i < x.length := fun x hx =>
+  have long : ∀ x, TT t n X x → i < List.length x := fun x hx =>
     Classical.byContradiction fun h => shortX ⟨x, hx, by omega⟩
-  have tz : ∀ w, TT t n [(.atom "tuple", r)] w ↔ ∃ x, TT t n X x ∧ i < x.length ∧ w = x.eraseIdx i := fun w => by
+  have tz : ∀ w, TT t n [(.atom "tuple", r)] w ↔ ∃ x, TT t n X x ∧ i < List.length x ∧ w = x.eraseIdx i := fun w => by
     rw [tt_single, sr, split_erase]
   have dZ : DE (level t n).E (.map [(.atom "tuple", r)]) := Or.inr ⟨_, rfl, descrC_put descrC_nil tr⟩
   refine same_fetch dZ hX o _ hm ?_ ?_ ?_
@@ -335,13 +335,13 @@ theorem delete_same_fetch {X : List (Term × Term)} (hX : DE (level t n).E (.map
 /-- Fetching at another index after inserting a value at an index: the values before the index, and those after it
 shifted by one. -/
 theorem insert_same_fetch {X Y : List (Term × Term)} (hX : DE (level t n).E (.map X)) (hY : DE (level t n).E (.map Y))
-    {i : Nat} {x : Term} (onlyX : TOnly t n X) (longX : ∀ w, TT t n X w → i ≤ w.length)
+    {i : Nat} {x : Term} (onlyX : TOnly t n X) (longX : ∀ w, TT t n X w → i ≤ List.length w)
     (onlyY : ∀ v : PN t n, denD (.map Y) v → v.1.1 = "tuple") (ttY : ∀ w, TT t n Y w ↔ Ins (TT t n X) i ((level t n).den x) w)
     {y₀ : (level t n).V} (hy₀ : (level t n).den x y₀) (o : Nat) (ne : o ≠ i) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∃ a b, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map Y) (.integer o) = .ok a ∧
       Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer (if o < i then o else o - 1 : Nat)) = .ok b ∧
       «same_fetch?/2» (D m) a b = .ok (.atom "true") := by
-  have ty : ∀ w, TT t n Y w ↔ ∃ x' y, TT t n X x' ∧ i ≤ x'.length ∧ (level t n).den x y ∧
+  have ty : ∀ w, TT t n Y w ↔ ∃ x' y, TT t n X x' ∧ i ≤ List.length x' ∧ (level t n).den x y ∧
       w = x'.take i ++ y :: x'.drop i := fun w => by rw [ttY, ins_insert]
   refine same_fetch hY hX o _ hm ?_ ?_ ?_
   · refine ⟨fun _ => onlyX, fun _ => ⟨onlyY, ?_⟩⟩
@@ -383,7 +383,7 @@ theorem replace_cases {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
       (Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) x = .ok (.atom "badindex") ∧
         TOnly t n X ∧ Short t n X i) ∨
       (TOnly t n X ∧ ¬Short t n X i ∧ ∃ r, TField (level t n).E r ∧
-        (∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧
+        (∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧
           TT t n X (v₁ ++ y :: v₂)) ∧
         Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) x =
           Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map [(.atom "tuple", r)]) (.integer i) x) := by
@@ -408,7 +408,7 @@ theorem replace_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X))
     (hm : (level t n).K + 25 ≤ m) {Y : List (Term × Term)}
     (run : Elixir.Module.Types.Descr.«tuple_replace_at/3» (D m) (.map X) (.integer i) x = .ok (.map Y)) :
     TOnly t n X ∧ ¬Short t n X i ∧ DE (level t n).E (.map Y) ∧ (∀ v : PN t n, denD (.map Y) v → v.1.1 = "tuple") ∧
-      ∀ w, TT t n Y w ↔ ∃ x' y, TT t n X x' ∧ i < x'.length ∧ (level t n).den x y ∧ w = x'.set i y := by
+      ∀ w, TT t n Y w ↔ ∃ x' y, TT t n X x' ∧ i < List.length x' ∧ (level t n).den x y ∧ w = x'.set i y := by
   rcases replace_cases hX i sx hm with ⟨e, -⟩ | ⟨e, -⟩ | ⟨onlyX, short, r, tr, sr, e⟩
   · rw [e] at run; cases run
   · rw [e] at run; cases run
@@ -441,7 +441,7 @@ theorem replace_term (d : Dispatcher) (i : Nat) (x : Term) :
 
 /-- `tuple_insert_at_checked/3` gives a type on static types of the next level holding only tuples, all long enough. -/
 theorem insert_checked_ok {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (onlyX : TOnly t n X) {x : Term}
-    (hx : (level t n).E x) (i : Nat) (long : ∀ w, TT t n X w → i ≤ w.length) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
+    (hx : (level t n).E x) (i : Nat) (long : ∀ w, TT t n X w → i ≤ List.length w) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∃ Y, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok (.map Y) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have sX := de_map hX
@@ -482,9 +482,9 @@ theorem replace_ok {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (i
   · exact absurd onlyX h
   · exact absurd h shortX
   rw [e]
-  have long : ∀ w, TT t n X w → i < w.length := fun w hw =>
+  have long : ∀ w, TT t n X w → i < List.length w := fun w hw =>
     Classical.byContradiction fun h => shortX ⟨w, hw, by omega⟩
-  have tz : ∀ w, TT t n [(.atom "tuple", r)] w ↔ ∃ x, TT t n X x ∧ i < x.length ∧ w = x.eraseIdx i := fun w => by
+  have tz : ∀ w, TT t n [(.atom "tuple", r)] w ↔ ∃ x, TT t n X x ∧ i < List.length x ∧ w = x.eraseIdx i := fun w => by
     rw [tt_single, sr, split_erase]
   have dZ : DE (level t n).E (.map [(.atom "tuple", r)]) := Or.inr ⟨_, rfl, descrC_put descrC_nil tr⟩
   obtain ⟨x₀, hx₀⟩ := onlyX.2

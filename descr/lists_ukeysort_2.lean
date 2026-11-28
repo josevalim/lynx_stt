@@ -4,7 +4,7 @@ open Lynx
 section
 variable {I : Term} {κ : Term → Term}
 
-theorem uks2 (n : Nat) : ∀ Y L R, L.length ≤ n → SA κ (Y :: R) → R ≠ [] → (∀ x ∈ Y :: R, (KdK I κ) x) →
+theorem uks2 (n : Nat) : ∀ Y L R, List.length L ≤ n → SA κ (Y :: R) → R ≠ [] → (∀ x ∈ Y :: R, (KdK I κ) x) →
     (∀ x ∈ L, (KdK I κ) x) →
     ∃ Res, Erlang.lists.«ukeysplit_2/5» I Y (κ Y) (Term.list L) (Term.list R) = .ok (Term.list Res) ∧
       SA κ Res ∧ Eqv κ Res ((Y :: R) ++ L) := by
@@ -71,7 +71,7 @@ theorem uks2 (n : Nat) : ∀ Y L R, L.length ≤ n → SA κ (Y :: R) → R ≠ 
     have := SA.lt_all sr zy y hy; rw [c_swap, this]; simp)
   exact ⟨Res, by simpa using run, s, er.trans (by simpa using this.symm)⟩
 
-theorem uksort1 (n : Nat) : ∀ X L, L.length ≤ n → (KdK I κ) X → (∀ x ∈ L, (KdK I κ) x) →
+theorem uksort1 (n : Nat) : ∀ X L, List.length L ≤ n → (KdK I κ) X → (∀ x ∈ L, (KdK I κ) x) →
     ∃ Res, Erlang.lists.«ukeysort_1/4» I X (κ X) (Term.list L) = .ok (Term.list Res) ∧
       SA κ Res ∧ Eqv κ Res (X :: L) := by
   induction n with

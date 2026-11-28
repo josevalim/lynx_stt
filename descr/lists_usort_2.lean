@@ -26,12 +26,12 @@ theorem us21_end (X Y S : Term) (R : List Term) (Rs : List (List Term)) (sc : SA
   exact ⟨Res, by simpa [modeT] using run, sr, by simpa [ucontent] using er⟩
 
 theorem us2 (n : Nat) :
-    (∀ X Y L R Rs, L.length ≤ n → SA (fun x : Term => x) (Y :: X :: R) → (∀ x ∈ Y :: X :: R, KdU x) →
+    (∀ X Y L R Rs, List.length L ≤ n → SA (fun x : Term => x) (Y :: X :: R) → (∀ x ∈ Y :: X :: R, KdU x) →
       RunsA (κ := (fun x : Term => x)) KdU Rs → (∀ x ∈ L, KdU x) →
       ∃ Res, Erlang.lists.«usplit_2/5» X Y (Term.list L) (Term.list R)
         (Term.list (Rs.map Term.list)) = .ok (Term.list Res) ∧ SA (fun x : Term => x) Res ∧
         Eqv (fun x : Term => x) Res (Rs.reverse.flatten ++ (Y :: X :: R) ++ L)) ∧
-    (∀ X Y L R Rs S, L.length ≤ n → SA (fun x : Term => x) (Y :: X :: R) → (∀ x ∈ Y :: X :: R, KdU x) →
+    (∀ X Y L R Rs S, List.length L ≤ n → SA (fun x : Term => x) (Y :: X :: R) → (∀ x ∈ Y :: X :: R, KdU x) →
       Term.compare (Term.fuel X S) X S = .lt → KdU S → RunsA (κ := (fun x : Term => x)) KdU Rs → (∀ x ∈ L, KdU x) →
       ∃ Res, Erlang.lists.«usplit_2_1/6» X Y (Term.list L) (Term.list R)
         (Term.list (Rs.map Term.list)) S = .ok (Term.list Res) ∧ SA (fun x : Term => x) Res ∧

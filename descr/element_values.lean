@@ -257,7 +257,7 @@ theorem elements_complete (ops : ElemOk E K) (dops : ElemDiff E K) (sem : ElemSe
           simpa using InT.open_prefix (l₂ := [.atom "term"]) h⟩
       | cons x xs => exact ⟨x, xs, Or.inr rfl, hrest x List.mem_cons_self,
           fun e m => hrest e (List.mem_cons_of_mem _ m), fun v h => h⟩
-    have notN : ∀ v₁ y v₂, v₁.length = acc.length → ¬den nt y →
+    have notN : ∀ v₁ y v₂, List.length v₁ = acc.length → ¬den nt y →
         ¬LitSem den (Term.tuple #[Term.integer k, Term.atom ntag, Term.list (pre ++ nt :: nl)]) (v₁ ++ y :: v₂) :=
       fun v₁ y v₂ len ny h => ny (lit_at h (by omega))
     have allRev : ∀ x, Full E K S x → ∀ e ∈ acc.reverse ++ x :: es, Full E K S e := by

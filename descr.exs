@@ -90,7 +90,14 @@
 # Checked against Elixir 1.21.0-dev (6d03220fe), Erlang/OTP 29.1.2.
 # Source reference: ../elixir/lib/elixir/lib/module/types/descr.ex.
 # These proofs depend on implementation details; rerun after Elixir upgrades.
-Mix.install([{:lynx, "~> 0.1.0"}],
+# Set LYNX_PATH to verify against a local checkout of Lynx instead of the release.
+lynx =
+  case System.get_env("LYNX_PATH") do
+    nil -> {:lynx, "~> 0.1.0"}
+    path -> {:lynx, path: Path.expand(path)}
+  end
+
+Mix.install([lynx],
   system_env: [{"ELAN_TOOLCHAIN", String.trim(File.read!("lean-toolchain"))}]
 )
 

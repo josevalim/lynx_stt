@@ -56,11 +56,11 @@ section
 variable {I : Term} {κ : Term → Term}
 
 theorem ukm2 (n : Nat) :
-    (∀ T1 T2 M H2 HdM, T1.length + T2.length + 1 ≤ n → Pre κ (KdK I κ) M T1 (H2 :: T2) [] →
+    (∀ T1 T2 M H2 HdM, List.length T1 + List.length T2 + 1 ≤ n → Pre κ (KdK I κ) M T1 (H2 :: T2) [] →
       HdOK κ M HdM (H2 :: T2) →
       ∃ R, Erlang.lists.«ukeymerge2_1/7» I (Term.list T1) (κ H2) HdM (Term.list T2) (Term.list M) H2 =
         .ok (Term.list R) ∧ Res κ M T1 (H2 :: T2) [] R) ∧
-    (∀ T1 H1 T2 M, T1.length + 1 + T2.length ≤ n → Pre κ (KdK I κ) M (H1 :: T1) T2 [] →
+    (∀ T1 H1 T2 M, List.length T1 + 1 + List.length T2 ≤ n → Pre κ (KdK I κ) M (H1 :: T1) T2 [] →
       (∀ y ∈ T2, Above κ M y) →
       ∃ R, Erlang.lists.«ukeymerge2_2/6» I (Term.list T1) (κ H1) H1 (Term.list T2) (Term.list M) =
         .ok (Term.list R) ∧ Res κ M (H1 :: T1) T2 [] R) := by

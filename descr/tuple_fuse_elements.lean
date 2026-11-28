@@ -88,7 +88,7 @@ theorem fuse_elements_sem (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (n 
     (∀ e ∈ e₂, E e) → (∀ e ∈ acc, E e) → ∃ r,
       Elixir.Module.Types.Descr.«opt_tuple_fuse_elements/4» (D m) (Term.list e₁) (Term.list e₂) (Term.list acc)
         (.integer n) = .ok r ∧
-      (r = .atom "nil" ∨ ∃ l, r = Term.list l ∧ (∀ e ∈ l, E e) ∧ l.length = acc.length + e₁.length ∧
+      (r = .atom "nil" ∨ ∃ l, r = Term.list l ∧ (∀ e ∈ l, E e) ∧ List.length l = acc.length + e₁.length ∧
         ∀ c v, InT den c l v ↔ InT den c (acc.reverse ++ e₁) v ∨ InT den c (acc.reverse ++ e₂) v) := by
   intro e₁
   induction e₁ with

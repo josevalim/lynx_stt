@@ -60,8 +60,8 @@ theorem take_closed_short (l : List Term) (i : Nat) (h : l.length ≤ i) :
 theorem take_open_short (l : List Term) (i : Nat) (h : l.length ≤ i) :
     ∃ k : Int, Elixir.Module.Types.Descr.«tuple_take_element/3» (Term.list l) (.integer i) (.atom "open") =
       .ok (.tuple #[.atom "term", .tuple #[.integer k, .atom "open",
-        Term.list (l ++ List.replicate (i - l.length) (.atom "term"))]]) ∧
-      KeyOk (.tuple #[.integer k, .atom "open", Term.list (l ++ List.replicate (i - l.length) (.atom "term"))]) := by
+        Term.list (l ++ List.replicate (i - l.length) (Term.atom "term"))]]) ∧
+      KeyOk (.tuple #[.integer k, .atom "open", Term.list (l ++ List.replicate (i - l.length) (Term.atom "term"))]) := by
   obtain ⟨k, run, key⟩ := leaf_new_key "open" (Or.inl rfl) (l ++ List.replicate (i - l.length) (.atom "term"))
   refine ⟨k, ?_, key⟩
   have := do_take_short l [] i h
@@ -583,7 +583,7 @@ theorem take_pair (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" ∨
       rw [len] at this
       simpa [ef.den_term y] using this
     · exact ⟨_, take_closed_short l i short, Or.inl ⟨rfl, fun v₁ y v₂ len h => InT.split_closed (by omega) h⟩⟩
-  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ l₁.length = i := by
+  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ List.length l₁ = i := by
       refine ⟨l.take i, l[i]'(by omega), l.drop (i + 1), ?_, by simp; omega⟩
       simp
     obtain ⟨k, run, key⟩ := take_mid tag g l₁ x l₂

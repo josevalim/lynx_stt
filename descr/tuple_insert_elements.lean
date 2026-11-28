@@ -50,7 +50,7 @@ theorem split_short (l : List Term) (i : Nat) (h : l.length < i) (r : Term) :
 
 /-- The elements of a literal an element is inserted into: open literals are filled with top types up to the index. -/
 def fillT (tag : String) (l : List Term) (i : Nat) : List Term :=
-  if tag = "open" ∧ l.length < i then l ++ List.replicate (i - l.length) (.atom "term") else l
+  if tag = "open" ∧ l.length < i then l ++ List.replicate (i - l.length) (Term.atom "term") else l
 
 /-- The elements of a literal with an element inserted at an index. -/
 def insL (tag : String) (l : List Term) (i : Nat) (x : Term) : List Term :=
@@ -113,7 +113,7 @@ variable {V : Type} {den : Term → V → Prop}
 
 /-- Tuples of values with a value inserted at an index. -/
 def Ins (P : List V → Prop) (i : Nat) (Q : V → Prop) (w : List V) : Prop :=
-  ∃ w₁ y w₂, w = w₁ ++ y :: w₂ ∧ w₁.length = i ∧ Q y ∧ P (w₁ ++ w₂)
+  ∃ w₁ y w₂, w = w₁ ++ y :: w₂ ∧ List.length w₁ = i ∧ Q y ∧ P (w₁ ++ w₂)
 
 theorem ins_or {P P' : List V → Prop} {i : Nat} {Q : V → Prop} {w : List V} :
     Ins (fun u => P u ∨ P' u) i Q w ↔ Ins P i Q w ∨ Ins P' i Q w := by
@@ -149,7 +149,7 @@ theorem inT_insL (hterm : ∀ y, den (.atom "term") y) {tag : String} (l : List 
   · intro h
     have len := h.length_le
     simp only [insL, List.length_append, List.length_cons] at len
-    obtain ⟨w₁, y, w₂, rfl, l₁⟩ : ∃ w₁ y w₂, w = w₁ ++ y :: w₂ ∧ w₁.length = i :=
+    obtain ⟨w₁, y, w₂, rfl, l₁⟩ : ∃ w₁ y w₂, w = w₁ ++ y :: w₂ ∧ List.length w₁ = i :=
       ⟨w.take i, w[i]'(by omega), w.drop (i + 1), by simp, by simp; omega⟩
     rw [insL, InT.split _ x _ w₁ y w₂ (by omega), ← sp] at h
     exact ⟨w₁, y, w₂, rfl, l₁, h.1, (same _ (by simp; omega)).mp h.2⟩

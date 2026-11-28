@@ -163,7 +163,7 @@ all long enough, and the result holds those tuples with a value of the element i
 theorem insert_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {x : Term} (hx : (level t n).E x) (i : Nat)
     {m : Nat} (hm : (level t n).K + 25 ≤ m) {Y : List (Term × Term)}
     (run : Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok (.map Y)) :
-    TOnly t n X ∧ (∀ w, TT t n X w → i ≤ w.length) ∧ DE (level t n).E (.map Y) ∧
+    TOnly t n X ∧ (∀ w, TT t n X w → i ≤ List.length w) ∧ DE (level t n).E (.map Y) ∧
       (∀ v : PN t n, denD (.map Y) v → v.1.1 = "tuple") ∧ ∀ w, TT t n Y w ↔ Ins (TT t n X) i ((level t n).den x) w := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have sX := de_map hX
@@ -209,7 +209,7 @@ theorem insert_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) 
     -- The size check.
     obtain ⟨sz, rsz, ssz⟩ : ∃ sz : Bool, Lynx.Except.orElse (Erlang.erlang.«==/2» (.integer i) (.integer 0))
         (Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D (k + 3)) (.map X) (.integer i)) = .ok (boolAtom sz) ∧
-        (sz = Bool.true → ∀ w, TT t n X w → i ≤ w.length) := by
+        (sz = Bool.true → ∀ w, TT t n X w → i ≤ List.length w) := by
       by_cases z : i = 0
       · subst z
         exact ⟨Bool.true, by simp [Lynx.Except.orElse, Erlang.erlang.«==/2», boolAtom], fun _ w _ => Nat.zero_le _⟩

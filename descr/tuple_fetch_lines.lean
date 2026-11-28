@@ -87,10 +87,10 @@ theorem InT.open_take : ∀ {l : List Term} {v : List V}, InT den Bool.false l v
 
 /-- Values at an index of the tuples of a line. -/
 def LongIn (den : Term → V → Prop) (L : Term) (i : Nat) (y : V) : Prop :=
-  ∃ v₁ v₂, v₁.length = i ∧ InLine den L (v₁ ++ y :: v₂)
+  ∃ v₁ v₂, List.length v₁ = i ∧ InLine den L (v₁ ++ y :: v₂)
 
 /-- Lines holding tuples without an index. -/
-def ShortIn (den : Term → V → Prop) (L : Term) (i : Nat) : Prop := ∃ v, InLine den L v ∧ v.length ≤ i
+def ShortIn (den : Term → V → Prop) (L : Term) (i : Nat) : Prop := ∃ v, InLine den L v ∧ List.length v ≤ i
 
 end
 
@@ -128,7 +128,7 @@ theorem line_pos (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (i : Nat) {t
     fun v => by rw [inLine_iff]; simp
   have hfe := fetch_element tag g l i
   by_cases short : i < l.length
-  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ l₁.length = i := by
+  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ List.length l₁ = i := by
       refine ⟨l.take i, l[i]'short, l.drop (i + 1), ?_, by simp; omega⟩
       simp
     have hx : E x := hl x (by simp)
@@ -196,7 +196,7 @@ theorem line_negs (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (i : Na
       fun y ⟨v₁, v₂, len, hv⟩ => absurd (inLine_iff.mp hv).1 (none v₁ y v₂ len), fun y h => Or.inl h⟩
   obtain ⟨P, rP, hP, sP⟩ := split_pairs (den := den) ef negs lits i (m := n + 2)
   -- The pair holds a tuple long enough, so its remaining tuples are not empty.
-  obtain ⟨v, hv, long⟩ : ∃ v, InT den (tag == "closed") l v ∧ i < v.length := by
+  obtain ⟨v, hv, long⟩ : ∃ v, InT den (tag == "closed") l v ∧ i < List.length v := by
     rcases g with rfl | rfl
     · obtain ⟨y₀⟩ := ef.inhabited
       exact ⟨v₀ ++ List.replicate (i + 1) y₀, InT.open_append _ (by simpa using hv₀), by simp; omega⟩
@@ -306,10 +306,10 @@ theorem ge_ints (a b : Nat) : Erlang.erlang.«>=/2» (.integer (a : Int)) (.inte
 theorem pos_size (ef : EF nd E V den tl K) (n : Nat) {ok : Term → Prop} {r : Term} (wr : Bdd ok r)
     (okT : ∀ t, ok t → TupleOk E t) : ∀ g : Bool, ∃ b : Bool,
       Elixir.Module.Types.Descr.«tuple_bdd_positive_size_at_least?/3» r (.integer n) (boolAtom g) = .ok (boolAtom b) ∧
-      (b = Bool.true → ∀ v, eval (valT E den v) r = Bool.true → (g = Bool.true → n ≤ v.length) → n ≤ v.length) := by
+      (b = Bool.true → ∀ v, eval (valT E den v) r = Bool.true → (g = Bool.true → n ≤ List.length v) → n ≤ List.length v) := by
   refine Bdd.induction (P := fun ok r => (∀ t, ok t → TupleOk E t) → ∀ g : Bool, ∃ b : Bool,
       Elixir.Module.Types.Descr.«tuple_bdd_positive_size_at_least?/3» r (.integer n) (boolAtom g) = .ok (boolAtom b) ∧
-      (b = Bool.true → ∀ v, eval (valT E den v) r = Bool.true → (g = Bool.true → n ≤ v.length) → n ≤ v.length))
+      (b = Bool.true → ∀ v, eval (valT E den v) r = Bool.true → (g = Bool.true → n ≤ List.length v) → n ≤ List.length v))
     ?_ ?_ ?_ ?_ ok r wr okT
   · intro ok _ g
     refine ⟨g, ?_, fun h v _ hg => hg h⟩
@@ -372,10 +372,10 @@ theorem inT_terms_iff (hterm : ∀ y, den (.atom "term") y) (n : Nat) (v : List 
 theorem size_at_least (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {b : Term} (hb : TField E b) (n : Nat)
     (hn : 1 ≤ n) : ∃ sz : Bool, Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D m)
       (.map [(.atom "tuple", b)]) (.integer n) = .ok (boolAtom sz) ∧
-      (sz = Bool.true ↔ ∀ v, denTF E den b v = Bool.true → n ≤ v.length) := by
+      (sz = Bool.true ↔ ∀ v, denTF E den b v = Bool.true → n ≤ List.length v) := by
   -- The positive check, sound.
   obtain ⟨p, rp, sp⟩ : ∃ p : Bool, Elixir.Module.Types.Descr.«tuple_bdd_positive_size_at_least?/2» b (.integer n) =
-      .ok (boolAtom p) ∧ (p = Bool.true → ∀ v, denTF E den b v = Bool.true → n ≤ v.length) := by
+      .ok (boolAtom p) ∧ (p = Bool.true → ∀ v, denTF E den b v = Bool.true → n ≤ List.length v) := by
     rw [pos2_ne b hn]
     rcases hb with ⟨k, rfl⟩ | wb
     · refine ⟨Bool.false, ?_, by simp⟩
@@ -391,7 +391,7 @@ theorem size_at_least (ef : EF nd E V den tl K) {m : Nat} (hm : K + 1 ≤ m) {b 
   obtain ⟨e, re, se⟩ := tuple_empty_exact ef td []
   have se := se (lh d + 1) (by omega) (safeT_nil _)
   have leafSem : ∀ v, denTF E den (.tuple #[.integer k, .atom "open", Term.list (List.replicate n (.atom "term"))]) v =
-      Bool.true ↔ n ≤ v.length := fun v => by
+      Bool.true ↔ n ≤ List.length v := fun v => by
     rw [denTF_leaf ef (Or.inl rfl) hl, vT_lit ef (Or.inl rfl) hl]
     exact inT_terms_iff ef.den_term n v
   cases p
@@ -420,14 +420,14 @@ index. -/
 theorem bdd_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {r : Term} (wr : Bdd (TLit E) r) (i : Nat) :
     ∃ e o, Elixir.Module.Types.Descr.«tuple_bdd_fetch_static/2» (D (n + 2)) r (.integer i) =
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
-      (∀ v₁ y v₂, v₁.length = i → denTF E den r (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
-      (o = Bool.true ↔ ∃ v, denTF E den r v = Bool.true ∧ v.length ≤ i) ∧
-      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den r (v₁ ++ y :: v₂) = Bool.true) := by
+      (∀ v₁ y v₂, List.length v₁ = i → denTF E den r (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
+      (o = Bool.true ↔ ∃ v, denTF E den r v = Bool.true ∧ List.length v ≤ i) ∧
+      (∀ y, den e y → ∃ v₁ v₂, List.length v₁ = i ∧ denTF E den r (v₁ ++ y :: v₂) = Bool.true) := by
   obtain ⟨lines, rl, tl', sl⟩ := dnf_neg (den := den) ef.opsU ef.dopsU ef.msemZ rfl (m := n + 2) (by omega) wr
   have inR : ∀ v, denTF E den r v = Bool.true ↔ ∃ L ∈ lines, InLine den L v := fun v => by rw [denTF_bdd wr]; exact sl v
   obtain ⟨e, o, rf, he, -, long, -, short, back⟩ := fetch_lines_sem ef hn i lines tl' (.map []) Bool.false ef.none
   obtain ⟨sz, rs, ss⟩ := size_at_least ef (m := n + 2) (by omega) (Or.inr wr) (i + 1) (by omega)
-  have shortIff : (∃ v, denTF E den r v = Bool.true ∧ v.length ≤ i) ↔ sz = Bool.false := by
+  have shortIff : (∃ v, denTF E den r v = Bool.true ∧ List.length v ≤ i) ↔ sz = Bool.false := by
     rw [← Bool.not_eq_true, ss]
     constructor
     · rintro ⟨v, hv, len⟩ h; have := h v hv; omega
@@ -457,13 +457,13 @@ theorem leaf_fetch (ef : EF nd E V den tl K) {tag : String} (g : tag = "open" �
     (hl : ∀ e ∈ l, E e) (ne : ∃ v, InT den (tag == "closed") l v) (i : Nat) :
     ∃ e o, Elixir.Module.Types.Descr.«tuple_fetch_element/3» (Term.list l) (.integer i) (.atom tag) =
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
-      (∀ v₁ y v₂, v₁.length = i → InT den (tag == "closed") l (v₁ ++ y :: v₂) → den e y) ∧
-      (o = Bool.true ↔ ∃ v, InT den (tag == "closed") l v ∧ v.length ≤ i) ∧
-      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ InT den (tag == "closed") l (v₁ ++ y :: v₂)) := by
+      (∀ v₁ y v₂, List.length v₁ = i → InT den (tag == "closed") l (v₁ ++ y :: v₂) → den e y) ∧
+      (o = Bool.true ↔ ∃ v, InT den (tag == "closed") l v ∧ List.length v ≤ i) ∧
+      (∀ y, den e y → ∃ v₁ v₂, List.length v₁ = i ∧ InT den (tag == "closed") l (v₁ ++ y :: v₂)) := by
   obtain ⟨v₀, hv₀⟩ := ne
   have hfe := fetch_element tag g l i
   by_cases short : i < l.length
-  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ l₁.length = i := by
+  · obtain ⟨l₁, x, l₂, rfl, len₁⟩ : ∃ l₁ x l₂, l = l₁ ++ x :: l₂ ∧ List.length l₁ = i := by
       refine ⟨l.take i, l[i]'short, l.drop (i + 1), ?_, by simp; omega⟩
       simp
     have e : (l₁ ++ x :: l₂)[i]'(by simp; omega) = x := by subst len₁; simp
@@ -508,9 +508,9 @@ theorem static_fetch (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {X :
     (hb : mapLookup X (.atom "tuple") = some b) (fb : TField E b) (ne : ∃ v, denTF E den b v = Bool.true) (i : Nat) :
     ∃ e o, Elixir.Module.Types.Descr.«tuple_fetch_static/2» (D (n + 2)) (.map X) (.integer i) =
         .ok (.tuple #[e, boolAtom o]) ∧ E e ∧
-      (∀ v₁ y v₂, v₁.length = i → denTF E den b (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
-      (o = Bool.true ↔ ∃ v, denTF E den b v = Bool.true ∧ v.length ≤ i) ∧
-      (∀ y, den e y → ∃ v₁ v₂, v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
+      (∀ v₁ y v₂, List.length v₁ = i → denTF E den b (v₁ ++ y :: v₂) = Bool.true → den e y) ∧
+      (o = Bool.true ↔ ∃ v, denTF E den b v = Bool.true ∧ List.length v ≤ i) ∧
+      (∀ y, den e y → ∃ v₁ v₂, List.length v₁ = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true) := by
   by_cases three : ∃ k x y, b = .tuple #[k, x, y]
   · obtain ⟨k₀, x₀, y₀, e₀⟩ := three
     obtain ⟨k, tag, l, rfl, g, hl⟩ := tfield_three fb e₀

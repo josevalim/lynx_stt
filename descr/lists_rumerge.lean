@@ -2,10 +2,10 @@ namespace Elixir.STTDescrProofsTest.USort
 open Lynx
 
 theorem rm2 (n : Nat) :
-    (∀ T1 H2 T2 M, 2 * (T1.length + T2.length + 1) + 1 ≤ n → (PreD (fun x : Term => x) KdU) M T1 (H2 :: T2) [] →
+    (∀ T1 H2 T2 M, 2 * (List.length T1 + List.length T2 + 1) + 1 ≤ n → (PreD (fun x : Term => x) KdU) M T1 (H2 :: T2) [] →
       ∃ R, Erlang.lists.«rumerge2_1/4» (Term.list T1) (Term.list T2) (Term.list M) H2 =
         .ok (Term.list R) ∧ ResD (fun x : Term => x) M T1 (H2 :: T2) [] R) ∧
-    (∀ H1 T1 H2M T2 M, 2 * (T1.length + T2.length + 2) ≤ n → (PreD (fun x : Term => x) KdU) M (H1 :: T1) (H2M :: T2) [] →
+    (∀ H1 T1 H2M T2 M, 2 * (List.length T1 + List.length T2 + 2) ≤ n → (PreD (fun x : Term => x) KdU) M (H1 :: T1) (H2M :: T2) [] →
       (Term.compare (Term.fuel H1 H2M) H1 H2M).isLE = true →
       ∃ R, Erlang.lists.«rumerge2_2/5» (Term.list T1) (Term.list T2) (Term.list M) H2M H1 = .ok (Term.list R) ∧ ResD (fun x : Term => x) M (H1 :: T1) (H2M :: T2) [] R) := by
   induction n with
@@ -66,23 +66,23 @@ theorem rm2 (n : Nat) :
       exact ⟨R, by simpa using run, tr1 R (tr2 R res)⟩
 
 theorem rm3 (n : Nat) :
-    (∀ T1 H2 T2 H3 T3 M, 2 * (T1.length + T2.length + T3.length + 2) + 1 ≤ n →
+    (∀ T1 H2 T2 H3 T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 2) + 1 ≤ n →
       (PreD (fun x : Term => x) KdU) M T1 (H2 :: T2) (H3 :: T3) →
       ∃ R, Erlang.lists.«rumerge3_1/6» (Term.list T1) (Term.list T2) H2 (Term.list M)
         (Term.list T3) H3 = .ok (Term.list R) ∧ ResD (fun x : Term => x) M T1 (H2 :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 H2M T2 H3 T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2M T2 H3 T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD (fun x : Term => x) KdU) M (H1 :: T1) (H2M :: T2) (H3 :: T3) → (Term.compare (Term.fuel H1 H2M) H1 H2M).isLE = true →
       Term.compare (Term.fuel H3 H2M) H3 H2M = .lt →
       ∃ R, Erlang.lists.«rumerge3_2/7» (Term.list T1) (Term.list T2) H2M
         (Term.list M) (Term.list T3) H3 H1 = .ok (Term.list R) ∧
         ResD (fun x : Term => x) M (H1 :: T1) (H2M :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD (fun x : Term => x) KdU) M (H1 :: T1) (H2 :: T2) (H3M :: T3) → (Term.compare (Term.fuel H1 H2) H1 H2).isLE = true →
       (Term.compare (Term.fuel H2 H3M) H2 H3M).isLE = true →
       ∃ R, Erlang.lists.«rumerge3_12_3/7» (Term.list T1) (Term.list T2) H2
         (Term.list M) (Term.list T3) H3M H1 = .ok (Term.list R) ∧
         ResD (fun x : Term => x) M (H1 :: T1) (H2 :: T2) (H3M :: T3) R) ∧
-    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD (fun x : Term => x) KdU) M (H1 :: T1) (H2 :: T2) (H3M :: T3) → Term.compare (Term.fuel H2 H1) H2 H1 = .lt →
       (Term.compare (Term.fuel H1 H3M) H1 H3M).isLE = true →
       ∃ R, Erlang.lists.«rumerge3_21_3/7» (Term.list T1) (Term.list T2) H2

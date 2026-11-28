@@ -650,7 +650,7 @@ theorem mwalk (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) (t₁ t₂ : St
 /-- Storing a key a map has keeps its size. -/
 theorem store_len (a : String) {f : Term} (hf : FieldValue E f) :
     ∀ {l : List (Term × Term)}, FieldsV E l → (mapLookup l (.atom a)).isSome →
-      ∃ l', Erlang.orddict.«store/3» (.atom a) f (fieldsTerm l) = .ok (fieldsTerm l') ∧ l'.length = l.length
+      ∃ l', Erlang.orddict.«store/3» (.atom a) f (fieldsTerm l) = .ok (fieldsTerm l') ∧ List.length l' = l.length
   | [], _, h => by simp [mapLookup] at h
   | (k, v) :: t, sl, h => by
     obtain ⟨b, rfl⟩ := (sl.1 _ List.mem_cons_self).1

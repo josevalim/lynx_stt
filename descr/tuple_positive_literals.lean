@@ -347,7 +347,7 @@ variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} 
 
 /-- A closed literal of elements filled with top types up to a size. -/
 def closedFill (l : List Term) (j : Nat) : Term :=
-  .tuple #[.atom "closed", Term.list (l ++ List.replicate (j - l.length) (.atom "term"))]
+  .tuple #[.atom "closed", Term.list (l ++ List.replicate (j - l.length) (Term.atom "term"))]
 
 theorem elim_sizes_run (l : List Term) (m : Nat) : ∀ (k i : Nat), m - i = k → l.length ≤ i → ∀ acc : List Term,
     Elixir.Module.Types.Descr.«tuple_elim_sizes/4» (.integer i) (.integer m) (Term.list l) (Term.list acc) =
@@ -405,7 +405,7 @@ theorem elim_size_open (ef : EF nd E V den tl K) {ntag : String} (ng : ntag = "o
     (hl : ∀ e ∈ l, E e) (m : Nat) (fit : ntag = "closed" → l.length ≤ m + 1) :
     ∃ P, Elixir.Module.Types.Descr.«tuple_elim_size/5» (.integer l.length) (.integer m) (.atom "open") (Term.list l)
         (.atom ntag) = .ok (Term.list P) ∧ (∀ p ∈ P, Piece E p) ∧
-      ∀ w, (∃ p ∈ P, PieceIn den p w) ↔ InT den Bool.false l w ∧ (w.length < m ∨ (ntag = "closed" ∧ m + 1 ≤ w.length)) := by
+      ∀ w, (∃ p ∈ P, PieceIn den p w) ↔ InT den Bool.false l w ∧ (List.length w < m ∨ (ntag = "closed" ∧ m + 1 ≤ List.length w)) := by
   have sizes := elim_sizes_run l m (m - l.length) l.length rfl (Nat.le_refl _)
   rcases ng with rfl | rfl
   · refine ⟨((List.range' l.length (m - l.length)).map (closedFill l)).reverse ++ [], ?_, ?_, fun w => ?_⟩
@@ -512,7 +512,7 @@ theorem elim_single (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) {tag ntag
     obtain ⟨S, rS, tS, sS⟩ : ∃ S, Elixir.Module.Types.Descr.«tuple_elim_size/5» (.integer l.length) (.integer nl.length)
         (.atom tag) (Term.list l) (.atom ntag) = .ok (Term.list S) ∧ (∀ p ∈ S, Piece E p) ∧
         ∀ w, (∃ p ∈ S, PieceIn den p w) ↔ tag = "open" ∧ InT den Bool.false l w ∧
-          (w.length < nl.length ∨ (ntag = "closed" ∧ nl.length + 1 ≤ w.length)) := by
+          (List.length w < nl.length ∨ (ntag = "closed" ∧ nl.length + 1 ≤ List.length w)) := by
       rcases g with rfl | rfl
       · obtain ⟨S, rS, tS, sS⟩ := elim_size_open (den := den) ef ng hl nl.length (fun h => by have := n₂ h; omega)
         exact ⟨S, rS, tS, fun w => by rw [sS]; simp⟩

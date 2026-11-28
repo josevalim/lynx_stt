@@ -35,20 +35,20 @@ section
 variable {I : Term} {κ : Term → Term}
 
 theorem ukm3 (n : Nat) :
-    (∀ T1 T2 T3 M H2 H3 HdM D, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ T1 T2 T3 M H2 H3 HdM D, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre κ (KdK I κ)) M T1 (H2 :: T2) (H3 :: T3) → HdOK κ M HdM (H2 :: T2 ++ H3 :: T3) →
       ∃ R, Erlang.lists.«ukeymerge3_1/11» I (Term.list T1) D HdM (κ H2) H2 (Term.list T2) (Term.list M)
         (κ H3) H3 (Term.list T3) = .ok (Term.list R) ∧ Res κ M T1 (H2 :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 T2 H3 T3 M HdM D, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 T2 H3 T3 M HdM D, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre κ (KdK I κ)) M (H1 :: T1) T2 (H3 :: T3) → (∀ y ∈ T2, Above κ M y) → HdOK κ M HdM (H3 :: T3) →
       ∃ R, Erlang.lists.«ukeymerge3_2/11» I (κ H1) (Term.list T1) H1 (Term.list T2) HdM D (Term.list M)
         (κ H3) H3 (Term.list T3) = .ok (Term.list R) ∧ Res κ M (H1 :: T1) T2 (H3 :: T3) R) ∧
-    (∀ H1 T1 H2 T2 T3 M, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 H2 T2 T3 M, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre κ (KdK I κ)) M (H1 :: T1) (H2 :: T2) T3 → (∀ y ∈ H2 :: T2, Above κ M y) → (∀ y ∈ T3, Above κ M y) →
       (Term.compare (Term.fuel (κ H1) (κ H2)) (κ H1) (κ H2)).isLE →
       ∃ R, Erlang.lists.«ukeymerge3_12_3/9» I (κ H1) (Term.list T1) H1 (κ H2) H2 (Term.list T2)
         (Term.list M) (Term.list T3) = .ok (Term.list R) ∧ Res κ M (H1 :: T1) (H2 :: T2) T3 R) ∧
-    (∀ H1 T1 H2 T2 T3 M, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 H2 T2 T3 M, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre κ (KdK I κ)) M (H1 :: T1) (H2 :: T2) T3 → (∀ y ∈ H2 :: T2, Above κ M y) → (∀ y ∈ T3, Above κ M y) →
       Term.compare (Term.fuel (κ H2) (κ H1)) (κ H2) (κ H1) = .lt →
       ∃ R, Erlang.lists.«ukeymerge3_21_3/9» I (κ H1) (Term.list T1) H1 (κ H2) H2 (Term.list T2)

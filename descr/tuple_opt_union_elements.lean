@@ -42,7 +42,7 @@ theorem walk (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) : ∀ (r₁ r₂
     StatusInv den status p₁ p₂ → ∃ res,
       Elixir.Module.Types.Descr.«opt_tuple_union_strategy_index/4» (D m) (Term.list r₁) (Term.list r₂)
         (.integer (p₁.length : Int)) status = .ok res ∧
-      (res = Term.atom "none" ∨ ∃ c₁ s₁ c₂ s₂, r₁ = c₁ ++ s₁ ∧ r₂ = c₂ ++ s₂ ∧ c₁.length = c₂.length ∧
+      (res = Term.atom "none" ∨ ∃ c₁ s₁ c₂ s₂, r₁ = c₁ ++ s₁ ∧ r₂ = c₂ ++ s₂ ∧ List.length c₁ = List.length c₂ ∧
         (s₁ = [] ∨ s₂ = []) ∧ StatusInv den res (p₁ ++ c₁) (p₂ ++ c₂)) ∧
       (status = .atom "left_subtype_of_right" ∨ status = .atom "right_subtype_of_left" →
         res = status ∨ res = .atom "none") ∧ res ≠ .atom "all_equal" := by
@@ -79,7 +79,7 @@ theorem walk (ef : EF nd E V den tl K) {m : Nat} (hm : K ≤ m) : ∀ (r₁ r₂
       have cont : ∀ st, StatusInv den st (p₁ ++ [x]) (p₂ ++ [y]) → ∃ res,
           Elixir.Module.Types.Descr.«opt_tuple_union_strategy_index/4» (D m) (Term.list xs) (Term.list ys)
             (.integer ((p₁.length + 1 : Nat) : Int)) st = .ok res ∧
-          (res = Term.atom "none" ∨ ∃ c₁ s₁ c₂ s₂, x :: xs = c₁ ++ s₁ ∧ y :: ys = c₂ ++ s₂ ∧ c₁.length = c₂.length ∧
+          (res = Term.atom "none" ∨ ∃ c₁ s₁ c₂ s₂, x :: xs = c₁ ++ s₁ ∧ y :: ys = c₂ ++ s₂ ∧ List.length c₁ = List.length c₂ ∧
             (s₁ = [] ∨ s₂ = []) ∧ StatusInv den res (p₁ ++ c₁) (p₂ ++ c₂)) ∧
           (st = .atom "left_subtype_of_right" ∨ st = .atom "right_subtype_of_left" →
             res = st ∨ res = .atom "none") ∧ res ≠ .atom "all_equal" := by
@@ -191,7 +191,7 @@ theorem inT_sub_open {c : Bool} {a b s : List Term} (p : Pairs (SubD den) a b) {
 def StratOk (den : Term → V → Prop) (t₁ : String) (l₁ : List Term) (t₂ : String) (l₂ : List Term) (res : Term) : Prop :=
   res ≠ .atom "all_equal" ∧
   (∀ (j : Int) d₁ d₂, res = .tuple #[.atom "one_index_difference", .integer j, d₁, d₂] → t₁ = t₂ ∧
-    ∃ a₁ b₁ a₂ b₂, l₁ = a₁ ++ d₁ :: b₁ ∧ l₂ = a₂ ++ d₂ :: b₂ ∧ (a₁.length : Int) = j ∧ Pairs (SameD den) a₁ a₂ ∧
+    ∃ a₁ b₁ a₂ b₂, l₁ = a₁ ++ d₁ :: b₁ ∧ l₂ = a₂ ++ d₂ :: b₂ ∧ (List.length a₁ : Int) = j ∧ Pairs (SameD den) a₁ a₂ ∧
       Pairs (SameD den) b₁ b₂ ∧ compareExact (fuel d₁ d₂) d₁ d₂ ≠ .eq) ∧
   (res = .atom "left_subtype_of_right" → ∀ v, InT den (t₁ == "closed") l₁ v → InT den (t₂ == "closed") l₂ v) ∧
   (res = .atom "right_subtype_of_left" → ∀ v, InT den (t₂ == "closed") l₂ v → InT den (t₁ == "closed") l₁ v)

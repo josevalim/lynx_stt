@@ -5,11 +5,11 @@ open Lynx
 def KdU (x : Term) : Prop := ∀ a b, Term.compare (Term.fuel x (.cons a b)) x (.cons a b) ≠ .eq
 
 theorem um2 (n : Nat) :
-    (∀ T1 T2 M H2 HdM, T1.length + T2.length + 1 ≤ n → Pre (fun x : Term => x) KdU M T1 (H2 :: T2) [] →
+    (∀ T1 T2 M H2 HdM, List.length T1 + List.length T2 + 1 ≤ n → Pre (fun x : Term => x) KdU M T1 (H2 :: T2) [] →
       HdOK (fun x : Term => x) M HdM (H2 :: T2) →
       ∃ R, Erlang.lists.«umerge2_1/5» (Term.list T1) (Term.list T2) (Term.list M) HdM H2 =
         .ok (Term.list R) ∧ Res (fun x : Term => x) M T1 (H2 :: T2) [] R) ∧
-    (∀ T1 H1 T2 M, T1.length + 1 + T2.length ≤ n → Pre (fun x : Term => x) KdU M (H1 :: T1) T2 [] →
+    (∀ T1 H1 T2 M, List.length T1 + 1 + List.length T2 ≤ n → Pre (fun x : Term => x) KdU M (H1 :: T1) T2 [] →
       (∀ y ∈ T2, Above (fun x : Term => x) M y) →
       ∃ R, Erlang.lists.«umerge2_2/4» (Term.list T1) (Term.list T2) (Term.list M) H1 =
         .ok (Term.list R) ∧ Res (fun x : Term => x) M (H1 :: T1) T2 [] R) := by
@@ -71,20 +71,20 @@ theorem um2 (n : Nat) :
         exact ⟨R, by simpa using run, tr R res⟩
 
 theorem um3 (n : Nat) :
-    (∀ T1 T2 T3 M H2 H3 HdM, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ T1 T2 T3 M H2 H3 HdM, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre (fun x : Term => x) KdU) M T1 (H2 :: T2) (H3 :: T3) → HdOK (fun x : Term => x) M HdM (H2 :: T2 ++ H3 :: T3) →
       ∃ R, Erlang.lists.«umerge3_1/7» (Term.list T1) HdM (Term.list T2) H2 (Term.list M)
         (Term.list T3) H3 = .ok (Term.list R) ∧ Res (fun x : Term => x) M T1 (H2 :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 T2 H3 T3 M HdM, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 T2 H3 T3 M HdM, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre (fun x : Term => x) KdU) M (H1 :: T1) T2 (H3 :: T3) → (∀ y ∈ T2, Above (fun x : Term => x) M y) → HdOK (fun x : Term => x) M HdM (H3 :: T3) →
       ∃ R, Erlang.lists.«umerge3_2/7» (Term.list T1) H1 (Term.list T2) HdM (Term.list M)
         (Term.list T3) H3 = .ok (Term.list R) ∧ Res (fun x : Term => x) M (H1 :: T1) T2 (H3 :: T3) R) ∧
-    (∀ H1 T1 H2 T2 T3 M, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 H2 T2 T3 M, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre (fun x : Term => x) KdU) M (H1 :: T1) (H2 :: T2) T3 → (∀ y ∈ H2 :: T2, Above (fun x : Term => x) M y) → (∀ y ∈ T3, Above (fun x : Term => x) M y) →
       (Term.compare (Term.fuel H1 H2) H1 H2).isLE →
       ∃ R, Erlang.lists.«umerge3_12_3/6» (Term.list T1) H1 (Term.list T2) H2
         (Term.list M) (Term.list T3) = .ok (Term.list R) ∧ Res (fun x : Term => x) M (H1 :: T1) (H2 :: T2) T3 R) ∧
-    (∀ H1 T1 H2 T2 T3 M, T1.length + T2.length + T3.length + 2 ≤ n →
+    (∀ H1 T1 H2 T2 T3 M, List.length T1 + List.length T2 + List.length T3 + 2 ≤ n →
       (Pre (fun x : Term => x) KdU) M (H1 :: T1) (H2 :: T2) T3 → (∀ y ∈ H2 :: T2, Above (fun x : Term => x) M y) → (∀ y ∈ T3, Above (fun x : Term => x) M y) →
       Term.compare (Term.fuel H2 H1) H2 H1 = .lt →
       ∃ R, Erlang.lists.«umerge3_21_3/6» (Term.list T1) H1 (Term.list T2) H2

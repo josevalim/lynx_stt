@@ -27,10 +27,10 @@ section
 variable {I : Term} {κ : Term → Term}
 
 theorem rkm2 (n : Nat) :
-    (∀ T1 H2 T2 M, 2 * (T1.length + T2.length + 1) + 1 ≤ n → (PreD κ (KdK I κ)) M T1 (H2 :: T2) [] →
+    (∀ T1 H2 T2 M, 2 * (List.length T1 + List.length T2 + 1) + 1 ≤ n → (PreD κ (KdK I κ)) M T1 (H2 :: T2) [] →
       ∃ R, Erlang.lists.«rukeymerge2_1/6» I (Term.list T1) (κ H2) (Term.list T2) (Term.list M) H2 =
         .ok (Term.list R) ∧ ResD κ M T1 (H2 :: T2) [] R) ∧
-    (∀ H1 T1 H2M T2 M, 2 * (T1.length + T2.length + 2) ≤ n → (PreD κ (KdK I κ)) M (H1 :: T1) (H2M :: T2) [] →
+    (∀ H1 T1 H2M T2 M, 2 * (List.length T1 + List.length T2 + 2) ≤ n → (PreD κ (KdK I κ)) M (H1 :: T1) (H2M :: T2) [] →
       (Term.compare (Term.fuel (κ H1) (κ H2M)) (κ H1) (κ H2M)).isLE = true →
       ∃ R, Erlang.lists.«rukeymerge2_2/8» I (Term.list T1) (κ H1) (Term.list T2) (Term.list M)
         (κ H2M) H2M H1 = .ok (Term.list R) ∧ ResD κ M (H1 :: T1) (H2M :: T2) [] R) := by
@@ -94,23 +94,23 @@ theorem rkm2 (n : Nat) :
       exact ⟨R, by simpa using run, tr1 R (tr2 R res)⟩
 
 theorem rkm3 (n : Nat) :
-    (∀ T1 H2 T2 H3 T3 M D1 D2, 2 * (T1.length + T2.length + T3.length + 2) + 1 ≤ n →
+    (∀ T1 H2 T2 H3 T3 M D1 D2, 2 * (List.length T1 + List.length T2 + List.length T3 + 2) + 1 ≤ n →
       (PreD κ (KdK I κ)) M T1 (H2 :: T2) (H3 :: T3) →
       ∃ R, Erlang.lists.«rukeymerge3_1/11» I (Term.list T1) D1 D2 (κ H2) H2 (Term.list T2) (Term.list M)
         (κ H3) H3 (Term.list T3) = .ok (Term.list R) ∧ ResD κ M T1 (H2 :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 H2M T2 H3 T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2M T2 H3 T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD κ (KdK I κ)) M (H1 :: T1) (H2M :: T2) (H3 :: T3) → (Term.compare (Term.fuel (κ H1) (κ H2M)) (κ H1) (κ H2M)).isLE = true →
       Term.compare (Term.fuel (κ H3) (κ H2M)) (κ H3) (κ H2M) = .lt →
       ∃ R, Erlang.lists.«rukeymerge3_2/11» I (κ H1) H1 (Term.list T1) (Term.list T2) H2M (κ H2M)
         (Term.list M) (κ H3) H3 (Term.list T3) = .ok (Term.list R) ∧
         ResD κ M (H1 :: T1) (H2M :: T2) (H3 :: T3) R) ∧
-    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD κ (KdK I κ)) M (H1 :: T1) (H2 :: T2) (H3M :: T3) → (Term.compare (Term.fuel (κ H1) (κ H2)) (κ H1) (κ H2)).isLE = true →
       (Term.compare (Term.fuel (κ H2) (κ H3M)) (κ H2) (κ H3M)).isLE = true →
       ∃ R, Erlang.lists.«rukeymerge3_12_3/11» I (κ H1) H1 (Term.list T1) (κ H2) H2 (Term.list T2)
         (Term.list M) (κ H3M) H3M (Term.list T3) = .ok (Term.list R) ∧
         ResD κ M (H1 :: T1) (H2 :: T2) (H3M :: T3) R) ∧
-    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (T1.length + T2.length + T3.length + 3) ≤ n →
+    (∀ H1 T1 H2 T2 H3M T3 M, 2 * (List.length T1 + List.length T2 + List.length T3 + 3) ≤ n →
       (PreD κ (KdK I κ)) M (H1 :: T1) (H2 :: T2) (H3M :: T3) → Term.compare (Term.fuel (κ H2) (κ H1)) (κ H2) (κ H1) = .lt →
       (Term.compare (Term.fuel (κ H1) (κ H3M)) (κ H1) (κ H3M)).isLE = true →
       ∃ R, Erlang.lists.«rukeymerge3_21_3/11» I (κ H1) H1 (Term.list T1) (κ H2) H2 (Term.list T2)

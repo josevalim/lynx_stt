@@ -55,14 +55,14 @@ theorem keeps_snd (ef : EF nd E V den tl K) {n : Nat} (hn : K ≤ n) (P : List T
 
 /-- The tuples of a line without the element at an index. -/
 def Proj (den : Term → V → Prop) (L : Term) (i : Nat) (w : List V) : Prop :=
-  ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧ InLine den L (v₁ ++ y :: v₂)
+  ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧ InLine den L (v₁ ++ y :: v₂)
 
-theorem split_at {i : Nat} {w : List V} (h : i ≤ w.length) : ∃ w₁ w₂, w = w₁ ++ w₂ ∧ w₁.length = i :=
+theorem split_at {i : Nat} {w : List V} (h : i ≤ w.length) : ∃ w₁ w₂, w = w₁ ++ w₂ ∧ List.length w₁ = i :=
   ⟨w.take i, w.drop i, by simp, by simp; omega⟩
 
 /-- One step of `tuple_delete_static/2`: a line without the element at an index, united with the accumulator. -/
 theorem delete_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (i : Nat) {L : Term} (hL : TLine E L)
-    (ne : ∃ v, InLine den L v ∧ i < v.length) {acc : Term} (ha : TField E acc) :
+    (ne : ∃ v, InLine den L v ∧ i < List.length v) {acc : Term} (ha : TField E acc) :
     ∃ r, Elixir.Module.Types.Descr.«-tuple_delete_static/2-fun-1-/3» (D (n + 2)) (.integer i) L acc = .ok r ∧
       TField E r ∧ ∀ w, denTF E den r w = Bool.true ↔ denTF E den acc w = Bool.true ∨ Proj den L i w := by
   obtain ⟨tag, l, negs, rfl, g, hl, lits⟩ := hL
@@ -83,7 +83,7 @@ theorem delete_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (i : 
     cases v₂ with
     | nil => simp at lt; omega
     | cons y v₂ => exact ⟨y, _, pairIn_iff.mp ((sem v₁ y v₂ l₁).mp hv)⟩
-  have restLong : ∀ w, denTF E den rest w = Bool.true → i ≤ w.length := fun w h => lng y₀ w (pairIn_iff.mpr ⟨hy₀, h⟩)
+  have restLong : ∀ w, denTF E den rest w = Bool.true → i ≤ List.length w := fun w h => lng y₀ w (pairIn_iff.mpr ⟨hy₀, h⟩)
   cases negs with
   | nil =>
     obtain ⟨r, rr, tr, sr⟩ := opt_tuple_union_sem ef (m := n + 2) (by omega) hr ha
@@ -98,7 +98,7 @@ theorem delete_step (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) (i : 
   | cons N negs =>
     obtain ⟨P, rP, okP, semP⟩ := split_pairs (den := den) ef (N :: negs) lits i (m := n + 2)
     obtain ⟨s, rs, ss⟩ := keeps_snd (den := den) ef (n := n + 1) (by omega) P okP hv
-    have line : ∀ v₁ y v₂, v₁.length = i → (InLine den (.tuple #[.atom tag, Term.list l, Term.list (N :: negs)])
+    have line : ∀ v₁ y v₂, List.length v₁ = i → (InLine den (.tuple #[.atom tag, Term.list l, Term.list (N :: negs)])
         (v₁ ++ y :: v₂) ↔ (den value y ∧ denTF E den rest (v₁ ++ v₂) = Bool.true) ∧
           ¬∃ p ∈ P, PairIn E den p y (v₁ ++ v₂)) := by
       intro v₁ y v₂ l₁
@@ -169,10 +169,10 @@ variable {nd : Term} {E : Term → Prop} {V : Type} {den : Term → V → Prop} 
 /-- `tuple_delete_static/2` removes the element at an index from every tuple of a tuple type with long tuples. -/
 theorem delete_static (ef : EF nd E V den tl K) {n : Nat} (hn : K + 1 ≤ n) {Y : List (Term × Term)} {b : Term}
     (hb : mapLookup Y (.atom "tuple") = some b) (wb : Bdd (TLit E) b) (i : Nat)
-    (long : ∀ v, denTF E den b v = Bool.true → i < v.length) :
+    (long : ∀ v, denTF E den b v = Bool.true → i < List.length v) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_delete_static/2» (D (n + 3)) (.map Y) (.integer i) =
         .ok (.map [(.atom "tuple", r)]) ∧ TField E r ∧
-      ∀ w, denTF E den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true := by
+      ∀ w, denTF E den r w = Bool.true ↔ ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧ denTF E den b (v₁ ++ y :: v₂) = Bool.true := by
   obtain ⟨lines, rl, tl', sl⟩ := dnf_neg (den := den) ef.opsU ef.dopsU ef.msemZ rfl (m := n + 3) (by omega) wb
   have inB : ∀ v, denTF E den b v = Bool.true ↔ ∃ L ∈ lines, InLine den L v := fun v => by rw [denTF_bdd wb]; exact sl v
   obtain ⟨r, ⟨tr, sr⟩, run⟩ := foldl_rel_at (m := n + 3) "Elixir.Module.Types.Descr" "-tuple_delete_static/2-fun-1-"
@@ -244,10 +244,10 @@ theorem only_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {b :
 /-- `tuple_delete_at/2` on static types of the next level holding only tuples, all longer than an index: the tuples
 without the element at the index. -/
 theorem delete_tuple {Y : List (Term × Term)} (hY : DE (level t n).E (.map Y)) (onlyY : TOnly t n Y) (i : Nat)
-    (long : ∀ w, TT t n Y w → i < w.length) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
+    (long : ∀ w, TT t n Y w → i < List.length w) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_delete_at/2» (D m) (.map Y) (.integer i) = .ok (.map [(.atom "tuple", r)]) ∧
       TField (level t n).E r ∧ ∀ w, denTF (level t n).E (level t n).den r w = Bool.true ↔
-        ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ v₁.length = i ∧ TT t n Y (v₁ ++ y :: v₂) := by
+        ∃ v₁ y v₂, w = v₁ ++ v₂ ∧ List.length v₁ = i ∧ TT t n Y (v₁ ++ y :: v₂) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have sY := de_map hY
   obtain ⟨w₀, b, hb, -⟩ := onlyY.2

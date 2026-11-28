@@ -66,12 +66,12 @@ theorem uks11_end (X Y S : Term) (R : List Term) (Rs : List (List Term)) (sc : S
   exact ⟨Res, by simpa using run, sr, by simpa using er⟩
 
 theorem uks1 (n : Nat) :
-    (∀ X Y L R Rs, L.length ≤ n → SD κ (Y :: X :: R) → (∀ x ∈ Y :: X :: R, (KdK I κ) x) →
+    (∀ X Y L R Rs, List.length L ≤ n → SD κ (Y :: X :: R) → (∀ x ∈ Y :: X :: R, (KdK I κ) x) →
       RunsD (κ := κ) (KdK I κ) Rs → (∀ x ∈ L, (KdK I κ) x) →
       ∃ Res, Erlang.lists.«ukeysplit_1/8» I X (κ X) Y (κ Y) (Term.list L) (Term.list R)
         (Term.list (Rs.map Term.list)) = .ok (Term.list Res) ∧ SA κ Res ∧
         Eqv κ Res (Rs.reverse.flatten ++ (Y :: X :: R) ++ L)) ∧
-    (∀ X Y L R Rs S, L.length ≤ n → SD κ (Y :: X :: R) → (∀ x ∈ Y :: X :: R, (KdK I κ) x) →
+    (∀ X Y L R Rs S, List.length L ≤ n → SD κ (Y :: X :: R) → (∀ x ∈ Y :: X :: R, (KdK I κ) x) →
       Term.compare (Term.fuel (κ S) (κ X)) (κ S) (κ X) = .lt → (KdK I κ) S → RunsD (κ := κ) (KdK I κ) Rs → (∀ x ∈ L, (KdK I κ) x) →
       ∃ Res, Erlang.lists.«ukeysplit_1_1/10» I X (κ X) Y (κ Y) (Term.list L) (Term.list R)
         (Term.list (Rs.map Term.list)) S (κ S) = .ok (Term.list Res) ∧ SA κ Res ∧

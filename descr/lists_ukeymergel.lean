@@ -56,12 +56,12 @@ section
 variable {I : Term} {κ : Term → Term}
 
 theorem ukm_mergel (n : Nat) :
-    (∀ Rs Acc, 4 * (Rs.length + Acc.length) + 2 * min Acc.length 1 ≤ n →
-      1 ≤ Rs.length + Acc.length → RunsA (κ := κ) (KdK I κ) Rs → RunsD (κ := κ) (KdK I κ) Acc →
+    (∀ Rs Acc, 4 * (List.length Rs + List.length Acc) + 2 * min (List.length Acc) 1 ≤ n →
+      1 ≤ List.length Rs + List.length Acc → RunsA (κ := κ) (KdK I κ) Rs → RunsD (κ := κ) (KdK I κ) Acc →
       ∃ R, Erlang.lists.«ukeymergel/3» I (Term.list (Rs.map Term.list)) (Term.list (Acc.map Term.list)) =
         .ok (Term.list R) ∧ SA κ R ∧ Eqv κ R (Acc.reverse.flatten ++ Rs.flatten)) ∧
-    (∀ Rs Acc, 4 * (Rs.length + Acc.length) + 2 * min Acc.length 1 + 1 ≤ n →
-      1 ≤ Rs.length + Acc.length → RunsD (κ := κ) (KdK I κ) Rs → RunsA (κ := κ) (KdK I κ) Acc →
+    (∀ Rs Acc, 4 * (List.length Rs + List.length Acc) + 2 * min (List.length Acc) 1 + 1 ≤ n →
+      1 ≤ List.length Rs + List.length Acc → RunsD (κ := κ) (KdK I κ) Rs → RunsA (κ := κ) (KdK I κ) Acc →
       ∃ R, Erlang.lists.«rukeymergel/3» I (Term.list (Rs.map Term.list)) (Term.list (Acc.map Term.list)) =
         .ok (Term.list R) ∧ SA κ R ∧ Eqv κ R (Rs.reverse.flatten ++ Acc.flatten)) := by
   induction n with

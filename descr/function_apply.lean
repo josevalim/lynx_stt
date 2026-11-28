@@ -1318,7 +1318,7 @@ def ImgB (E₀ : Term → Prop) (den : Term → V → Prop) (n : Nat) (b : Term)
 /-- Applying the lines `fun_normalize/2` keeps for a BDD gives its image: a function of a line can return any result
 the arrows of the line allow, by adding a row. -/
 theorem app_image {E₀ : Term → Prop} {n : Nat} {b : Term} {Q : List (List (Term × List Term × Term))}
-    (nQ : NormOk E E₀ den n b Q) {I : List V → Prop} (len : ∀ x, I x → x.length = n) (ne : ∃ x, I x) (v : V) :
+    (nQ : NormOk E E₀ den n b Q) {I : List V → Prop} (len : ∀ x, I x → List.length x = n) (ne : ∃ x, I x) (v : V) :
     (∃ q ∈ Q, FunSem.App I (fun _ => True) (semP den q) v) ↔ ImgB E₀ den n b I v := by
   constructor
   · rintro ⟨q, mq, app⟩

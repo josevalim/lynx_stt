@@ -48,12 +48,12 @@ theorem kdu_cons {S : List Term} {a b : Term} (k : ∀ x ∈ S, KdU x) :
     ∀ x ∈ S, Term.compare (Term.fuel ((fun x : Term => x) x) (.cons a b)) ((fun x : Term => x) x) (.cons a b) ≠ .eq := fun x hx => k x hx a b
 
 theorem um_mergel (n : Nat) :
-    (∀ asc Rs Acc, 4 * (Rs.length + Acc.length) + 2 * min Acc.length 1 ≤ n →
-      1 ≤ Rs.length + Acc.length → RunsA (κ := (fun x : Term => x)) KdU Rs → RunsD (κ := (fun x : Term => x)) KdU Acc →
+    (∀ asc Rs Acc, 4 * (List.length Rs + List.length Acc) + 2 * min (List.length Acc) 1 ≤ n →
+      1 ≤ List.length Rs + List.length Acc → RunsA (κ := (fun x : Term => x)) KdU Rs → RunsD (κ := (fun x : Term => x)) KdU Acc →
       ∃ R, Erlang.lists.«umergel/3» (Term.list (Rs.map Term.list)) (Term.list (Acc.map Term.list))
         (modeT asc) = .ok (Term.list R) ∧ SA (fun x : Term => x) R ∧ Eqv (fun x : Term => x) R (ucontent asc Rs Acc)) ∧
-    (∀ asc Rs Acc, 4 * (Rs.length + Acc.length) + 2 * min Acc.length 1 + 1 ≤ n →
-      1 ≤ Rs.length + Acc.length → RunsD (κ := (fun x : Term => x)) KdU Rs → RunsA (κ := (fun x : Term => x)) KdU Acc →
+    (∀ asc Rs Acc, 4 * (List.length Rs + List.length Acc) + 2 * min (List.length Acc) 1 + 1 ≤ n →
+      1 ≤ List.length Rs + List.length Acc → RunsD (κ := (fun x : Term => x)) KdU Rs → RunsA (κ := (fun x : Term => x)) KdU Acc →
       ∃ R, Erlang.lists.«rumergel/3» (Term.list (Rs.map Term.list)) (Term.list (Acc.map Term.list))
         (modeT asc) = .ok (Term.list R) ∧ SA (fun x : Term => x) R ∧ Eqv (fun x : Term => x) R (rcontent asc Rs Acc)) := by
   induction n with

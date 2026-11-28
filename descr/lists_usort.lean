@@ -1,7 +1,7 @@
 namespace Elixir.STTDescrProofsTest.USort
 open Lynx
 
-theorem usort1 (n : Nat) : ∀ X L, L.length ≤ n → KdU X → (∀ x ∈ L, KdU x) →
+theorem usort1 (n : Nat) : ∀ X L, List.length L ≤ n → KdU X → (∀ x ∈ L, KdU x) →
     ∃ Res, Erlang.lists.«usort_1/2» X (Term.list L) = .ok (Term.list Res) ∧
       SA (fun x : Term => x) Res ∧ Eqv (fun x : Term => x) Res (X :: L) := by
   induction n with

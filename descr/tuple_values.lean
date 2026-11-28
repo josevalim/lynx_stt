@@ -56,7 +56,7 @@ theorem inT_witness_closed : ∀ {l : List Term}, (∀ e ∈ l, ∃ y', den e y'
 
 /-- Open literals with values in every element hold tuples of any length from theirs. -/
 theorem inT_witness_open (y₀ : V) : ∀ {l : List Term}, (∀ e ∈ l, ∃ y', den e y') → ∀ N,
-    ∃ w, InT den Bool.false l w ∧ N ≤ w.length
+    ∃ w, InT den Bool.false l w ∧ N ≤ List.length w
   | [], _, N => ⟨List.replicate N y₀, InT.open_nil _, by simp⟩
   | x :: l, ne, N => by
     obtain ⟨yx, hx⟩ := ne x List.mem_cons_self
@@ -275,7 +275,7 @@ theorem sizes_nat : ∀ {s : Term}, «sizes?/1» s = .ok (.atom "true") → ∃ 
 /-- `closed_tuples/2` gives closed tuples of the sizes, of values of the type. -/
 theorem closed_tuples_sem {v : Term} (hv : (level t n).E v) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∀ ns : List Nat, ∃ C, «closed_tuples/2» (D m) (Term.list (ns.map fun k : Nat => Term.integer (k : Int))) v = .ok C ∧
-      DE (level t n).E C ∧ ∀ w, denD C (tpt (t := t) (n := n) w) → w.length ∈ ns ∧ ∀ y ∈ w, (level t n).den v y
+      DE (level t n).E C ∧ ∀ w, denD C (tpt (t := t) (n := n) w) → List.length w ∈ ns ∧ ∀ y ∈ w, (level t n).den v y
   | [] => ⟨.map [], by simp [«closed_tuples/2», Elixir.Module.Types.Descr.«none/0»],
       Or.inr ⟨[], rfl, descrC_nil⟩, fun w h => by rw [denD_map] at h; simp [mapLookup, tpt, dn_none] at h⟩
   | s :: ns => by

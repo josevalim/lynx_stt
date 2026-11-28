@@ -303,7 +303,7 @@ variable {t : Term} {n : Nat}
 theorem size_check1_iff {S : List (Term × Term)} (hS : DE (level t n).E (.map S)) (i : Nat) {m : Nat}
     (hm : (level t n).K + 1 ≤ m) :
     ∃ sz : Bool, Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D m) (.map S)
-        (.integer ((i : Int) + 1)) = .ok (boolAtom sz) ∧ (sz = Bool.true ↔ ∀ w, TT t n S w → i < w.length) := by
+        (.integer ((i : Int) + 1)) = .ok (boolAtom sz) ∧ (sz = Bool.true ↔ ∀ w, TT t n S w → i < List.length w) := by
   have sS := de_map hS
   cases hb : mapLookup S (.atom "tuple") with
   | none =>
@@ -322,7 +322,7 @@ theorem del_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     (hm : (level t n).K + 26 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_delete_at/2» (D m) (.map X) (.integer i) = .ok r ∧
       ((∃ R, r = .map R) ↔ (∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v) ∧
-        (∀ u, TT t n (rmDyn X) u → i < u.length) ∧ ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length) := by
+        (∀ u, TT t n (rmDyn X) u → i < List.length u) ∧ ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < List.length u) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   obtain ⟨dDy, sS⟩ : DE (level t n).E Dy ∧ DescrC (FunA (level t n).E) (TField (level t n).E) (LF (level t n).E)
       (MField (level t n).E) (rmDyn X) := by
@@ -381,7 +381,7 @@ theorem del_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
       have := oZ _ ((sc (aPt (t := t) (n := n) (.atom "a"))).mp (denD_term _)).2
       simp [aPt] at this
     · exact ⟨C, rfl⟩
-  have tC : ∀ u, TT t n C u ↔ denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length := fun u => by
+  have tC : ∀ u, TT t n C u ↔ denD Dy (tpt (t := t) (n := n) u) ∧ i < List.length u := fun u => by
     rw [← denD_tpt, sc, denD_tpt, tZ]
     exact ⟨fun ⟨a, b⟩ => ⟨a, by omega⟩, fun ⟨a, b⟩ => ⟨a, by omega⟩⟩
   obtain ⟨YA, rA, dYA, oYA, tYA⟩ := del_any dc i (fun u h => ((tC u).mp h).2) (m := k + 3) (by omega)
@@ -393,13 +393,13 @@ theorem del_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
   simp only [boolAtom, Erlang.erlang.«/=/2», Lynx.Except.tryWith, rS, rZ',
     Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, rR', Lynx.Except.ok_bind, equal_eq_decide]
   -- Tuples of the static part, which the dynamic part holds.
-  have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length := by
+  have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < List.length u := by
     intro v hv
     have tv : v.1.1 = "tuple" := Classical.byContradiction fun ne => to v ((sR v).mpr ⟨hv, ne⟩)
     obtain ⟨w, hw⟩ := pt_tuple_de v tv
     have hw' := (hw _ dS).mp hv
     exact ⟨w, (hw _ dDy).mp (inc v ((denD_rmDyn X v).mp hv)), long w ((denD_tpt w).mp hw')⟩
-  have dyn : ∀ v : PN t n, denD (.map C) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length := by
+  have dyn : ∀ v : PN t n, denD (.map C) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < List.length u := by
     intro v hv
     have tv : v.1.1 = "tuple" := oZ _ ((sc v).mp hv).2
     obtain ⟨w, hw⟩ := pt_tuple_de v tv
@@ -409,7 +409,7 @@ theorem del_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     simp [Term.true]
     intro _ _ u hu
     exact Nat.le_of_not_lt fun lu => both.1 _ ((denD_tpt u).mpr ((tC u).mpr ⟨hu, lu⟩))
-  have ex : ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < u.length := by
+  have ex : ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i < List.length u := by
     by_cases ec : ∀ v : PN t n, ¬denD (.map C) v
     · have es : ¬∀ v : PN t n, ¬denD (.map (rmDyn X)) v := fun es => both ⟨ec, es⟩
       obtain ⟨v, hv⟩ := Classical.not_forall.mp es
@@ -435,8 +435,8 @@ theorem del_sem {X : List (Term × Term)} (gX : GC (level t n) (.map X)) (i : Na
     (hm : (level t n).K + 26 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_delete_at/2» (D m) (.map X) (.integer i) = .ok r ∧
       ((∃ R, r = .map R) ↔ (∀ v : PN t n, denD (lower (.map X)) v → v.1.1 = "tuple") ∧
-        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n) u) → i < u.length) ∧
-        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n) u) ∧ i < u.length) := by
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n) u) → i < List.length u) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n) u) ∧ i < List.length u) := by
   cases hD : mapLookup X (.atom "dynamic") with
   | none =>
     have dX := GC.static gX hD
@@ -506,7 +506,7 @@ theorem size_check_iff {S : List (Term × Term)} (hS : DE (level t n).E (.map S)
     (hm : (level t n).K + 1 ≤ m) :
     ∃ sz : Bool, Lynx.Except.orElse (Erlang.erlang.«==/2» (.integer i) (.integer 0))
         (Elixir.Module.Types.Descr.«tuple_of_size_at_least_static?/2» (D m) (.map S) (.integer i)) = .ok (boolAtom sz) ∧
-      (sz = Bool.true ↔ ∀ w, TT t n S w → i ≤ w.length) := by
+      (sz = Bool.true ↔ ∀ w, TT t n S w → i ≤ List.length w) := by
   by_cases z : i = 0
   · subst z
     exact ⟨Bool.true, by simp [Lynx.Except.orElse, Erlang.erlang.«==/2», boolAtom], by simp⟩
@@ -532,7 +532,7 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     (hm : (level t n).K + 26 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
       ((∃ R, r = .map R) ↔ (∀ v : PN t n, ¬denD (.map (rmT (rmDyn X))) v) ∧
-        (∀ u, TT t n (rmDyn X) u → i ≤ u.length) ∧ ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length) := by
+        (∀ u, TT t n (rmDyn X) u → i ≤ List.length u) ∧ ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ List.length u) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   obtain ⟨dDy, sS⟩ : DE (level t n).E Dy ∧ DescrC (FunA (level t n).E) (TField (level t n).E) (LF (level t n).E)
       (MField (level t n).E) (rmDyn X) := by
@@ -588,7 +588,7 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
       simp [aPt] at this
     · exact ⟨C, rfl⟩
   have oC : ∀ v : PN t n, denD (.map C) v → v.1.1 = "tuple" := fun v hv => oZ v ((sc v).mp hv).2
-  have tC : ∀ u, TT t n C u ↔ denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := fun u => by
+  have tC : ∀ u, TT t n C u ↔ denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ List.length u := fun u => by
     rw [← denD_tpt, sc, denD_tpt, tZ]
   obtain ⟨YA, rA, dYA, oYA, tYA⟩ := ins_any dc oC hx i (m := k + 3) (by omega)
   have eC := next_empty dc (m := k + 3) (by omega)
@@ -598,12 +598,12 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
   obtain ⟨R', rR', ⟨U, eU⟩, gR', sR', uR'⟩ := gout dYA dYS (m := k + 3) (by omega)
   simp only [boolAtom, Lynx.Except.andAlso, Erlang.erlang.«/=/2», Lynx.Except.guard, rS, rZ,
     Elixir.Module.Types.Descr.«opt_intersection/2», rc, eC, eS, rA, wrapA, Lynx.Except.ok_bind, equal_eq_decide]
-  have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+  have stat : ∀ v : PN t n, denD (.map (rmDyn X)) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ List.length u := by
     intro v hv
     obtain ⟨w, hw⟩ := pt_tuple_de v (onlyS v hv)
     have hw' := (hw _ dS).mp hv
     exact ⟨w, (hw _ dDy).mp (inc v ((denD_rmDyn X v).mp hv)), long w ((denD_tpt w).mp hw')⟩
-  have dyn : ∀ v : PN t n, denD (.map C) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+  have dyn : ∀ v : PN t n, denD (.map C) v → ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ List.length u := by
     intro v hv
     obtain ⟨w, hw⟩ := pt_tuple_de v (oC v hv)
     exact ⟨w, (tC w).mp ((denD_tpt w).mp ((hw _ dc).mp hv))⟩
@@ -612,7 +612,7 @@ theorem ins_grad_run {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {D
     simp [Lynx.Term.isMember, Term.true]
     intro _ _ u hu
     exact Nat.lt_of_not_le fun lu => both.1 _ ((denD_tpt u).mpr ((tC u).mpr ⟨hu, lu⟩))
-  have ex : ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ u.length := by
+  have ex : ∃ u, denD Dy (tpt (t := t) (n := n) u) ∧ i ≤ List.length u := by
     by_cases ec : ∀ v : PN t n, ¬denD (.map C) v
     · have es : ¬∀ v : PN t n, ¬denD (.map (rmDyn X)) v := fun es => both ⟨ec, es⟩
       obtain ⟨v, hv⟩ := Classical.not_forall.mp es
@@ -636,7 +636,7 @@ the index. -/
 theorem ins_static_run {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) {x : Term} (hx : (level t n).E x)
     (i : Nat) {m : Nat} (hm : (level t n).K + 25 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
-      ((∃ Y, r = .map Y) ↔ TOnly t n X ∧ ∀ w, TT t n X w → i ≤ w.length) := by
+      ((∃ Y, r = .map Y) ↔ TOnly t n X ∧ ∀ w, TT t n X w → i ≤ List.length w) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have sX := de_map hX
   unfold Elixir.Module.Types.Descr.«tuple_insert_at_checked/3»
@@ -704,8 +704,8 @@ theorem ins_sem {X : List (Term × Term)} (gX : GC (level t n) (.map X)) {x : Te
     {m : Nat} (hm : (level t n).K + 26 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at_checked/3» (D m) (.map X) (.integer i) x = .ok r ∧
       ((∃ R, r = .map R) ↔ (∀ v : PN t n, denD (lower (.map X)) v → v.1.1 = "tuple") ∧
-        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n) u) → i ≤ u.length) ∧
-        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n) u) ∧ i ≤ u.length) := by
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n) u) → i ≤ List.length u) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n) u) ∧ i ≤ List.length u) := by
   cases hD : mapLookup X (.atom "dynamic") with
   | none =>
     have dX := GC.static gX hD
@@ -745,8 +745,8 @@ theorem ins_top {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {
     (hm : (level t (n + 1)).K + 26 ≤ m) :
     ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) v = .ok r ∧
       ((∃ R, r = .map R) ↔ (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
-        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
-        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length) ∧
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ List.length u) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ List.length u) ∧
       ∀ R, r = .map R → ∀ p : PN t (n + 1), denD (.map R) p ↔
         InsAt (TT t (n + 1) (rmDyn X)) i ((level t (n + 1)).den (lower v)) p := by
   -- A static value inserts with tuple_insert_at_checked/3.
@@ -754,8 +754,8 @@ theorem ins_top {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {
       DE (level t n).E x → lower x = x →
       ∃ r, Elixir.Module.Types.Descr.«tuple_insert_at/3» (D m) (.map X) (.integer i) x = .ok r ∧
         ((∃ R, r = .map R) ↔ (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
-          (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
-          ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length) ∧
+          (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ List.length u) ∧
+          ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ List.length u) ∧
         ∀ R, r = .map R → ∀ p : PN t (n + 1), denD (.map R) p ↔
           InsAt (TT t (n + 1) (rmDyn X)) i ((level t (n + 1)).den (lower x)) p := by
     intro x sx dx lx
@@ -777,8 +777,8 @@ theorem ins_top {X : List (Term × Term)} (gX : GC (level t (n + 1)) (.map X)) {
     have hx₂ : (level t (n + 1)).E (.map (rmDyn V)) := Or.inl dlo
     obtain ⟨r₁, run₁, iff₁⟩ := ins_sem gX hx₁ i hm
     by_cases C : (∀ q : PN t (n + 1), denD (lower (.map X)) q → q.1.1 = "tuple") ∧
-        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ u.length) ∧
-        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ u.length
+        (∀ u, denD (lower (.map X)) (tpt (t := t) (n := n + 1) u) → i ≤ List.length u) ∧
+        ∃ u, denD (upper (.map X)) (tpt (t := t) (n := n + 1) u) ∧ i ≤ List.length u
     rotate_left
     · obtain h : r₁ = .atom "badindex" ∨ r₁ = .atom "badtuple" := by
         rcases ins_shape gX hx₁ i hm run₁ with h | h | ⟨R₁, rfl⟩
@@ -934,7 +934,7 @@ value at the index. -/
 theorem fetch_grad_ok {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) {Dy : Term}
     (hD : mapLookup X (.atom "dynamic") = some Dy) (i : Nat) {m : Nat} (hm : (level t (d + 1)).K + 26 ≤ m)
     (only : ∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple")
-    (ne : ∃ v₁ y v₂, v₁.length = i ∧ denD Dy (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) :
+    (ne : ∃ v₁ y v₂, List.length v₁ = i ∧ denD Dy (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) :
     ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 3 := ⟨m - 3, by omega⟩
   have hK := level_K t d
@@ -998,8 +998,8 @@ theorem fetch_bounds {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map 
     (hm : (level t (d + 1)).K + 26 ≤ m) {fl ty : Term}
     (run : Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty])) :
     (∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple") ∧
-      (∃ v₁ y v₂, v₁.length = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) ∧
-      (fl = .atom "true" ↔ ∃ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) ∧ w.length ≤ i) ∧
+      (∃ v₁ y v₂, List.length v₁ = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂))) ∧
+      (fl = .atom "true" ↔ ∃ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) ∧ List.length w ≤ i) ∧
       (fl = .atom "true" ∨ fl = .atom "false") ∧ (mapLookup X (.atom "dynamic") = none → fl = .atom "false") ∧
       ∃ lr ur, Elixir.Module.Types.Descr.«lower_bound/1» (D m) ty = .ok lr ∧
         Elixir.Module.Types.Descr.«upper_bound/1» (D m) ty = .ok ur ∧ DE (level t d).E lr ∧ DE (level t d).E ur ∧
@@ -1033,7 +1033,7 @@ theorem fetch_bounds {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map 
         exact sE v₁ y v₂ len ((denD_tpt _).mp h)
     obtain ⟨w, hw⟩ := tonly.2
     have lw := long w hw
-    obtain ⟨v₁, y, v₂, rfl, len⟩ : ∃ v₁ y v₂, w = v₁ ++ y :: v₂ ∧ v₁.length = i := by
+    obtain ⟨v₁, y, v₂, rfl, len⟩ : ∃ v₁ y v₂, w = v₁ ++ y :: v₂ ∧ List.length v₁ = i := by
       refine ⟨w.take i, w[i]'lw, w.drop (i + 1), ?_, by simp; omega⟩
       simp
     refine ⟨tonly.1, ⟨v₁, y, v₂, len, (denD_tpt _).mpr hw⟩, ⟨fun h => (by simp at h), ?_⟩,
@@ -1087,9 +1087,9 @@ theorem fetch_bounds {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map 
 and a static type no shorter tuple. -/
 theorem fetch_ok {X : List (Term × Term)} (gX : GC (level t (d + 1)) (.map X)) (i : Nat) {m : Nat}
     (hm : (level t (d + 1)).K + 26 ≤ m) (only : ∀ v : PN t (d + 1), denD (lower (.map X)) v → v.1.1 = "tuple")
-    (ne : ∃ v₁ y v₂, v₁.length = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂)))
+    (ne : ∃ v₁ y v₂, List.length v₁ = i ∧ denD (upper (.map X)) (tpt (t := t) (n := d + 1) (v₁ ++ y :: v₂)))
     (long : mapLookup X (.atom "dynamic") = none →
-      ∀ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) → i < w.length) :
+      ∀ w, denD (upper (.map X)) (tpt (t := t) (n := d + 1) w) → i < List.length w) :
     ∃ fl ty, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok (.tuple #[fl, ty]) := by
   cases hD : mapLookup X (.atom "dynamic") with
   | some Dy =>
@@ -1126,7 +1126,7 @@ theorem fetch_prec {X : List (Term × Term)} {a₂ : Term} (gX : GC (level t (d 
       simp [bitPt] at this
     · exact ⟨X₂, rfl⟩
   have long : mapLookup X₂ (.atom "dynamic") = none →
-      ∀ w, denD (upper (.map X₂)) (tpt (t := t) (n := d + 1) w) → i < w.length := by
+      ∀ w, denD (upper (.map X₂)) (tpt (t := t) (n := d + 1) w) → i < List.length w := by
     -- A static less precise type holds the tuples of a static precise type.
     intro hD₂ w hw
     have hA : mapLookup X (.atom "dynamic") = none := Classical.byContradiction fun h => by

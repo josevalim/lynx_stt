@@ -23,7 +23,7 @@ for the remaining arrows. -/
 theorem phiArgs_run (ctx : PhiCtx E den K seen) {m : Nat} (hm : K ≤ m) {args : List (Bool × Term)}
     (hA : ∀ p ∈ args, E p.2) (lA : args.length = n) {ret : Bool × Term} (hR : E ret.2)
     {P : List (Term × List Term × Term)} (hP : PosOk E n P)
-    (ih : ∀ args' cache, (∀ p ∈ args', E p.2) → args'.length = n → CacheOk E den n cache →
+    (ih : ∀ args' cache, (∀ p ∈ args', E p.2) → List.length args' = n → CacheOk E den n cache →
       ∃ b c, Elixir.Module.Types.Descr.«phi/5» (D m) (encA args') (encR ret) (encP P) cache seen =
           .ok (.tuple #[boolAtom b, c]) ∧
         (b = Bool.true ↔ FunSem.phiS (semA den args') (semR den ret) (semP den P)) ∧ CacheOk E den n c) :

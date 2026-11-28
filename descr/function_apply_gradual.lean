@@ -49,7 +49,7 @@ def ImgP (n : Nat) (Live : List (FunSem.Row V) → Prop) (I : List V → Prop) (
 
 /-- Applying the lines `fun_normalize/2` keeps gives the image of the live functions. -/
 theorem app_imageP {n : Nat} {Live : List (FunSem.Row V) → Prop} {Q : List (List (Term × List Term × Term))}
-    (nQ : NormP E den n Live Q) {I : List V → Prop} (len : ∀ x, I x → x.length = n) (ne : ∃ x, I x) (v : V) :
+    (nQ : NormP E den n Live Q) {I : List V → Prop} (len : ∀ x, I x → List.length x = n) (ne : ∃ x, I x) (v : V) :
     (∃ q ∈ Q, FunSem.App I (fun _ => True) (semP den q) v) ↔ ImgP n Live I v := by
   constructor
   · rintro ⟨q, mq, app⟩
@@ -1594,11 +1594,11 @@ theorem strategy_core {H : Nat} (two : 2 ≤ H) {Xs : List (Term × Term)} {fd F
     -- The upper bounds of the arguments are in the domain, as no live function fails on them.
     have covers : ∀ w, FunSem.InDomR ((args.map upper).map (level t (d + 1)).den) w →
         (Covers t (d + 1) Qs w ∨ Covers t (d + 1) Qd w ↔ P w) := fun w hw => by
-      have lw : w.length = args.length := by simpa using FunSem.inDomR_length hw
+      have lw : List.length w = args.length := by simpa using FunSem.inDomR_length hw
       exact or_congr (dom_safeP nQs w lw) (dom_safeP nQd w lw)
     have coversL : ∀ w, FunSem.InDomR ((args.map lower).map (level t (d + 1)).den) w →
         (Covers t (d + 1) Qs w ∨ Covers t (d + 1) Qd w ↔ P w) := fun w hw => by
-      have lw : w.length = args.length := by simpa using FunSem.inDomR_length hw
+      have lw : List.length w = args.length := by simpa using FunSem.inDomR_length hw
       exact or_congr (dom_safeP nQs w lw) (dom_safeP nQd w lw)
     have hall : (fdNil && !args.any isDynB) = Bool.true → Qs = Qd ∧
         (∀ g, FunT t (d + 1) (.map Xs) args.length g ↔ FunT t (d + 1) Fd args.length g) ∧

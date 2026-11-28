@@ -4808,7 +4808,7 @@ theorem PhiArgs.set {args : List Term} (h : PhiArgs E args) (i : Nat) (b : Bool)
 when `phi/5` does for the remaining positive literals. -/
 theorem phi_args_total (ops : ElemOk E K) (dops : ElemDiff E K) (n : Int) (S : List (Term × Term))
     (rest : List Term)
-    (phi : ∀ args, PhiArgs E args → (args.length : Int) = n → ∀ (b : Bool) t, E t → ∀ C, PhiCache C →
+    (phi : ∀ args, PhiArgs E args → (List.length args : Int) = n → ∀ (b : Bool) t, E t → ∀ C, PhiCache C →
       ∃ (r : Bool) (C' : List (Term × Term)), PhiCache C' ∧ ∀ m, K + 1 ≤ m →
         Elixir.Module.Types.Descr.«phi/5» (D m) (Term.list args) (.tuple #[boolAtom b, t]) (Term.list rest)
           (.map C) (.map S) = .ok (.tuple #[boolAtom r, .map C'])) :
@@ -4866,7 +4866,7 @@ theorem phi_args_total (ops : ElemOk E K) (dops : ElemDiff E K) (n : Int) (S : L
 
 /-- `phi/5` returns a Boolean and a cache of Booleans at every call depth from `K + 1`. -/
 theorem phi_total (ops : ElemOk E K) (dops : ElemDiff E K) (n : Int) (S : List (Term × Term)) :
-    ∀ (pos : List Term), (∀ t ∈ pos, FunLit E n t) → ∀ args, PhiArgs E args → (args.length : Int) = n →
+    ∀ (pos : List Term), (∀ t ∈ pos, FunLit E n t) → ∀ args, PhiArgs E args → (List.length args : Int) = n →
       ∀ (b : Bool) t, E t → ∀ C, PhiCache C →
       ∃ (r : Bool) (C' : List (Term × Term)), PhiCache C' ∧ ∀ m, K + 1 ≤ m →
         Elixir.Module.Types.Descr.«phi/5» (D m) (Term.list args) (.tuple #[boolAtom b, t]) (Term.list pos)

@@ -89,7 +89,7 @@ theorem inT_rep_true (hterm : ∀ y, (level t n).den (.atom "term") y) (i : Nat)
 /-- The tuples of an open literal of top types and an element type at an index. -/
 theorem tt_open_at {e : Term} (he : (level t n).E e) (i : Nat) (k : Int) (w : List (level t n).V) :
     TT t n [(.atom "tuple", .tuple #[.integer k, .atom "open", Term.list (List.replicate i (.atom "term") ++ [e])])] w ↔
-      ∃ v₁ y v₂, w = v₁ ++ y :: v₂ ∧ v₁.length = i ∧ (level t n).den e y := by
+      ∃ v₁ y v₂, w = v₁ ++ y :: v₂ ∧ List.length v₁ = i ∧ (level t n).den e y := by
   have hl : ∀ x ∈ List.replicate i (.atom "term") ++ [e], (level t n).E x := by
     intro x mx
     rcases List.mem_append.mp mx with mx | mx
@@ -143,10 +143,10 @@ theorem lt_zero_false (i : Nat) : Erlang.erlang.«</2» (.integer (i : Int)) (.i
 type of their values at the index; types holding a shorter tuple give `:badindex`, and others `:badtuple`. -/
 theorem fetch_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (i : Nat) {m : Nat}
     (hm : (level t n).K + 25 ≤ m) : ∃ res, Elixir.Module.Types.Descr.«tuple_fetch/2» (D m) (.map X) (.integer i) = .ok res ∧
-      ((res = .atom "badtuple" ∧ ¬TOnly t n X) ∨ (res = .atom "badindex" ∧ TOnly t n X ∧ ∃ w, TT t n X w ∧ w.length ≤ i) ∨
-        ∃ e, res = .tuple #[.atom "false", e] ∧ (level t n).E e ∧ TOnly t n X ∧ (∀ w, TT t n X w → i < w.length) ∧
-          (∀ v₁ y v₂, v₁.length = i → TT t n X (v₁ ++ y :: v₂) → (level t n).den e y) ∧
-          (∀ y, (level t n).den e y → ∃ v₁ v₂, v₁.length = i ∧ TT t n X (v₁ ++ y :: v₂))) := by
+      ((res = .atom "badtuple" ∧ ¬TOnly t n X) ∨ (res = .atom "badindex" ∧ TOnly t n X ∧ ∃ w, TT t n X w ∧ List.length w ≤ i) ∨
+        ∃ e, res = .tuple #[.atom "false", e] ∧ (level t n).E e ∧ TOnly t n X ∧ (∀ w, TT t n X w → i < List.length w) ∧
+          (∀ v₁ y v₂, List.length v₁ = i → TT t n X (v₁ ++ y :: v₂) → (level t n).den e y) ∧
+          (∀ y, (level t n).den e y → ∃ v₁ v₂, List.length v₁ = i ∧ TT t n X (v₁ ++ y :: v₂))) := by
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 2 := ⟨m - 2, by omega⟩
   have sX := de_map hX
   have ef := (level t n).ef
@@ -194,8 +194,8 @@ theorem fetch_tuple {X : List (Term × Term)} (hX : DE (level t n).E (.map X)) (
         ⟨w₀, (tt w₀).mp hw₀⟩ i
       obtain ⟨eb₂, re₂, se₂⟩ := (level t n).ef.empty_pub he
       cases o
-      · have long : ∀ w, TT t n X w → i < w.length := fun w hw => by
-          by_cases h : w.length ≤ i
+      · have long : ∀ w, TT t n X w → i < List.length w := fun w hw => by
+          by_cases h : List.length w ≤ i
           · exact absurd (s₂.mpr ⟨w, (tt w).mp hw, h⟩) (by simp)
           · omega
         cases eb₂
